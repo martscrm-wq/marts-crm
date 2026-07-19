@@ -1,0 +1,3 @@
+/* === deals.css === */
+.deals-actions { display: flex; gap: 8px; margin-bottom: 16px; }
+.table-wrap { overflow-x: auto; }

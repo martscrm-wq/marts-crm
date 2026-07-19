@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CRM — Inventory</title>
+  <link rel="stylesheet" href="css/base.css">
+  <link rel="stylesheet" href="css/layout.css">
+  <link rel="stylesheet" href="css/components.css">
+  <link rel="stylesheet" href="css/pages/inventory.css">
+</head>
+<body>
+  <nav class="sidebar" id="sidebar">
+    <div class="sidebar__brand">CRM <button class="sidebar__close" onclick="document.getElementById('sidebar').classList.remove('open');document.getElementById('sidebar-overlay').classList.remove('visible')">×</button></div>
+    <ul class="sidebar__nav">
+      <li><a href="index.html" class="sidebar__link">Dashboard</a></li>
+      <li><a href="leads.html" class="sidebar__link">Leads</a></li>
+      <li><a href="deals.html" class="sidebar__link">Deals</a></li>
+      <li><a href="marketing.html" class="sidebar__link">Marketing</a></li>
+      <li><a href="inventory.html" class="sidebar__link sidebar__link--active">Inventory</a></li>
+      <li><a href="settings.html" class="sidebar__link">Settings</a></li>
+    </ul>
+  </nav>
+  <div class="sidebar-overlay" id="sidebar-overlay" onclick="document.getElementById('sidebar').classList.remove('open');this.classList.remove('visible')"></div>
+  <main class="main">
+    <header class="topbar" id="topbar">
+      <h1 class="topbar__title">Inventory</h1>
+      <button class="hamburger" onclick="document.getElementById('sidebar').classList.toggle('open');document.getElementById('sidebar-overlay').classList.toggle('visible')">☰</button>
+      <div class="topbar__actions" id="topbar-actions"></div>
+    </header>
+    <section class="content" id="content"></section>
+  </main>
+  <div class="toast-container" id="toast-container"></div>
+  <script type="module" src="js/pages/inventory.js"></script>
+</body>
+</html>

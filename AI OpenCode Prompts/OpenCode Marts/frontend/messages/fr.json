@@ -1,0 +1,33 @@
+{
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "agents": "Agents IA",
+    "inbox": "Boîte de réception",
+    "analytics": "Analytique",
+    "cms": "Gestion de contenu",
+    "settings": "Paramètres"
+  },
+  "auth": {
+    "login": "Connexion",
+    "register": "S'inscrire",
+    "email": "Email",
+    "password": "Mot de passe",
+    "fullName": "Nom complet",
+    "loginTitle": "Bon retour",
+    "registerTitle": "Créer un compte"
+  },
+  "dashboard": {
+    "title": "Tableau de bord administrateur",
+    "totalUsers": "Utilisateurs",
+    "totalAgents": "Agents IA",
+    "totalConversations": "Conversations",
+    "totalMessages": "Messages"
+  },
+  "agents": {
+    "title": "Agents IA",
+    "createAgent": "Créer un agent",
+    "name": "Nom de l'agent",
+    "domain": "Domaine",
+    "locale": "Langue"
+  }
+}

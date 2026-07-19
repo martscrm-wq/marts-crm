@@ -1,0 +1,86 @@
+marts-platform/
+├── backend/
+│   ├── app/
+│   │   ├── api/                         # طبقة الـ Routes (API Endpoints)
+│   │   │   ├── v1/
+│   │   │   │   ├── endpoints/
+│   │   │   │   │   ├── auth.py          # تسجيل الدخول، التسجيل، توكنات
+│   │   │   │   │   ├── users.py         # إدارة المستخدمين
+│   │   │   │   │   ├── companies.py     # إدارة الشركات العملاء
+│   │   │   │   │   ├── agents.py        # إنشاء وتعديل الوكلاء الذكيين
+│   │   │   │   │   ├── training.py      # رفع بيانات تدريب الوكلاء
+│   │   │   │   │   ├── conversations.py # المحادثات والرسائل
+│   │   │   │   │   ├── tickets.py       # نظام التذاكر
+│   │   │   │   │   ├── cvs.py           # إدارة السير الذاتية
+│   │   │   │   │   ├── projects.py      # المشاريع والفواتير
+│   │   │   │   │   ├── websites.py      # إدارة المواقع
+│   │   │   │   │   └── analytics.py     # لوحات التحليلات
+│   │   │   │   └── __init__.py
+│   │   │   └── deps.py                  # التبعيات (DB Session, Current User)
+│   │   ├── core/                        # الإعدادات الأساسية
+│   │   │   ├── config.py                # متغيرات البيئة (Settings)
+│   │   │   ├── security.py              # التشفير، JWT، hashing
+│   │   │   ├── database.py              # جلسة قاعدة البيانات
+│   │   │   └── redis_client.py          # Redis للتخزين المؤقت
+│   │   ├── models/                      # نماذج SQLAlchemy (قاعدة البيانات)
+│   │   │   ├── __init__.py
+│   │   │   ├── user.py
+│   │   │   ├── company.py
+│   │   │   ├── agent.py
+│   │   │   ├── conversation.py
+│   │   │   ├── ticket.py
+│   │   │   └── ... (بقية النماذج)
+│   │   ├── schemas/                     # نماذج Pydantic (للـ Request/Response)
+│   │   │   ├── __init__.py
+│   │   │   ├── user_schema.py
+│   │   │   ├── agent_schema.py
+│   │   │   └── ...
+│   │   ├── services/                    # منطق الأعمال (Business Logic)
+│   │   │   ├── ai_service.py            # التعامل مع نماذج الذكاء الاصطناعي (OpenAI, Claude...)
+│   │   │   ├── nlp_service.py           # معالجة اللغة العربية/الإنجليزية/الفرنسية
+│   │   │   ├── whatsapp_service.py      # تكامل واتساب
+│   │   │   ├── email_service.py         # إرسال البريد الإلكتروني
+│   │   │   └── calendar_service.py      # تكامل التقويم
+│   │   ├── utils/                       # أدوات مساعدة
+│   │   │   ├── file_upload.py           # رفع الملفات (PDF, CSV)
+│   │   │   └── helpers.py
+│   │   └── main.py                      # نقطة الدخول للـ FastAPI
+│   ├── alembic/                         # هجرات قاعدة البيانات (Migrations)
+│   │   └── versions/
+│   ├── tests/                           # اختبارات الوحدة والتكامل
+│   ├── requirements.txt                 # مكتبات بايثون
+│   ├── .env                             # المتغيرات البيئية
+│   └── Dockerfile
+│
+├── frontend/
+│   ├── public/                          # الملفات الثابتة (صور، خطوط)
+│   ├── src/
+│   │   ├── app/                         # نظام الـ App Router في Next.js
+│   │   │   ├── (auth)/                  # صفحات المصادقة (تسجيل الدخول)
+│   │   │   ├── (dashboard)/             # الصفحات المحمية (لوحة التحكم)
+│   │   │   │   ├── agents/              # إدارة الوكلاء
+│   │   │   │   ├── conversations/       # صندوق المراسلة الموحد
+│   │   │   │   ├── analytics/           # التحليلات
+│   │   │   │   ├── tickets/             # التذاكر
+│   │   │   │   └── settings/            # الإعدادات
+│   │   │   ├── api/                     # الـ API Routes الخاصة بالـ Frontend (Proxy)
+│   │   │   ├── layout.tsx               # التخطيط الرئيسي (RTL Support)
+│   │   │   └── page.tsx                 # الصفحة الرئيسية
+│   │   ├── components/                  # مكونات React القابلة لإعادة الاستخدام
+│   │   │   ├── ui/                      # مكونات واجهة المستخدم (Buttons, Inputs, Cards)
+│   │   │   ├── dashboard/               # مكونات خاصة بلوحة التحكم (Widgets, Charts)
+│   │   │   ├── agents/                  # مكونات إدارة الوكلاء (AgentCard, Trainer)
+│   │   │   └── chat/                    # مكونات المحادثة (ChatWindow, MessageBubble)
+│   │   ├── hooks/                       # Custom Hooks (مثل useAuth, useSocket)
+│   │   ├── lib/                         # مكتبات مساعدة (Axios, i18n)
+│   │   ├── store/                       # إدارة الحالة (Zustand أو Redux)
+│   │   ├── styles/                      # ملفات CSS/Tailwind (مع دعم RTL)
+│   │   └── types/                       # تعريفات TypeScript المشتركة
+│   ├── package.json
+│   ├── tailwind.config.js
+│   ├── next.config.js                   # إعدادات Next (دعم RTL)
+│   └── Dockerfile
+│
+├── docker-compose.yml                   # لتشغيل (PostgreSQL, Redis, Backend, Frontend)
+├── .gitignore
+└── README.md                            # توثيق المشروع

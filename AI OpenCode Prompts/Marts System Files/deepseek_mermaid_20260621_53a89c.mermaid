@@ -1,0 +1,16 @@
+erDiagram
+    COMPANIES ||--o{ USERS : has
+    COMPANIES ||--o{ AGENTS : owns
+    COMPANIES ||--o{ TICKETS : submits
+    COMPANIES ||--o{ PROJECTS : manages
+    USERS ||--o{ USER_ROLES : has
+    ROLES ||--o{ USER_ROLES : assigned_to
+    AGENTS ||--o{ AGENT_TRAINING_DATA : uses
+    AGENTS ||--o{ AGENT_INTEGRATIONS : connects
+    AGENTS ||--o{ CONVERSATIONS : handles
+    CONVERSATIONS ||--o{ MESSAGES : contains
+    USERS ||--o{ TICKET_RESPONSES : writes
+    TICKETS ||--o{ TICKET_RESPONSES : has
+    USERS ||--o{ EXECUTIVE_TASKS : owns
+    COMPANIES ||--o{ ANALYTICS_LOGS : generates
+    USERS ||--o{ NOTIFICATIONS : receives

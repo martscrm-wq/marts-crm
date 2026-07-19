@@ -1,0 +1,5 @@
+/* === leads.css === */
+.leads-actions { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.filter-bar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; align-items: flex-end; }
+.filter-bar .form-group { margin-bottom: 0; min-width: 140px; }
+.table-wrap { overflow-x: auto; }

@@ -1,0 +1,5 @@
+/* === inventory.css === */
+.inventory-actions { display: flex; gap: 8px; margin-bottom: 16px; }
+.table-wrap { overflow-x: auto; }
+.unit-images { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+.unit-images img { width: 120px; height: 90px; object-fit: cover; border-radius: var(--radius-btn); }

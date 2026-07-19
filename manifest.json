@@ -1,0 +1,27 @@
+{
+  "name": "Marts - Real Estate Management",
+  "short_name": "Marts",
+  "description": "نظام إدارة العقارات Marts",
+  "start_url": "./Marts_System_Merged.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#E9EBE7",
+  "theme_color": "#827148",
+  "dir": "rtl",
+  "lang": "ar",
+  "categories": ["business", "productivity"],
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+/* === dashboard.css === */
+.dashboard-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+.dashboard-card {
+  padding: 24px;
+  border-radius: var(--radius-card);
+  color: #fff;
+  cursor: pointer;
+  transition: transform var(--transition-fast);
+}
+.dashboard-card:hover { transform: translateY(-2px); }
+.dashboard-card--hot { background: var(--color-hot); }
+.dashboard-card--warm { background: var(--color-warm); }
+.dashboard-card--cold { background: var(--color-cold); }
+.dashboard-card__count { font-size: 36px; font-weight: 700; }
+.dashboard-card__label { font-size: var(--font-size-lg); opacity: 0.9; margin-top: 4px; }

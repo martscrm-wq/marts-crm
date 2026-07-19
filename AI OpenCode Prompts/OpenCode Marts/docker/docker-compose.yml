@@ -1,0 +1,45 @@
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: marts
+      POSTGRES_PASSWORD: marts_secret
+      POSTGRES_DB: marts_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U marts"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ../backend
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST: db
+      DB_USER: marts
+      DB_PASSWORD: marts_secret
+      DB_NAME: marts_db
+    env_file:
+      - ../.env
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ../backend:/app
+
+  frontend:
+    build: ../frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8000/api/v1
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:

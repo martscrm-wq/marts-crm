@@ -1,0 +1,33 @@
+{
+  "nav": {
+    "dashboard": "لوحة التحكم",
+    "agents": "الوكلاء الذكيون",
+    "inbox": "صندوق الوارد",
+    "analytics": "التحليلات",
+    "cms": "إدارة المحتوى",
+    "settings": "الإعدادات"
+  },
+  "auth": {
+    "login": "تسجيل الدخول",
+    "register": "إنشاء حساب",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "fullName": "الاسم الكامل",
+    "loginTitle": "مرحباً بعودتك",
+    "registerTitle": "إنشاء حساب جديد"
+  },
+  "dashboard": {
+    "title": "لوحة التحكم الرئيسية",
+    "totalUsers": "إجمالي المستخدمين",
+    "totalAgents": "إجمالي الوكلاء",
+    "totalConversations": "المحادثات",
+    "totalMessages": "الرسائل"
+  },
+  "agents": {
+    "title": "الوكلاء الذكيون",
+    "createAgent": "إنشاء وكيل",
+    "name": "اسم الوكيل",
+    "domain": "المجال",
+    "locale": "اللغة"
+  }
+}

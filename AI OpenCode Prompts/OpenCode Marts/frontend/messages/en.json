@@ -1,0 +1,33 @@
+{
+  "nav": {
+    "dashboard": "Dashboard",
+    "agents": "AI Agents",
+    "inbox": "Inbox",
+    "analytics": "Analytics",
+    "cms": "CMS",
+    "settings": "Settings"
+  },
+  "auth": {
+    "login": "Login",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "fullName": "Full Name",
+    "loginTitle": "Welcome Back",
+    "registerTitle": "Create Account"
+  },
+  "dashboard": {
+    "title": "Admin Dashboard",
+    "totalUsers": "Total Users",
+    "totalAgents": "Total Agents",
+    "totalConversations": "Conversations",
+    "totalMessages": "Messages"
+  },
+  "agents": {
+    "title": "AI Agents",
+    "createAgent": "Create Agent",
+    "name": "Agent Name",
+    "domain": "Domain",
+    "locale": "Language"
+  }
+}
