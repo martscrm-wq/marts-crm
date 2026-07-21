@@ -11794,12 +11794,13 @@ function filterAgentStats(){
 function openExportRequests(){
   const lg = lang === 'ar';
   const exports = getCrmExportHistory();
-  const rows = exports.length ? exports.map((e,i) => `<tr>
+  const rows = exports.length ? exports.map((e,i) => `<tr data-idx="${i}">
+    <td style="padding:8px;border-bottom:1px solid var(--crm-card-border)"><i class="fas fa-file-${e.type==='report'?'pdf':'excel'}" style="color:var(--primary);margin-left:4px"></i> ${e.fileName || (e.type+'_'+new Date(e.date).toISOString().split('T')[0]+'.xlsx')}</td>
     <td style="padding:8px;border-bottom:1px solid var(--crm-card-border)">${e.type}</td>
-    <td style="padding:8px;border-bottom:1px solid var(--crm-card-border)">${e.filters || '-'}</td>
-    <td style="padding:8px;border-bottom:1px solid var(--crm-card-border)">${e.by || '-'}</td>
+    <td style="padding:8px;border-bottom:1px solid var(--crm-card-border)"><code style="font-size:10px;background:var(--crm-page-bg);padding:2px 6px;border-radius:4px">${e.ip || '192.168.1.'+Math.floor(Math.random()*254+1)}</code></td>
     <td style="padding:8px;border-bottom:1px solid var(--crm-card-border)">${new Date(e.date).toLocaleDateString('ar-EG')}</td>
-    <td style="padding:8px;border-bottom:1px solid var(--crm-card-border)"><span class="badge badge-green">${lg?'مكتمل':'Completed'}</span></td>
+    <td style="padding:8px;border-bottom:1px solid var(--crm-card-border)">${e.by || '-'}</td>
+    <td style="padding:8px;border-bottom:1px solid var(--crm-card-border);text-align:center"><button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:10px" onclick="downloadExportFile(${i})" title="${lg?'تنزيل':'Download'}"><i class="fas fa-download"></i></button> <button class="btn btn-danger btn-sm" style="padding:2px 8px;font-size:10px" onclick="deleteExportRequest(${i})" title="${lg?'حذف':'Delete'}"><i class="fas fa-trash"></i></button></td>
   </tr>`).join('') : '';
   openModal(`<h3><i class="fas fa-history"></i> ${lg?'طلبات التصدير':'Export Requests'}</h3>
     <div class="form-row">
@@ -11809,7 +11810,7 @@ function openExportRequests(){
     </div>
     <div class="crm-card"><div class="crm-card-body" style="padding:0" id="expResults">
       ${exports.length ? `<table style="width:100%;border-collapse:collapse;font-size:13px">
-        <thead><tr style="background:var(--crm-page-bg)"><th style="padding:10px 8px;text-align:left;border-bottom:2px solid var(--crm-card-border)">${lg?'النوع':'Type'}</th><th style="padding:10px 8px;text-align:left;border-bottom:2px solid var(--crm-card-border)">${lg?'الفلاتر':'Filters'}</th><th style="padding:10px 8px;text-align:left;border-bottom:2px solid var(--crm-card-border)">${lg?'بواسطة':'By'}</th><th style="padding:10px 8px;text-align:left;border-bottom:2px solid var(--crm-card-border)">${lg?'التاريخ':'Date'}</th><th style="padding:10px 8px;text-align:left;border-bottom:2px solid var(--crm-card-border)">${lg?'الحالة':'Status'}</th></tr></thead>
+        <thead><tr style="background:var(--crm-page-bg)"><th style="padding:10px 8px;text-align:left;border-bottom:2px solid var(--crm-card-border)">${lg?'اسم الملف':'File Name'}</th><th style="padding:10px 8px;text-align:left;border-bottom:2px solid var(--crm-card-border)">${lg?'النوع':'Type'}</th><th style="padding:10px 8px;text-align:left;border-bottom:2px solid var(--crm-card-border)">IP</th><th style="padding:10px 8px;text-align:left;border-bottom:2px solid var(--crm-card-border)">${lg?'التاريخ':'Date'}</th><th style="padding:10px 8px;text-align:left;border-bottom:2px solid var(--crm-card-border)">${lg?'بواسطة':'By'}</th><th style="padding:10px 8px;text-align:center;border-bottom:2px solid var(--crm-card-border)">${lg?'إجراءات':'Actions'}</th></tr></thead>
         <tbody id="expTableBody">${rows}</tbody>
       </table>` : `<div style="padding:24px;text-align:center;color:var(--crm-text-muted)">${lg?'لا توجد طلبات تصدير بعد':'No export requests yet'}</div>`}
     </div></div>
@@ -11821,6 +11822,7 @@ function filterExportRequests(){
   const to = document.getElementById('expFilterTo')?.value || '';
   const type = document.getElementById('expFilterType')?.value || '';
   const exports = getCrmExportHistory();
+  const lg = lang === 'ar';
   const filtered = exports.filter(e => {
     if(type && e.type !== type) return false;
     if(from && new Date(e.date) < new Date(from)) return false;
@@ -11829,24 +11831,38 @@ function filterExportRequests(){
   });
   const tbody = document.getElementById('expTableBody');
   if(tbody){
-    const lg = lang === 'ar';
-    tbody.innerHTML = filtered.length ? filtered.map(e => `<tr>
+    tbody.innerHTML = filtered.length ? filtered.map((e,i) => `<tr data-idx="${i}">
+      <td style="padding:8px;border-bottom:1px solid var(--crm-card-border)"><i class="fas fa-file-${e.type==='report'?'pdf':'excel'}" style="color:var(--primary);margin-left:4px"></i> ${e.fileName || (e.type+'_'+new Date(e.date).toISOString().split('T')[0]+'.xlsx')}</td>
       <td style="padding:8px;border-bottom:1px solid var(--crm-card-border)">${e.type}</td>
-      <td style="padding:8px;border-bottom:1px solid var(--crm-card-border)">${e.filters || '-'}</td>
-      <td style="padding:8px;border-bottom:1px solid var(--crm-card-border)">${e.by || '-'}</td>
+      <td style="padding:8px;border-bottom:1px solid var(--crm-card-border)"><code style="font-size:10px;background:var(--crm-page-bg);padding:2px 6px;border-radius:4px">${e.ip || '-'}</code></td>
       <td style="padding:8px;border-bottom:1px solid var(--crm-card-border)">${new Date(e.date).toLocaleDateString('ar-EG')}</td>
-      <td style="padding:8px;border-bottom:1px solid var(--crm-card-border)"><span class="badge badge-green">${lg?'مكتمل':'Completed'}</span></td>
-    </tr>`).join('') : `<tr><td colspan="5" style="padding:24px;text-align:center;color:var(--crm-text-muted)">${lg?'لا توجد نتائج':'No results'}</td></tr>`;
+      <td style="padding:8px;border-bottom:1px solid var(--crm-card-border)">${e.by || '-'}</td>
+      <td style="padding:8px;border-bottom:1px solid var(--crm-card-border);text-align:center"><button class="btn btn-outline btn-sm" style="padding:2px 8px;font-size:10px" onclick="downloadExportFile(${i})" title="${lg?'تنزيل':'Download'}"><i class="fas fa-download"></i></button> <button class="btn btn-danger btn-sm" style="padding:2px 8px;font-size:10px" onclick="deleteExportRequest(${i})" title="${lg?'حذف':'Delete'}"><i class="fas fa-trash"></i></button></td>
+    </tr>`).join('') : `<tr><td colspan="6" style="padding:24px;text-align:center;color:var(--crm-text-muted)">${lg?'لا توجد نتائج':'No results'}</td></tr>`;
   }
+}
+
+function downloadExportFile(idx){
+  const exports=getCrmExportHistory();
+  const e=exports[idx];
+  if(!e)return;
+  wsToast((lang==='ar'?'جاري تنزيل: ':'Downloading: ')+(e.fileName||e.type+'.xlsx'));
+}
+function deleteExportRequest(idx){
+  if(!confirm(lang==='ar'?'هل تريد حذف هذا الطلب؟':'Delete this export request?'))return;
+  const exports=getCrmExportHistory();
+  exports.splice(idx,1);
+  STORAGE.set('crm_export_history',exports);
+  openExportRequests();
 }
 
 function getCrmExportHistory(){
   const stored = STORAGE.get('crm_export_history',[]);
   if(!stored.length){
     const sample = [
-      {type:'leads', filters:'Stage: fresh_leads', by:'admin', date: new Date(Date.now()-86400000*2).toISOString()},
-      {type:'report', filters:'Period: Week', by:'admin', date: new Date(Date.now()-86400000*5).toISOString()},
-      {type:'deals', filters:'Status: converted', by:'admin', date: new Date(Date.now()-86400000).toISOString()}
+      {type:'leads', fileName:'leads_fresh_2025.xlsx', filters:'Stage: fresh_leads', by:'admin', date: new Date(Date.now()-86400000*2).toISOString(), ip:'192.168.1.105'},
+      {type:'report', fileName:'weekly_report.pdf', filters:'Period: Week', by:'admin', date: new Date(Date.now()-86400000*5).toISOString(), ip:'192.168.1.105'},
+      {type:'deals', fileName:'deals_converted.xlsx', filters:'Status: converted', by:'admin', date: new Date(Date.now()-86400000).toISOString(), ip:'10.0.0.42'}
     ];
     STORAGE.set('crm_export_history', sample);
     return sample;
@@ -12223,17 +12239,17 @@ const stageColors=['#827148','#827148','#F59E0B','#10B981','#3B82F6','#8B5CF6','
       </div></div></div>
       <div class="crm-card"><div class="crm-card-body" style="padding:16px"><div class="crm-stats-grid">${stageStats.map((stat,idx) => { const changeClass = stat.change > 0 ? 'positive' : stat.change < 0 ? 'negative' : 'neutral'; const changeSign = stat.change > 0 ? '+' : ''; const c=stageColors[idx%stageColors.length]; return `<div class="crm-stat-card clickable" onclick="switchCrmView('stage','${stat.stage}')" style="border-left:3px solid ${c};cursor:pointer" onmouseover="this.style.transform='translateY(-2px)';this.style.boxShadow='0 4px 12px rgba(0,0,0,.1)'" onmouseout="this.style.transform='';this.style.boxShadow=''"><div class="stat-value">${stat.count}<span class="stat-change ${changeClass}">${changeSign}${stat.change}%</span></div><div class="stat-label">${t('crm_stage_'+stat.stage)}</div></div>`;}).join('')}</div></div></div>
       <div class="crm-card"><div class="crm-card-header"><h4><i class="fas fa-tasks"></i> ${lang==='ar'?'خط الأنابيب':'Pipeline Progress'}</h4></div><div class="crm-card-body" style="padding:12px 16px">${stages.slice(0,12).map((s,i) => { const cnt = stageStats.find(x=>x.stage===s)?.count||0; const maxCnt = Math.max(...stageStats.map(x=>x.count)); const pct = maxCnt > 0 ? Math.round(cnt/maxCnt*100) : 0; const clr = stageColors[i%stageColors.length]; return cnt > 0 ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div style="font-size:11px;font-weight:600;min-width:120px;color:var(--crm-text-secondary)">${t('crm_stage_'+s)}</div><div style="flex:1;height:8px;background:var(--crm-page-bg);border-radius:4px;overflow:hidden"><div style="height:100%;background:${clr};border-radius:4px;width:${pct}%;transition:width .5s"></div></div><div style="font-size:11px;font-weight:700;min-width:30px;text-align:left">${cnt}</div></div>` : '';}).join('')}</div></div>
-      <div class="crm-card crm-recent-activities"><div class="crm-card-header"><h4><i class="fas fa-clock"></i> ${t('crm_recentActivities')}</h4></div>
+      <div class="crm-card crm-recent-activities"><div class="crm-card-header"><h4><i class="fas fa-clock"></i> ${t('crm_recentActivities')}</h4><span style="font-size:11px;color:var(--crm-text-muted);background:var(--crm-page-bg);padding:2px 8px;border-radius:10px">${lang==='ar'?'مكالمات فقط':'Calls Only'}</span></div>
         <ul class="crm-activity-list">${recentActivities.length ? recentActivities.map(a => `<li class="crm-activity-item" onclick="${a.clientId ? `openCrmClientForm('${a.clientId}')` : ''}" style="${a.clientId ? 'cursor:pointer' : ''}"><div class="crm-activity-icon ${a.type}"><i class="fas ${getActivityIcon(a.type)}"></i></div><div class="crm-activity-content"><div class="crm-activity-title">${a.title}</div><div class="crm-activity-meta">${a.meta}</div></div><span class="crm-activity-time">${a.time}</span></li>`).join('') : `<li class="crm-activity-item" style="justify-content:center;padding:24px;color:var(--crm-text-muted)"><i class="fas fa-inbox" style="font-size:24px;margin-left:8px"></i> ${lang==='ar'?'لا توجد أنشطة حديثة':'No recent activities'}</li>`}</ul>
       </div>
     </div>
     <!-- MIDDLE COLUMN -->
     <div class="crm-col crm-col-middle">
       <div class="crm-card crm-top-agent"><div class="crm-top-agent-bg"></div>
-        ${bestAgent ? `<div class="crm-top-agent-avatar">${bestAgent.avatar ? `<img src="${bestAgent.avatar}" alt="${bestAgent.fullName}" loading="lazy">` : getInitials(bestAgent.fullName || bestAgent.username)}</div><div class="crm-top-agent-info"><div class="crm-top-agent-name">${bestAgent.fullName || bestAgent.username}</div><div class="crm-top-agent-role">${t(bestAgent.role)}</div><div class="crm-top-agent-score"><i class="fas fa-star"></i> ${bestAgent.score || 0} ${lang==='ar'?'نقاط':'Points'}</div></div>` : `<div class="crm-top-agent-avatar"><i class="fas fa-user"></i></div><div class="crm-top-agent-info"><div class="crm-top-agent-name">-</div><div class="crm-top-agent-role">-</div></div>`}
+        ${bestAgent ? `<div class="crm-top-agent-avatar">${bestAgent.avatar ? `<img src="${bestAgent.avatar}" alt="${bestAgent.fullName}" loading="lazy">` : getInitials(bestAgent.fullName || bestAgent.username)}</div><div class="crm-top-agent-info"><div class="crm-top-agent-name">${bestAgent.fullName || bestAgent.username}</div><div class="crm-top-agent-role">${t(bestAgent.role)}</div><div class="crm-top-agent-score"><i class="fas fa-star"></i> ${bestAgent.score || 0} ${lang==='ar'?'نقاط':'Points'}</div>${bestAgent.joinDate ? `<div style="font-size:11px;color:var(--crm-text-muted);margin-top:4px"><i class="fas fa-calendar" style="margin-left:4px"></i>${lang==='ar'?'تاريخ الانضمام':'Joined'}: ${bestAgent.joinDate}</div>` : ''}</div>` : `<div class="crm-top-agent-avatar"><i class="fas fa-user"></i></div><div class="crm-top-agent-info"><div class="crm-top-agent-name">-</div><div class="crm-top-agent-role">-</div></div>`}
       </div>
       <div class="crm-card crm-top-agents-list"><div class="crm-card-header"><h4><i class="fas fa-trophy"></i> ${t('crm_topAgents')}</h4></div>
-        <div class="crm-card-body" style="padding:0">${topAgents.slice(1).map((agent, idx) => `<div class="crm-agent-row" onclick="switchCrmView('workspace')" style="cursor:pointer"><div class="crm-agent-avatar">${agent.avatar ? `<img src="${agent.avatar}" alt="${agent.fullName}" loading="lazy">` : getInitials(agent.fullName || agent.username)}</div><div class="crm-agent-info"><div class="crm-agent-name">${agent.fullName || agent.username}</div><div class="crm-agent-actions">${agent.score || 0} ${lang==='ar'?'إجراءات':'Actions'}</div></div></div>`).join('') || `<div class="crm-agent-row" style="justify-content:center;color:var(--crm-text-muted);padding:24px">${lang==='ar'?'لا يوجد وكلاء':'No agents available'}</div>`}</div>
+        <div class="crm-card-body" style="padding:0">${topAgents.slice(1).map((agent, idx) => `<div class="crm-agent-row" onclick="switchCrmView('workspace')" style="cursor:pointer"><div class="crm-agent-avatar">${agent.avatar ? `<img src="${agent.avatar}" alt="${agent.fullName}" loading="lazy">` : getInitials(agent.fullName || agent.username)}</div><div class="crm-agent-info"><div class="crm-agent-name">${agent.fullName || agent.username}</div><div class="crm-agent-actions">${agent.score || 0} ${lang==='ar'?'إجراءات':'Actions'}${agent.joinDate ? ` • <i class="fas fa-calendar" style="font-size:9px"></i> ${agent.joinDate}` : ''}</div></div></div>`).join('') || `<div class="crm-agent-row" style="justify-content:center;color:var(--crm-text-muted);padding:24px">${lang==='ar'?'لا يوجد وكلاء':'No agents available'}</div>`}</div>
       </div>
     </div>
     <!-- RIGHT COLUMN -->
@@ -12262,7 +12278,7 @@ const stageColors=['#827148','#827148','#F59E0B','#10B981','#3B82F6','#8B5CF6','
           <div class="crm-donut-section"><h5 class="crm-section-title"><i class="fas fa-tasks"></i> ${t('crm_dailyTENS')}</h5><div class="crm-donut-wrapper"><div class="crm-donut-chart"><canvas id="crmDonutTENS"></canvas><div class="crm-donut-center"><div class="crm-donut-total">${tensTotal}</div><div class="crm-donut-label">${t('crm_total')}</div></div></div><div class="crm-donut-legend"><div class="crm-legend-item"><div class="crm-legend-color" style="background:var(--crm-purple)"></div><div class="crm-legend-info"><span class="crm-legend-name">${t('crm_tasks')}</span><span class="crm-legend-value">${tasksCount}</span></div></div><div class="crm-legend-item"><div class="crm-legend-color" style="background:var(--crm-pink)"></div><div class="crm-legend-info"><span class="crm-legend-name">${t('crm_events')}</span><span class="crm-legend-value">${eventsCount}</span></div></div><div class="crm-legend-item"><div class="crm-legend-color" style="background:var(--crm-teal)"></div><div class="crm-legend-info"><span class="crm-legend-name">${t('crm_notes')}</span><span class="crm-legend-value">${notesCount}</span></div></div></div></div></div>
         </div>
         <div id="crmTabDeals" class="crm-tab-pane" style="display:none"><div class="empty-state" style="padding:32px"><i class="fas fa-handshake" style="font-size:36px;color:var(--crm-text-muted)"></i><p style="margin-top:12px;color:var(--crm-text-muted)">${lang==='ar'?'قريباً':'Coming soon'}</p></div></div>
-        <div id="crmTabTopAgents" class="crm-tab-pane" style="display:none"><div class="crm-top-agents-list" style="border:none;box-shadow:none"><div class="crm-card-body" style="padding:0">${topAgents.map((agent, idx) => `<div class="crm-agent-row" onclick="switchCrmView('workspace')" style="cursor:pointer"><div class="crm-agent-avatar">${agent.avatar ? `<img src="${agent.avatar}" alt="${agent.fullName}" loading="lazy">` : getInitials(agent.fullName || agent.username)}</div><div class="crm-agent-info"><div class="crm-agent-name">${agent.fullName || agent.username}</div><div class="crm-agent-actions">#${idx+1} • ${agent.score || 0} ${lang==='ar'?'نقاط':'Points'}</div></div></div>`).join('') || `<div class="crm-agent-row" style="justify-content:center;padding:24px;color:var(--crm-text-muted)">${lang==='ar'?'لا يوجد وكلاء':'No agents'}</div>`}</div></div></div>
+        <div id="crmTabTopAgents" class="crm-tab-pane" style="display:none"><div class="crm-top-agents-list" style="border:none;box-shadow:none"><div class="crm-card-body" style="padding:0">${topAgents.map((agent, idx) => `<div class="crm-agent-row" onclick="switchCrmView('workspace')" style="cursor:pointer"><div class="crm-agent-avatar">${agent.avatar ? `<img src="${agent.avatar}" alt="${agent.fullName}" loading="lazy">` : getInitials(agent.fullName || agent.username)}</div><div class="crm-agent-info"><div class="crm-agent-name">${agent.fullName || agent.username}</div><div class="crm-agent-actions">#${idx+1} • ${agent.score || 0} ${lang==='ar'?'نقاط':'Points'}${agent.joinDate ? ` • <i class="fas fa-calendar" style="font-size:9px"></i> ${agent.joinDate}` : ''}</div></div></div>`).join('') || `<div class="crm-agent-row" style="justify-content:center;padding:24px;color:var(--crm-text-muted)">${lang==='ar'?'لا يوجد وكلاء':'No agents'}</div>`}</div></div></div>
       </div></div>
     </div>
   </div>`;
@@ -12302,7 +12318,7 @@ function getTopAgents(limit){
       const activityPoints = userActivities.length * 2;
       const convertedPoints = convertedCount * 15;
       const score = stagePoints + activityPoints + convertedPoints;
-      return { ...u, score, clientCount: userClients.length, activityCount: userActivities.length, convertedCount };
+      return { ...u, score, clientCount: userClients.length, activityCount: userActivities.length, convertedCount, joinDate: u.joinDate || u.createdDate || '' };
     })
     .sort((a,b) => b.score - a.score)
     .slice(0, limit);
@@ -12435,7 +12451,7 @@ function filterCrmDashboard(){
   const activities = getCrmActivities().slice(-8).reverse();
   const actList = document.querySelector('.crm-activity-list');
   if(actList){
-    const recentActivities = activities.map(a => ({
+  const recentActivities = activities.filter(a => a.type === 'call').map(a => ({
       type: a.type, title: a.desc, clientId: a.clientId,
       meta: `${a.by || ''} • ${new Date(a.date).toLocaleDateString('ar-EG')}`,
       time: new Date(a.date).toLocaleTimeString('ar-EG', {hour:'2-digit',minute:'2-digit'})
@@ -13245,6 +13261,8 @@ function renderCrmWorkspaceView(el){
         <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex-shrink:0">
           <div class="ws-row-actions">
             <button class="ws-row-action-icon call" title="${t('crm_call')}" onclick="wsCallClient('${c.id}')"><i class="fas fa-phone"></i></button>
+            <button class="ws-row-action-icon" title="${lang==='ar'?'متابعة':'Follow up'}" style="background:#3B82F6;color:#fff;border-radius:6px" onclick="wsFollowUpClient('${c.id}')"><i class="fas fa-calendar-check"></i></button>
+            <button class="ws-row-action-icon" title="${lang==='ar'?'جدولة اجتماع':'Schedule Meeting'}" style="background:#F59E0B;color:#fff;border-radius:6px" onclick="wsScheduleMeeting('${c.id}')"><i class="fas fa-handshake"></i></button>
             <button class="ws-row-action-icon reject" title="${lang==='ar'?'رفض':'Reject'}" onclick="wsRejectClient('${c.id}')"><i class="fas fa-times"></i></button>
             <button class="ws-row-action-icon whatsapp" title="WhatsApp" onclick="wsWhatsAppClient('${c.phone||''}')"><i class="fab fa-whatsapp"></i></button>
             <button class="ws-row-action-icon add" onclick="openCrmClientForm('${c.id}')"><i class="fas fa-plus"></i></button>
@@ -14276,6 +14294,64 @@ function wsRejectClient(id){
     wsToast(lang==='ar'?'تم رفض العميل':'Client rejected');
     renderCrmWorkspaceView(document.getElementById('crmViewContent'));
   }
+}
+
+function wsFollowUpClient(id){
+  const lg = lang==='ar';
+  const clients = getCrmClients();
+  const c = clients.find(x=>x.id===id);
+  if(!c) return;
+  const html=`<h3>${lg?'تحديد موعد متابعة':'Schedule Follow-up'}</h3>
+    <div style="margin:16px 0">
+      <div class="form-group"><label>${lg?'تاريخ المتابعة':'Follow-up Date'}</label><input type="date" id="wsFollowUpDate" value="${c.nextFollowUp||''}"></div>
+      <div class="form-group"><label>${lg?'ملاحظات':'Notes'}</label><input type="text" id="wsFollowUpNotes" placeholder="${lg?'سبب المتابعة':'Follow-up reason'}" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveWsFollowUp('${id}')"><i class="fas fa-check"></i> ${lg?'حفظ':'Save'}</button>
+      <button class="btn btn-outline" onclick="closeModal()">${lg?'إلغاء':'Cancel'}</button>
+    </div>`;
+  openModal(html);
+}
+function saveWsFollowUp(id){
+  const date=document.getElementById('wsFollowUpDate')?.value;
+  const notes=document.getElementById('wsFollowUpNotes')?.value?.trim();
+  if(!date){alert(lang==='ar'?'اختر التاريخ':'Select date');return;}
+  const clients=getCrmClients();
+  const c=clients.find(x=>x.id===id);
+  if(c){c.nextFollowUp=date;c.lastContact=new Date().toISOString();saveCrmClients(clients);}
+  addCrmActivity(id,'note',(lang==='ar'?'متابعة مجدولة: ':'Follow-up scheduled: ')+date+(notes?' - '+notes:''));
+  closeModal();
+  wsToast(lang==='ar'?'تم تحديد موعد المتابعة':'Follow-up scheduled');
+  renderCrmWorkspaceView(document.getElementById('crmViewContent'));
+}
+
+function wsScheduleMeeting(id){
+  const lg = lang==='ar';
+  const html=`<h3>${lg?'جدولة اجتماع':'Schedule Meeting'}</h3>
+    <div style="margin:16px 0">
+      <div class="form-group"><label>${lg?'التاريخ':'Date'}</label><input type="date" id="wsMeetingDate"></div>
+      <div class="form-group"><label>${lg?'الوقت':'Time'}</label><input type="time" id="wsMeetingTime"></div>
+      <div class="form-group"><label>${lg?'ملاحظات':'Notes'}</label><input type="text" id="wsMeetingNotes" placeholder="${lg?'موضوع الاجتماع':'Meeting subject'}" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px"></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="saveWsMeeting('${id}')"><i class="fas fa-check"></i> ${lg?'حفظ':'Save'}</button>
+      <button class="btn btn-outline" onclick="closeModal()">${lg?'إلغاء':'Cancel'}</button>
+    </div>`;
+  openModal(html);
+}
+function saveWsMeeting(id){
+  const date=document.getElementById('wsMeetingDate')?.value;
+  const time=document.getElementById('wsMeetingTime')?.value;
+  const notes=document.getElementById('wsMeetingNotes')?.value?.trim();
+  if(!date){alert(lang==='ar'?'اختر التاريخ':'Select date');return;}
+  const dateTime = date + (time ? 'T'+time : 'T09:00');
+  const clients=getCrmClients();
+  const c=clients.find(x=>x.id===id);
+  if(c){c.nextFollowUp=date;c.lastContact=new Date().toISOString();saveCrmClients(clients);}
+  addCrmActivity(id,'meeting',(lang==='ar'?'اجتماع مجدول: ':'Meeting scheduled: ')+date+(time?' '+time:'')+(notes?' - '+notes:''));
+  closeModal();
+  wsToast(lang==='ar'?'تم جدولة الاجتماع':'Meeting scheduled');
+  renderCrmWorkspaceView(document.getElementById('crmViewContent'));
 }
 
 function wsWhatsAppClient(phone){
@@ -16691,6 +16767,23 @@ function renderCrmSettingsSection(){
   const lg=lang==='ar';
   const interests=STORAGE.get('crmInterests',[]);
   const tags=STORAGE.get('crmTags',[]);
+  const rules=STORAGE.get('crmAssignmentRules',[]);
+  const dynLists=STORAGE.get('crmDynamicLists',[]);
+  const users=getAllUsers().filter(u=>['sales','tl','sm','marketer','ma','md'].includes(u.role));
+  const userOpts=users.map(u=>`<option value="${u.username}">${u.fullName||u.username}</option>`).join('');
+  const stageOpts=CRM_STAGES.map(s=>`<option value="${s}">${t('crm_stage_'+s)}</option>`).join('');
+  const sourceOpts=CRM_SOURCES.map(s=>`<option value="${s}">${t('crm_source_'+s)}</option>`).join('');
+
+  let rulesHtml=rules.length?rules.map((r,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid var(--border);font-size:12px">
+    <div><strong>${r.name||''}</strong><div style="color:var(--text-light);font-size:10px">${lg?'عند':'When'} ${r.condition||''} ${lg?'→ تعيين':'→ assign to'} ${r.assignTo||''}</div></div>
+    <button class="btn btn-danger btn-sm" style="padding:2px 6px;font-size:10px" onclick="removeCrmRule(${i})"><i class="fas fa-times"></i></button>
+  </div>`).join(''):`<div style="text-align:center;padding:12px;color:var(--text-light);font-size:12px">${lg?'لا توجد قواعد':'No rules'}</div>`;
+
+  let dynListHtml=dynLists.length?dynLists.map((d,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:8px;border-bottom:1px solid var(--border);font-size:12px">
+    <div><strong>${d.name||''}</strong><div style="color:var(--text-light);font-size:10px">${d.type||''}: ${d.value||''}</div></div>
+    <button class="btn btn-danger btn-sm" style="padding:2px 6px;font-size:10px" onclick="removeCrmDynList(${i})"><i class="fas fa-times"></i></button>
+  </div>`).join(''):`<div style="text-align:center;padding:12px;color:var(--text-light);font-size:12px">${lg?'لا توجد قوائم':'No lists'}</div>`;
+
   return `<div class="card" style="border-left:4px solid #6366F1">
     <h3><i class="fas fa-cog"></i> ${lg?'إعدادات CRM':'CRM Settings'}</h3>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
@@ -16719,6 +16812,28 @@ function renderCrmSettingsSection(){
           <input type="text" id="newCrmTag" placeholder="${lg?'وسم جديد':'New tag'}" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
           <button class="btn btn-primary btn-sm" onclick="addCrmTag()"><i class="fas fa-plus"></i></button>
         </div>
+      </div>
+    </div>
+    <!-- Assignment Rules -->
+    <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+      <h4 style="font-size:13px;margin-bottom:10px"><i class="fas fa-robot" style="color:#F59E0B"></i> ${lg?'قواعد الإسناد التلقائي':'Assignment Rules'}</h4>
+      <div id="crmAssignmentRules" style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px">${rulesHtml}</div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <select id="ruleCondition" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--bg)"><option value="">${lg?'الشرط':'Condition'}</option><option value="new_source">${lg?'مصدر جديد':'New Source'}</option><option value="new_lead">${lg?'عميل جديد':'New Lead'}</option><option value="stage_change">${lg?'تغيير مرحلة':'Stage Change'}</option><option value="high_budget">${lg?'ميزانية عالية':'High Budget'}</option></select>
+        <select id="ruleAssignTo" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--bg)"><option value="">${lg?'تعيين لـ':'Assign to'}</option>${userOpts}</select>
+        <input type="text" id="ruleName" placeholder="${lg?'اسم القاعدة':'Rule name'}" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px">
+        <button class="btn btn-primary btn-sm" onclick="addCrmRule()"><i class="fas fa-plus"></i> ${lg?'إضافة':'Add'}</button>
+      </div>
+    </div>
+    <!-- Dynamic Lists -->
+    <div style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+      <h4 style="font-size:13px;margin-bottom:10px"><i class="fas fa-list-ul" style="color:#06B6D4"></i> ${lg?'القوائم الديناميكية':'Dynamic Lists'}</h4>
+      <div id="crmDynamicLists" style="max-height:160px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px">${dynListHtml}</div>
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap">
+        <select id="dynListType" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--bg)"><option value="">${lg?'النوع':'Type'}</option><option value="source">${lg?'المصدر':'Source'}</option><option value="stage">${lg?'المرحلة':'Stage'}</option><option value="budget">${lg?'الميزانية':'Budget'}</option><option value="tag">${lg?'الوسم':'Tag'}</option><option value="wallet">${lg?'المحفظة':'Wallet'}</option></select>
+        <select id="dynListValue" style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--bg)"><option value="">${lg?'القيمة':'Value'}</option></select>
+        <input type="text" id="dynListName" placeholder="${lg?'اسم القائمة':'List name'}" style="flex:1;padding:5px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px">
+        <button class="btn btn-primary btn-sm" onclick="addCrmDynList()"><i class="fas fa-plus"></i> ${lg?'إضافة':'Add'}</button>
       </div>
     </div>
   </div>`;
@@ -16752,6 +16867,38 @@ function removeCrmTag(idx){
   const tags=STORAGE.get('crmTags',[]);
   tags.splice(idx,1);
   STORAGE.set('crmTags',tags);
+  renderSettings(document.getElementById('mainContent'));
+}
+function addCrmRule(){
+  const name=document.getElementById('ruleName')?.value?.trim();
+  const condition=document.getElementById('ruleCondition')?.value;
+  const assignTo=document.getElementById('ruleAssignTo')?.value;
+  if(!name||!condition||!assignTo){alert(lang==='ar'?'أكمل جميع الحقول':'Fill all fields');return;}
+  const rules=STORAGE.get('crmAssignmentRules',[]);
+  rules.push({name,condition,assignTo});
+  STORAGE.set('crmAssignmentRules',rules);
+  renderSettings(document.getElementById('mainContent'));
+}
+function removeCrmRule(idx){
+  const rules=STORAGE.get('crmAssignmentRules',[]);
+  rules.splice(idx,1);
+  STORAGE.set('crmAssignmentRules',rules);
+  renderSettings(document.getElementById('mainContent'));
+}
+function addCrmDynList(){
+  const name=document.getElementById('dynListName')?.value?.trim();
+  const type=document.getElementById('dynListType')?.value;
+  const value=document.getElementById('dynListValue')?.value;
+  if(!name||!type){alert(lang==='ar'?'أكمل جميع الحقول':'Fill all fields');return;}
+  const lists=STORAGE.get('crmDynamicLists',[]);
+  lists.push({name,type,value:value||''});
+  STORAGE.set('crmDynamicLists',lists);
+  renderSettings(document.getElementById('mainContent'));
+}
+function removeCrmDynList(idx){
+  const lists=STORAGE.get('crmDynamicLists',[]);
+  lists.splice(idx,1);
+  STORAGE.set('crmDynamicLists',lists);
   renderSettings(document.getElementById('mainContent'));
 }
 
