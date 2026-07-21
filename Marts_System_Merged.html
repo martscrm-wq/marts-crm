@@ -1787,7 +1787,7 @@ try {
   _fbReady = true;
 } catch(e) { console.warn('Firebase init failed:', e); }
 
-const SYSTEM_VERSION = '2.1.0';
+const SYSTEM_VERSION = '2.2.0';
 let _latestUpdate = null;
 let _swRegistration = null;
 
@@ -1879,68 +1879,21 @@ function dismissUpdate() {
 
 async function applyUpdate() {
   const lg = lang === 'ar';
-  _showUpdateToast(lg ? 'جاري التحقق من التحديث...' : 'Checking for update...');
+  _showUpdateToast(lg ? 'جاري تطبيق التحديث...' : 'Applying update...', 10);
   try {
     if (_swRegistration && _swRegistration.waiting) {
       _swRegistration.waiting.postMessage({ type: 'APPLY_UPDATE' });
-      _showUpdateToast(lg ? 'جاري تطبيق التحديث...' : 'Applying service worker update...', -1);
-      await new Promise(r => setTimeout(r, 800));
     }
-    if (_fbStorage) {
-      try {
-        _showUpdateToast(lg ? 'جاري تحميل الملفات...' : 'Downloading files...', 0);
-        const ref = _fbStorage.ref('updates/Marts_System_Merged.html');
-        const url = await ref.getDownloadURL();
-        await new Promise((resolve, reject) => {
-          const xhr = new XMLHttpRequest();
-          xhr.open('GET', url, true);
-          xhr.onprogress = function(e) {
-            if (e.lengthComputable) {
-              const pct = Math.round((e.loaded / e.total) * 100);
-              _showUpdateToast(lg ? 'جاري تحميل الملفات...' : 'Downloading files...', pct);
-            }
-          };
-          xhr.onload = function() {
-            if (xhr.status === 200) {
-              const html = xhr.responseText;
-              if (html.length > 1000) {
-                _showUpdateToast(lg ? 'جاري تخزين الملفات...' : 'Caching files...', 95);
-                caches.keys().then(cacheNames => {
-                  const cacheName = cacheNames.find(c => c.startsWith('marts-crm-v')) || cacheNames[0];
-                  if (cacheName) {
-                    return caches.open(cacheName).then(cache => cache.put(new Request('./Marts_System_Merged.html'), new Response(html, { headers: { 'Content-Type': 'text/html' } })));
-                  }
-                }).then(() => {
-                  _showUpdateToast(lg ? 'اكتمل التحديث!' : 'Update complete!', 100);
-                  setTimeout(() => location.reload(true), 800);
-                  resolve();
-                }).catch(() => {
-                  _showUpdateToast(lg ? 'اكتمل التحديث!' : 'Update complete!', 100);
-                  setTimeout(() => location.reload(true), 800);
-                  resolve();
-                });
-              } else {
-                resolve();
-              }
-            } else {
-              reject(new Error('HTTP ' + xhr.status));
-            }
-          };
-          xhr.onerror = function() { reject(new Error('Network error')); };
-          xhr.send();
-        });
-      } catch(e) {
-        console.warn('[Update] Storage fallback failed:', e);
-        _showUpdateToast(lg ? 'اكتمل التحديث!' : 'Update complete!', 100);
-        setTimeout(() => location.reload(true), 500);
-      }
-    } else {
-      location.reload(true);
+    if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.controller.postMessage({ type: 'APPLY_UPDATE' });
     }
+    await caches.keys().then(names => Promise.all(names.map(n => caches.delete(n))));
+    _showUpdateToast(lg ? 'اكتمل التحديث! جاري إعادة التحميل...' : 'Update complete! Reloading...', 100);
+    setTimeout(() => location.reload(true), 300);
   } catch(e) {
     console.error('[Update] Apply failed:', e);
     _showUpdateToast(lg ? 'اكتمل التحديث!' : 'Update complete!', 100);
-    setTimeout(() => location.reload(true), 500);
+    setTimeout(() => location.reload(true), 300);
   }
 }
 
