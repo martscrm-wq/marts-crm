@@ -1421,9 +1421,138 @@ const DEFAULT_INTEGRATIONS = AD_PLATFORMS.map(p => ({
 // DEFAULT CHART OF ACCOUNTS
 // ============================================================
 const DEFAULT_COA = [
-  {code:'1',name_ar:'الخزينة',name_en:'Treasury',type:'asset',parent:null,level:1},
-  {code:'2',name_ar:'المبيعات',name_en:'Sales',type:'revenue',parent:null,level:1},
-  {code:'3',name_ar:'المصروفات',name_en:'Expenses',type:'expense',parent:null,level:1}
+  {code:'1',name_ar:'الأصول',name_en:'Assets',type:'asset',parent:null,level:1},
+  {code:'11',name_ar:'الأصول المتداولة',name_en:'Current Assets',type:'asset',parent:'1',level:2},
+  {code:'1110',name_ar:'النقدية في الخزينة',name_en:'Cash on Hand',type:'asset',parent:'11',level:3},
+  {code:'1120',name_ar:'الحسابات البنكية (الجاري)',name_en:'Bank Accounts - Current',type:'asset',parent:'11',level:3},
+  {code:'1121',name_ar:'الودائع البنكية',name_en:'Bank Deposits',type:'asset',parent:'11',level:3},
+  {code:'1130',name_ar:'شيكات تحت التحصيل',name_en:'Checks to Collect',type:'asset',parent:'11',level:3},
+  {code:'1140',name_ar:'حسابات العملاء',name_en:'Accounts Receivable - Trade',type:'asset',parent:'11',level:3},
+  {code:'1141',name_ar:'عملاء آخرون',name_en:'Other Receivables',type:'asset',parent:'11',level:3},
+  {code:'1142',name_ar:'ذمم موظفين',name_en:'Employee Advances',type:'asset',parent:'11',level:3},
+  {code:'1150',name_ar:'مخصص الديون المعدومة',name_en:'Allowance for Doubtful Accounts',type:'contra_asset',parent:'11',level:3},
+  {code:'1160',name_ar:'المخزون',name_en:'Inventory',type:'asset',parent:'11',level:3},
+  {code:'1170',name_ar:'المصروفات المدفوعة مقدماً',name_en:'Prepaid Expenses',type:'asset',parent:'11',level:3},
+  {code:'1171',name_ar:'الإيرادات المستحقة',name_en:'Accrued Revenue',type:'asset',parent:'11',level:3},
+  {code:'1180',name_ar:'أوراق قبض',name_en:'Notes Receivable - Short Term',type:'asset',parent:'11',level:3},
+  {code:'1190',name_ar:'ضريبة القيمة المضافة المدينة',name_en:'Input VAT',type:'asset',parent:'11',level:3},
+  {code:'12',name_ar:'أصول استثمارية',name_en:'Investment Property',type:'asset',parent:'1',level:2},
+  {code:'1210',name_ar:'عقارات للبيع',name_en:'Properties Held for Sale',type:'asset',parent:'12',level:3},
+  {code:'1220',name_ar:'عقارات تحت الإنشاء',name_en:'Properties Under Construction',type:'asset',parent:'12',level:3},
+  {code:'1230',name_ar:'عقارات مستثمرة',name_en:'Investment Properties',type:'asset',parent:'12',level:3},
+  {code:'13',name_ar:'الأصول الثابتة',name_en:'Property, Plant & Equipment',type:'asset',parent:'1',level:2},
+  {code:'1310',name_ar:'الأراضي',name_en:'Land',type:'asset',parent:'13',level:3},
+  {code:'1320',name_ar:'المباني',name_en:'Buildings',type:'asset',parent:'13',level:3},
+  {code:'1321',name_ar:'مجمع إهلاك المباني',name_en:'Accum. Depreciation - Buildings',type:'contra_asset',parent:'13',level:3},
+  {code:'1330',name_ar:'الأثاث والتجهيزات',name_en:'Furniture & Fixtures',type:'asset',parent:'13',level:3},
+  {code:'1331',name_ar:'مجمع إهلاك الأثاث',name_en:'Accum. Depreciation - Furniture',type:'contra_asset',parent:'13',level:3},
+  {code:'1340',name_ar:'المعدات والآلات',name_en:'Equipment & Machinery',type:'asset',parent:'13',level:3},
+  {code:'1341',name_ar:'مجمع إهلاك المعدات',name_en:'Accum. Depreciation - Equipment',type:'contra_asset',parent:'13',level:3},
+  {code:'1350',name_ar:'السيارات',name_en:'Vehicles',type:'asset',parent:'13',level:3},
+  {code:'1351',name_ar:'مجمع إهلاك السيارات',name_en:'Accum. Depreciation - Vehicles',type:'contra_asset',parent:'13',level:3},
+  {code:'1360',name_ar:'أجهزة الحاسب',name_en:'Computers & IT Equipment',type:'asset',parent:'13',level:3},
+  {code:'1361',name_ar:'مجمع إهلاك الأجهزة',name_en:'Accum. Depreciation - Computers',type:'contra_asset',parent:'13',level:3},
+  {code:'1370',name_ar:'أجور تحسينات المستأجرين',name_en:'Leasehold Improvements',type:'asset',parent:'13',level:3},
+  {code:'1371',name_ar:'مجمع إهلاك تحسينات المستأجرين',name_en:'Accum. Depreciation - Leasehold',type:'contra_asset',parent:'13',level:3},
+  {code:'14',name_ar:'الأصول غير الملموسة',name_en:'Intangible Assets',type:'asset',parent:'1',level:2},
+  {code:'1410',name_ar:'الشهرة',name_en:'Goodwill',type:'asset',parent:'14',level:3},
+  {code:'1420',name_ar:'براءات الاختراع',name_en:'Patents',type:'asset',parent:'14',level:3},
+  {code:'1430',name_ar:'حقوق الامتياز',name_en:'Franchise Rights',type:'asset',parent:'14',level:3},
+  {code:'1440',name_ar:'رخص التشغيل',name_en:'Licenses & Permits',type:'asset',parent:'14',level:3},
+  {code:'1450',name_ar:'البرامج الإلكترونية',name_en:'Software',type:'asset',parent:'14',level:3},
+  {code:'1490',name_ar:'مجمع إهلاك الأصول غير الملموسة',name_en:'Accum. Amortization - Intangibles',type:'contra_asset',parent:'14',level:3},
+  {code:'15',name_ar:'أصول مالية',name_en:'Financial Assets',type:'asset',parent:'1',level:2},
+  {code:'1510',name_ar:'استثمارات قصيرة الأجل',name_en:'Short-term Investments',type:'asset',parent:'15',level:3},
+  {code:'1520',name_ar:'استثمارات طويلة الأجل',name_en:'Long-term Investments',type:'asset',parent:'15',level:3},
+  {code:'1530',name_ar:'أرصدنة حساب الدفع حسب المطلب',name_en:'Financial Assets at FVTPL',type:'asset',parent:'15',level:3},
+  {code:'2',name_ar:'الخصوم',name_en:'Liabilities',type:'liability',parent:null,level:1},
+  {code:'21',name_ar:'الخصوم المتداولة',name_en:'Current Liabilities',type:'liability',parent:'2',level:2},
+  {code:'2110',name_ar:'حسابات الموردين',name_en:'Accounts Payable - Trade',type:'liability',parent:'21',level:3},
+  {code:'2111',name_ar:'دائنون آخرون',name_en:'Other Payables',type:'liability',parent:'21',level:3},
+  {code:'2120',name_ar:'أوراق دفع',name_en:'Notes Payable - Short Term',type:'liability',parent:'21',level:3},
+  {code:'2130',name_ar:'المصروفات المستحقة',name_en:'Accrued Expenses',type:'liability',parent:'21',level:3},
+  {code:'2140',name_ar:'الإيرادات المحصلة مقدماً',name_en:'Contract Liabilities (Unearned Revenue)',type:'liability',parent:'21',level:3},
+  {code:'2150',name_ar:'رواتب مستحقة',name_en:'Salaries Payable',type:'liability',parent:'21',level:3},
+  {code:'2151',name_ar:'مخصص المكافآت',name_en:'Bonus Provision',type:'liability',parent:'21',level:3},
+  {code:'2160',name_ar:'ضريبة الدخل المستحقة',name_en:'Income Tax Payable',type:'liability',parent:'21',level:3},
+  {code:'2161',name_ar:'ضريبة القيمة المضافة المدينة',name_en:'Output VAT',type:'liability',parent:'21',level:3},
+  {code:'2162',name_ar:'التأمينات الاجتماعية المستحقة',name_en:'Social Insurance Payable',type:'liability',parent:'21',level:3},
+  {code:'2170',name_ar:'قروض قصيرة الأجل',name_en:'Current Portion of Long-term Debt',type:'liability',parent:'21',level:3},
+  {code:'2180',name_ar:'أقساط عقود تمويل',name_en:'Finance Lease Liabilities - Current',type:'liability',parent:'21',level:3},
+  {code:'2190',name_ar:'مخصصات أخرى متداولة',name_en:'Other Current Provisions',type:'liability',parent:'21',level:3},
+  {code:'22',name_ar:'الخصوم طويلة الأجل',name_en:'Non-Current Liabilities',type:'liability',parent:'2',level:2},
+  {code:'2210',name_ar:'قروض بنكية طويلة الأجل',name_en:'Long-term Bank Loans',type:'liability',parent:'22',level:3},
+  {code:'2220',name_ar:'سندات دفع',name_en:'Bonds Payable',type:'liability',parent:'22',level:3},
+  {code:'2230',name_ar:'أقساط عقود تمويل طويلة',name_en:'Finance Lease Liabilities - Non-Current',type:'liability',parent:'22',level:3},
+  {code:'2240',name_ar:'مخصصات طويلة الأجل',name_en:'Long-term Provisions',type:'liability',parent:'22',level:3},
+  {code:'2250',name_ar:'ضريبة دخل مؤجلة',name_en:'Deferred Tax Liability',type:'liability',parent:'22',level:3},
+  {code:'3',name_ar:'حقوق الملكية',name_en:'Equity',type:'equity',parent:null,level:1},
+  {code:'3100',name_ar:'رأس المال',name_en:'Share Capital',type:'equity',parent:'3',level:2},
+  {code:'3200',name_ar:'القيمة الإضافية',name_en:'Share Premium',type:'equity',parent:'3',level:2},
+  {code:'3300',name_ar:'احتياطيات قانونية',name_en:'Statutory Reserve',type:'equity',parent:'3',level:2},
+  {code:'3400',name_ar:'احتياطيات أخرى',name_en:'Other Reserves',type:'equity',parent:'3',level:2},
+  {code:'3500',name_ar:'أرباح مرحلة',name_en:'Retained Earnings',type:'equity',parent:'3',level:2},
+  {code:'3600',name_ar:'أرباح العام الحالي',name_en:'Current Year Profit/Loss',type:'equity',parent:'3',level:2},
+  {code:'3700',name_ar:'مسحوبات المالك',name_en:'Owner Drawings',type:'equity',parent:'3',level:2},
+  {code:'3800',name_ar:'أرباح حافظة الاستثمارات',name_en:'Fair Value Reserve',type:'equity',parent:'3',level:2},
+  {code:'4',name_ar:'الإيرادات',name_en:'Revenue',type:'revenue',parent:null,level:1},
+  {code:'4100',name_ar:'إيرادات المبيعات',name_en:'Sales Revenue',type:'revenue',parent:'4',level:2},
+  {code:'4110',name_ar:'مردودات المبيعات',name_en:'Sales Returns',type:'contra_revenue',parent:'4',level:2},
+  {code:'4120',name_ar:'مسموحات مبيعات',name_en:'Sales Allowances',type:'contra_revenue',parent:'4',level:2},
+  {code:'4200',name_ar:'إيرادات خدمات التسويق',name_en:'Marketing Service Revenue',type:'revenue',parent:'4',level:2},
+  {code:'4300',name_ar:'عمولات代理ية',name_en:'Agency Commission Revenue',type:'revenue',parent:'4',level:2},
+  {code:'4400',name_ar:'إيرادات إيجار',name_en:'Rental Income',type:'revenue',parent:'4',level:2},
+  {code:'4500',name_ar:'إيرادات فوائد',name_en:'Interest Income',type:'revenue',parent:'4',level:2},
+  {code:'4600',name_ar:'أرباح بيع أصول',name_en:'Gain on Disposal of Assets',type:'revenue',parent:'4',level:2},
+  {code:'4700',name_ar:'إيرادات أخرى',name_en:'Other Income',type:'revenue',parent:'4',level:2},
+  {code:'5',name_ar:'المصروفات',name_en:'Expenses',type:'expense',parent:null,level:1},
+  {code:'51',name_ar:'تكلفة المبيعات',name_en:'Cost of Sales',type:'expense',parent:'5',level:2},
+  {code:'5110',name_ar:'تكلفة الأصول المباعة',name_en:'Cost of Properties Sold',type:'expense',parent:'51',level:3},
+  {code:'5120',name_ar:'عمولات شراء',name_en:'Purchase Commissions',type:'expense',parent:'51',level:3},
+  {code:'5130',name_ar:'رسوم تسجيل',name_en:'Registration Fees',type:'expense',parent:'51',level:3},
+  {code:'52',name_ar:'مصروفات التسويق والبيع',name_en:'Selling & Marketing Expenses',type:'expense',parent:'5',level:2},
+  {code:'5210',name_ar:'رواتب فريق المبيعات',name_en:'Sales Team Salaries',type:'expense',parent:'52',level:3},
+  {code:'5220',name_ar:'عمولات مبيعات',name_en:'Sales Commissions Expense',type:'expense',parent:'52',level:3},
+  {code:'5230',name_ar:'مصروف الدعاية والإعلان',name_en:'Advertising Expense',type:'expense',parent:'52',level:3},
+  {code:'5240',name_ar:'مصروف المعارض والفعاليات',name_en:'Exhibitions & Events',type:'expense',parent:'52',level:3},
+  {code:'5250',name_ar:'مصروف العينات',name_en:'Promotional Samples',type:'expense',parent:'52',level:3},
+  {code:'5260',name_ar:'عمولات تسويق',name_en:'Marketing Agency Fees',type:'expense',parent:'52',level:3},
+  {code:'53',name_ar:'المصروفات الإدارية والعمومية',name_en:'General & Administrative Expenses',type:'expense',parent:'5',level:2},
+  {code:'5310',name_ar:'رواتب وأجور',name_en:'Salaries & Wages',type:'expense',parent:'53',level:3},
+  {code:'5311',name_ar:'مخصص نهاية الخدمة',name_en:'End of Service Provision',type:'expense',parent:'53',level:3},
+  {code:'5320',name_ar:'تأمينات اجتماعية',name_en:'Social Insurance',type:'expense',parent:'53',level:3},
+  {code:'5330',name_ar:'مصروف الإيجار',name_en:'Rent Expense',type:'expense',parent:'53',level:3},
+  {code:'5340',name_ar:'مصروف الكهرباء والمياه',name_en:'Utilities',type:'expense',parent:'53',level:3},
+  {code:'5350',name_ar:'مصروف الاتصالات والإنترنت',name_en:'Communications & Internet',type:'expense',parent:'53',level:3},
+  {code:'5360',name_ar:'مصروف الصيانة والإصلاح',name_en:'Maintenance & Repairs',type:'expense',parent:'53',level:3},
+  {code:'5370',name_ar:'مصروف التأمين',name_en:'Insurance Expense',type:'expense',parent:'53',level:3},
+  {code:'5380',name_ar:'مصروف القرطاسية والمطبوعات',name_en:'Stationery & Printing',type:'expense',parent:'53',level:3},
+  {code:'5390',name_ar:'مصروف التدريب والتطوير',name_en:'Training & Development',type:'expense',parent:'53',level:3},
+  {code:'5391',name_ar:'مصروف السفر والإقامة',name_en:'Travel & Accommodation',type:'expense',parent:'53',level:3},
+  {code:'5392',name_ar:'مصروف استشارات قانونية',name_en:'Legal & Professional Fees',type:'expense',parent:'53',level:3},
+  {code:'5393',name_ar:'مصروف محاسبة ومراجعة',name_en:'Audit & Accounting Fees',type:'expense',parent:'53',level:3},
+  {code:'5394',name_ar:'مصروف إيجار سيارات',name_en:'Vehicle Lease Expense',type:'expense',parent:'53',level:3},
+  {code:'5395',name_ar:'مصروف وقود ونقل',name_en:'Fuel & Transportation',type:'expense',parent:'53',level:3},
+  {code:'54',name_ar:'مصروف الإهلاك والاستهلاك',name_en:'Depreciation & Amortization',type:'expense',parent:'5',level:2},
+  {code:'5410',name_ar:'إهلاك المباني',name_en:'Depreciation - Buildings',type:'expense',parent:'54',level:3},
+  {code:'5420',name_ar:'إهلاك الأثاث',name_en:'Depreciation - Furniture',type:'expense',parent:'54',level:3},
+  {code:'5430',name_ar:'إهلاك المعدات',name_en:'Depreciation - Equipment',type:'expense',parent:'54',level:3},
+  {code:'5440',name_ar:'إهلاك السيارات',name_en:'Depreciation - Vehicles',type:'expense',parent:'54',level:3},
+  {code:'5450',name_ar:'إهلاك الأجهزة',name_en:'Depreciation - Computers',type:'expense',parent:'54',level:3},
+  {code:'5460',name_ar:'استهلاك الأصول غير الملموسة',name_en:'Amortization - Intangibles',type:'expense',parent:'54',level:3},
+  {code:'55',name_ar:'المصروفات المالية',name_en:'Finance Costs',type:'expense',parent:'5',level:2},
+  {code:'5510',name_ar:'فوائد قروض',name_en:'Interest Expense - Loans',type:'expense',parent:'55',level:3},
+  {code:'5520',name_ar:'عمولات بنكية',name_en:'Bank Charges & Fees',type:'expense',parent:'55',level:3},
+  {code:'5530',name_ar:'خسائر صرف',name_en:'Foreign Exchange Losses',type:'expense',parent:'55',level:3},
+  {code:'5540',name_ar:'فوائد تأخير',name_en:'Late Payment Interest',type:'expense',parent:'55',level:3},
+  {code:'56',name_ar:'مصروفات أخرى',name_en:'Other Expenses',type:'expense',parent:'5',level:2},
+  {code:'5610',name_ar:'خسائر بيع أصول',name_en:'Loss on Disposal of Assets',type:'expense',parent:'56',level:3},
+  {code:'5620',name_ar:'خسائر غير محددة',name_en:'Miscellaneous Losses',type:'expense',parent:'56',level:3},
+  {code:'5630',name_ar:'تبرعات',name_en:'Donations',type:'expense',parent:'56',level:3},
+  {code:'5640',name_ar:'غرامات وجزاءات',name_en:'Fines & Penalties',type:'expense',parent:'56',level:3},
+  {code:'57',name_ar:'المصروفات الضريبية',name_en:'Tax Expense',type:'expense',parent:'5',level:2},
+  {code:'5710',name_ar:'ضريبة الدخل',name_en:'Income Tax Expense',type:'expense',parent:'57',level:3},
+  {code:'5720',name_ar:'ضريبة الدخل المؤجلة',name_en:'Deferred Tax Expense',type:'expense',parent:'57',level:3}
 ];
 
 const DEFAULT_LABOR_LAWS = [
@@ -2777,7 +2906,7 @@ function initData() {
       _treasury.push({
         id:je.id, date:je.date, desc:je.desc, source:je.source, cat:je.cat,
         amount: Math.max(je.lines[0].debit, je.lines[0].credit),
-        type: je.lines[0].debit > 0 && je.lines[0].code === '1' ? 'income' : 'expense',
+        type: je.lines[0].debit > 0 && je.lines[0].code === '1120' ? 'income' : 'expense',
         journalLines: je.lines,
         accountDr: je.lines.find(function(l){return l.debit>0;}).code,
         accountCr: je.lines.find(function(l){return l.credit>0;}).code
@@ -4278,32 +4407,45 @@ function createAutoJournalEntry(type, data) {
   const lines = [];
   
   if(type === 'new_employee') {
-    lines.push({code:'3', debit: data.amount || 0, credit: 0});
-    lines.push({code:'1', debit: 0, credit: data.amount || 0});
+    lines.push({code:'5310', debit: data.amount || 0, credit: 0});
+    lines.push({code:'2150', debit: 0, credit: data.amount || 0});
   } else if(type === 'new_sale') {
-    lines.push({code:'1', debit: data.amount || 0, credit: 0});
-    lines.push({code:'2', debit: 0, credit: data.amount || 0});
+    lines.push({code:'1140', debit: data.amount || 0, credit: 0});
+    lines.push({code:'4100', debit: 0, credit: data.amount || 0});
   } else if(type === 'new_expense') {
-    lines.push({code:'3', debit: data.amount || 0, credit: 0});
-    lines.push({code:'1', debit: 0, credit: data.amount || 0});
+    const EXPENSE_COA_MAP = {
+      'إيجار':'5330','كهرباء':'5340','اتصالات':'5350','صيانة':'5360','تأمين':'5370',
+      'إعلانات':'5230','تدريب':'5390','سفر':'5391','قانوني':'5392','محاسبة':'5393',
+      'وقود':'5395','قرطاسية':'5380','رواتب':'5310','عمولات':'5220',
+      'rent':'5330','electricity':'5340','utilities':'5340','communications':'5350',
+      'internet':'5350','maintenance':'5360','repairs':'5360','insurance':'5370',
+      'advertising':'5230','marketing':'5230','training':'5390','travel':'5391',
+      'legal':'5392','accounting':'5393','audit':'5393','fuel':'5395','stationery':'5380',
+      'printing':'5380','salaries':'5310','commissions':'5220','office':'5330',
+      'utilities':'5340','taxes':'5710','depreciation':'5410','bank':'5520','misc':'5620'
+    };
+    const catLower = (data.category || '').toLowerCase();
+    const expenseCode = EXPENSE_COA_MAP[catLower] || EXPENSE_COA_MAP[data.category] || '5620';
+    lines.push({code: expenseCode, debit: data.amount || 0, credit: 0});
+    lines.push({code:'1120', debit: 0, credit: data.amount || 0});
   } else if(type === 'treasury_income') {
-    lines.push({code:'1', debit: data.amount || 0, credit: 0});
-    lines.push({code:'2', debit: 0, credit: data.amount || 0});
+    lines.push({code:'1120', debit: data.amount || 0, credit: 0});
+    lines.push({code:'4100', debit: 0, credit: data.amount || 0});
   } else if(type === 'treasury_expense') {
-    lines.push({code:'3', debit: data.amount || 0, credit: 0});
-    lines.push({code:'1', debit: 0, credit: data.amount || 0});
+    lines.push({code:'5330', debit: data.amount || 0, credit: 0});
+    lines.push({code:'1120', debit: 0, credit: data.amount || 0});
   } else if(type === 'salary_payment') {
-    lines.push({code:'3', debit: data.amount || 0, credit: 0});
-    lines.push({code:'1', debit: 0, credit: data.amount || 0});
+    lines.push({code:'5310', debit: data.amount || 0, credit: 0});
+    lines.push({code:'1120', debit: 0, credit: data.amount || 0});
   } else if(type === 'partner_distribution') {
-    lines.push({code:'3', debit: data.amount || 0, credit: 0});
-    lines.push({code:'1', debit: 0, credit: data.amount || 0});
+    lines.push({code:'3500', debit: data.amount || 0, credit: 0});
+    lines.push({code:'1120', debit: 0, credit: data.amount || 0});
   } else if(type === 'payroll_post') {
-    lines.push({code:'3', debit: data.amount || 0, credit: 0});
-    lines.push({code:'1', debit: 0, credit: data.amount || 0});
+    lines.push({code:'5310', debit: data.amount || 0, credit: 0});
+    lines.push({code:'2150', debit: 0, credit: data.amount || 0});
   } else if(type === 'advance_payment') {
-    lines.push({code:'1', debit: data.amount || 0, credit: 0});
-    lines.push({code:'3', debit: 0, credit: data.amount || 0});
+    lines.push({code:'1130', debit: data.amount || 0, credit: 0});
+    lines.push({code:'1120', debit: 0, credit: data.amount || 0});
   }
   
   if(lines.length > 0) {
@@ -9679,7 +9821,8 @@ function renderAnalysis() {
     const net = b.debit - b.credit;
     if(b.type === 'asset' && (b.code.startsWith('11') || b.code === '1')) {
       totalCurrentAssets += net;
-      if(b.code === '1') actualCash += b.debit - b.credit;
+      if(b.code === '1110' || b.code === '1120') actualCash += b.debit - b.credit;
+      if(b.code === '1160') actualInventory += b.debit - b.credit;
     }
     else if(b.type === 'asset') totalFixedAssets += net;
     else if(b.type === 'contra_asset') totalFixedAssets += net;
@@ -9775,14 +9918,14 @@ function renderAnalysis() {
     h += '</div></div>';
 
     // --- Activity / Efficiency Ratios ---
-    const arBalance = totalCurrentAssets > 0 ? totalCurrentAssets : 0;
-    const inventoryBal = 0;
-    const interestExp = 0;
-    const taxExp = 0;
-    const ebit = netIncome;
-    const invTurnover = 0;
-    const recCollectionPeriod = 0;
-    const intCoverage = 0;
+    const arBalance = (balances['1140'] ? balances['1140'].debit - balances['1140'].credit : 0);
+    const inventoryBal = (balances['1160'] ? balances['1160'].debit - balances['1160'].credit : 0);
+    const interestExp = (balances['5510'] ? balances['5510'].debit : 0) + (balances['5520'] ? balances['5520'].debit : 0);
+    const taxExp = (balances['5710'] ? balances['5710'].debit : 0);
+    const ebit = netIncome + interestExp + taxExp;
+    const invTurnover = inventoryBal > 0 ? (totalCOGS / inventoryBal) : 0;
+    const recCollectionPeriod = netRevenue > 0 ? ((arBalance / netRevenue) * 365) : 0;
+    const intCoverage = interestExp > 0 ? (ebit / interestExp) : 0;
     h += '<div class="card" style="margin-bottom:16px;border-left:4px solid #3B82F6"><h3 style="margin-bottom:12px;color:#3B82F6"><i class="fas fa-chart-simple"></i> '+(lg?'نسب النشاط والكفاءة':'Activity & Efficiency Ratios')+'</h3>';
     h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">';
     h += ratioBox(lg?'معدل دوران المخزون':'Inventory Turnover', invTurnover, 4, lg?'جيد':'Good', lg?'مقبول':'Fair', lg?'ضعيف':'Poor', lg?'تكلفة المبيعات: '+fmt(totalCOGS)+'<br>المخزون: '+fmt(inventoryBal):'COGS: '+fmt(totalCOGS)+'<br>Inventory: '+fmt(inventoryBal));
@@ -16120,12 +16263,151 @@ const COA_TEMPLATES = [
 ];
 
 function generateCoaFromTemplate(templateId) {
-  const simplified = [
-    {code:'1',name_ar:'الخزينة',name_en:'Treasury',type:'asset',parent:null,level:1},
-    {code:'2',name_ar:'المبيعات',name_en:'Sales',type:'revenue',parent:null,level:1},
-    {code:'3',name_ar:'المصروفات',name_en:'Expenses',type:'expense',parent:null,level:1}
-  ];
-  return JSON.parse(JSON.stringify(simplified));
+  const templates = {
+    real_estate_egypt: () => JSON.parse(JSON.stringify(DEFAULT_COA)),
+    general_trading: () => [
+      {code:'1',name_ar:'الأصول',name_en:'Assets',type:'asset',parent:null,level:1},
+      {code:'11',name_ar:'الأصول المتداولة',name_en:'Current Assets',type:'asset',parent:'1',level:2},
+      {code:'1110',name_ar:'النقدية في الخزينة',name_en:'Cash on Hand',type:'asset',parent:'11',level:3},
+      {code:'1120',name_ar:'الحسابات البنكية',name_en:'Bank Accounts',type:'asset',parent:'11',level:3},
+      {code:'1130',name_ar:'شيكات تحت التحصيل',name_en:'Checks to Collect',type:'asset',parent:'11',level:3},
+      {code:'1140',name_ar:'حسابات العملاء',name_en:'Accounts Receivable',type:'asset',parent:'11',level:3},
+      {code:'1150',name_ar:'مخصص الديون المعدومة',name_en:'Allowance for Doubtful Accounts',type:'contra_asset',parent:'11',level:3},
+      {code:'1160',name_ar:'المخزون',name_en:'Inventory',type:'asset',parent:'11',level:3},
+      {code:'1170',name_ar:'مصروفات مدفوعة مقدماً',name_en:'Prepaid Expenses',type:'asset',parent:'11',level:3},
+      {code:'1180',name_ar:'ضريبة القيمة المضافة المدينة',name_en:'Input VAT',type:'asset',parent:'11',level:3},
+      {code:'13',name_ar:'أصول ثابتة',name_en:'Fixed Assets',type:'asset',parent:'1',level:2},
+      {code:'1310',name_ar:'أثاث وتجهيزات',name_en:'Furniture & Fixtures',type:'asset',parent:'13',level:3},
+      {code:'1311',name_ar:'مجمع الإهلاك',name_en:'Accumulated Depreciation',type:'contra_asset',parent:'13',level:3},
+      {code:'1320',name_ar:'أجهزة ومعدات',name_en:'Equipment',type:'asset',parent:'13',level:3},
+      {code:'2',name_ar:'الخصوم',name_en:'Liabilities',type:'liability',parent:null,level:1},
+      {code:'21',name_ar:'خصوم متداولة',name_en:'Current Liabilities',type:'liability',parent:'2',level:2},
+      {code:'2110',name_ar:'حسابات الموردين',name_en:'Accounts Payable',type:'liability',parent:'21',level:3},
+      {code:'2120',name_ar:'رواتب مستحقة',name_en:'Salaries Payable',type:'liability',parent:'21',level:3},
+      {code:'2130',name_ar:'ضريبة الدخل المستحقة',name_en:'Income Tax Payable',type:'liability',parent:'21',level:3},
+      {code:'2140',name_ar:'ضريبة القيمة المضافة المدينة',name_en:'Output VAT',type:'liability',parent:'21',level:3},
+      {code:'2150',name_ar:'تأمينات اجتماعية مستحقة',name_en:'Social Insurance Payable',type:'liability',parent:'21',level:3},
+      {code:'22',name_ar:'خصوم طويلة الأجل',name_en:'Long-term Liabilities',type:'liability',parent:'2',level:2},
+      {code:'2210',name_ar:'قروض بنكية',name_en:'Bank Loans',type:'liability',parent:'22',level:3},
+      {code:'3',name_ar:'حقوق الملكية',name_en:'Equity',type:'equity',parent:null,level:1},
+      {code:'3100',name_ar:'رأس المال',name_en:'Share Capital',type:'equity',parent:'3',level:2},
+      {code:'3200',name_ar:'احتياطيات',name_en:'Reserves',type:'equity',parent:'3',level:2},
+      {code:'3300',name_ar:'أرباح مرحلة',name_en:'Retained Earnings',type:'equity',parent:'3',level:2},
+      {code:'3400',name_ar:'أرباح العام الحالي',name_en:'Current Year P&L',type:'equity',parent:'3',level:2},
+      {code:'4',name_ar:'الإيرادات',name_en:'Revenue',type:'revenue',parent:null,level:1},
+      {code:'4100',name_ar:'إيرادات مبيعات',name_en:'Sales Revenue',type:'revenue',parent:'4',level:2},
+      {code:'4110',name_ar:'مردودات مبيعات',name_en:'Sales Returns',type:'contra_revenue',parent:'4',level:2},
+      {code:'4200',name_ar:'إيرادات خدمات',name_en:'Service Revenue',type:'revenue',parent:'4',level:2},
+      {code:'4300',name_ar:'عمولات',name_en:'Commission Revenue',type:'revenue',parent:'4',level:2},
+      {code:'5',name_ar:'المصروفات',name_en:'Expenses',type:'expense',parent:null,level:1},
+      {code:'51',name_ar:'تكلفة المبيعات',name_en:'Cost of Goods Sold',type:'expense',parent:'5',level:2},
+      {code:'5110',name_ar:'تكلفة البضاعة المباعة',name_en:'Cost of Goods Sold',type:'expense',parent:'51',level:3},
+      {code:'5120',name_ar:'شحن وتوصيل',name_en:'Shipping & Delivery',type:'expense',parent:'51',level:3},
+      {code:'52',name_ar:'مصروفات بيعية',name_en:'Selling Expenses',type:'expense',parent:'5',level:2},
+      {code:'5210',name_ar:'رواتب المبيعات',name_en:'Sales Salaries',type:'expense',parent:'52',level:3},
+      {code:'5220',name_ar:'عمولات مبيعات',name_en:'Sales Commissions',type:'expense',parent:'52',level:3},
+      {code:'5230',name_ar:'إعلانات',name_en:'Advertising',type:'expense',parent:'52',level:3},
+      {code:'53',name_ar:'مصروفات إدارية',name_en:'Admin Expenses',type:'expense',parent:'5',level:2},
+      {code:'5310',name_ar:'رواتب وأجور',name_en:'Salaries & Wages',type:'expense',parent:'53',level:3},
+      {code:'5320',name_ar:'إيجار',name_en:'Rent',type:'expense',parent:'53',level:3},
+      {code:'5330',name_ar:'كهرباء ومياه',name_en:'Utilities',type:'expense',parent:'53',level:3},
+      {code:'5340',name_ar:'اتصالات',name_en:'Communications',type:'expense',parent:'53',level:3},
+      {code:'5350',name_ar:'صيانة',name_en:'Maintenance',type:'expense',parent:'53',level:3},
+      {code:'5360',name_ar:'تأمين',name_en:'Insurance',type:'expense',parent:'53',level:3},
+      {code:'5370',name_ar:'سفر وتنقل',name_en:'Travel',type:'expense',parent:'53',level:3},
+      {code:'5380',name_ar:'قانوني ومحاسبة',name_en:'Legal & Accounting',type:'expense',parent:'53',level:3},
+      {code:'54',name_ar:'إهلاك',name_en:'Depreciation',type:'expense',parent:'5',level:2},
+      {code:'5410',name_ar:'إهلاك أثاث',name_en:'Furniture Depreciation',type:'expense',parent:'54',level:3},
+      {code:'5420',name_ar:'إهلاك معدات',name_en:'Equipment Depreciation',type:'expense',parent:'54',level:3},
+      {code:'55',name_ar:'مصروفات مالية',name_en:'Finance Costs',type:'expense',parent:'5',level:2},
+      {code:'5510',name_ar:'فوائد قروض',name_en:'Interest Expense',type:'expense',parent:'55',level:3},
+      {code:'5520',name_ar:'عمولات بنكية',name_en:'Bank Charges',type:'expense',parent:'55',level:3},
+      {code:'56',name_ar:'مصروفات أخرى',name_en:'Other Expenses',type:'expense',parent:'5',level:2},
+      {code:'5610',name_ar:'خسائر بيع أصول',name_en:'Loss on Disposal',type:'expense',parent:'56',level:3},
+      {code:'5620',name_ar:'مصروفات متنوعة',name_en:'Miscellaneous',type:'expense',parent:'56',level:3},
+      {code:'57',name_ar:'ضرائب',name_en:'Tax',type:'expense',parent:'5',level:2},
+      {code:'5710',name_ar:'ضريبة دخل',name_en:'Income Tax',type:'expense',parent:'57',level:3}
+    ],
+    services: () => [
+      {code:'1',name_ar:'الأصول',name_en:'Assets',type:'asset',parent:null,level:1},
+      {code:'11',name_ar:'أصول متداولة',name_en:'Current Assets',type:'asset',parent:'1',level:2},
+      {code:'1110',name_ar:'نقدية',name_en:'Cash',type:'asset',parent:'11',level:3},
+      {code:'1120',name_ar:'بنوك',name_en:'Banks',type:'asset',parent:'11',level:3},
+      {code:'1130',name_ar:'عملاء',name_en:'Receivables',type:'asset',parent:'11',level:3},
+      {code:'1140',name_ar:'مصروفات مدفوعة',name_en:'Prepaid',type:'asset',parent:'11',level:3},
+      {code:'12',name_ar:'أصول ثابتة',name_en:'Fixed Assets',type:'asset',parent:'1',level:2},
+      {code:'1210',name_ar:'أجهزة وتجهيزات',name_en:'Equipment',type:'asset',parent:'12',level:3},
+      {code:'1211',name_ar:'مجمع إهلاك',name_en:'Accum Depreciation',type:'contra_asset',parent:'12',level:3},
+      {code:'2',name_ar:'الخصوم',name_en:'Liabilities',type:'liability',parent:null,level:1},
+      {code:'21',name_ar:'خصوم متداولة',name_en:'Current Liabilities',type:'liability',parent:'2',level:2},
+      {code:'2110',name_ar:'موردون',name_en:'Payables',type:'liability',parent:'21',level:3},
+      {code:'2120',name_ar:'رواتب مستحقة',name_en:'Salaries Payable',type:'liability',parent:'21',level:3},
+      {code:'2130',name_ar:'ضرائب مستحقة',name_en:'Tax Payable',type:'liability',parent:'21',level:3},
+      {code:'3',name_ar:'حقوق ملكية',name_en:'Equity',type:'equity',parent:null,level:1},
+      {code:'3100',name_ar:'رأس المال',name_en:'Capital',type:'equity',parent:'3',level:2},
+      {code:'3200',name_ar:'أرباح مبقاة',name_en:'Retained Earnings',type:'equity',parent:'3',level:2},
+      {code:'3300',name_ar:'أرباح السنة',name_en:'Current Year',type:'equity',parent:'3',level:2},
+      {code:'4',name_ar:'الإيرادات',name_en:'Revenue',type:'revenue',parent:null,level:1},
+      {code:'4100',name_ar:'إيرادات خدمات',name_en:'Service Revenue',type:'revenue',parent:'4',level:2},
+      {code:'4200',name_ar:'إيرادات استشارات',name_en:'Consulting Revenue',type:'revenue',parent:'4',level:2},
+      {code:'5',name_ar:'المصروفات',name_en:'Expenses',type:'expense',parent:null,level:1},
+      {code:'51',name_ar:'رواتب',name_en:'Salaries',type:'expense',parent:'5',level:2},
+      {code:'5110',name_ar:'رواتب موظفين',name_en:'Employee Salaries',type:'expense',parent:'51',level:3},
+      {code:'52',name_ar:'مصروفات تشغيل',name_en:'Operating',type:'expense',parent:'5',level:2},
+      {code:'5210',name_ar:'إيجار',name_en:'Rent',type:'expense',parent:'52',level:3},
+      {code:'5220',name_ar:'مرافق',name_en:'Utilities',type:'expense',parent:'52',level:3},
+      {code:'5230',name_ar:'تواصل',name_en:'Communications',type:'expense',parent:'52',level:3},
+      {code:'5240',name_ar:'سفر',name_en:'Travel',type:'expense',parent:'52',level:3},
+      {code:'53',name_ar:'مصروفات أخرى',name_en:'Other',type:'expense',parent:'5',level:2},
+      {code:'5310',name_ar:'إهلاك',name_en:'Depreciation',type:'expense',parent:'53',level:3},
+      {code:'5320',name_ar:'مالية',name_en:'Finance',type:'expense',parent:'53',level:3},
+      {code:'5330',name_ar:'ضريبة دخل',name_en:'Income Tax',type:'expense',parent:'53',level:3}
+    ],
+    construction: () => [
+      {code:'1',name_ar:'الأصول',name_en:'Assets',type:'asset',parent:null,level:1},
+      {code:'11',name_ar:'متداولة',name_en:'Current',type:'asset',parent:'1',level:2},
+      {code:'1110',name_ar:'نقدية',name_en:'Cash',type:'asset',parent:'11',level:3},
+      {code:'1120',name_ar:'بنوك',name_en:'Banks',type:'asset',parent:'11',level:3},
+      {code:'1130',name_ar:'عملاء',name_en:'Receivables',type:'asset',parent:'11',level:3},
+      {code:'1140',name_ar:'أدوات projets',name_en:'Contract Assets',type:'asset',parent:'11',level:3},
+      {code:'1150',name_ar:'مخزون مواد',name_en:'Materials Inventory',type:'asset',parent:'11',level:3},
+      {code:'12',name_ar:'ثابتة',name_en:'Fixed',type:'asset',parent:'1',level:2},
+      {code:'1210',name_ar:'آلات ومعدات',name_en:'Machinery',type:'asset',parent:'12',level:3},
+      {code:'1211',name_ar:'مجمع إهلاك',name_en:'Accum Dep',type:'contra_asset',parent:'12',level:3},
+      {code:'1220',name_ar:'سيارات',name_en:'Vehicles',type:'asset',parent:'12',level:3},
+      {code:'1221',name_ar:'مجمع إهلاك سيارات',name_en:'Accum Dep Vehicles',type:'contra_asset',parent:'12',level:3},
+      {code:'2',name_ar:'الخصوم',name_en:'Liabilities',type:'liability',parent:null,level:1},
+      {code:'21',name_ar:'متداولة',name_en:'Current',type:'liability',parent:'2',level:2},
+      {code:'2110',name_ar:'موردون',name_en:'Payables',type:'liability',parent:'21',level:3},
+      {code:'2120',name_ar:'أجور مستحقة',name_en:'Wages Payable',type:'liability',parent:'21',level:3},
+      {code:'2130',name_ar:'ضرائب',name_en:'Tax Payable',type:'liability',parent:'21',level:3},
+      {code:'2140',name_ar:'تقديمات عملاء',name_en:'Advance Payments',type:'liability',parent:'21',level:3},
+      {code:'3',name_ar:'حقوق ملكية',name_en:'Equity',type:'equity',parent:null,level:1},
+      {code:'3100',name_ar:'رأس المال',name_en:'Capital',type:'equity',parent:'3',level:2},
+      {code:'3200',name_ar:'احتياطيات',name_en:'Reserves',type:'equity',parent:'3',level:2},
+      {code:'3300',name_ar:'أرباح',name_en:'Retained',type:'equity',parent:'3',level:2},
+      {code:'4',name_ar:'الإيرادات',name_en:'Revenue',type:'revenue',parent:null,level:1},
+      {code:'4100',name_ar:'إيرادات مقاولات',name_en:'Contract Revenue',type:'revenue',parent:'4',level:2},
+      {code:'4200',name_ar:'إيرادات أخرى',name_en:'Other Revenue',type:'revenue',parent:'4',level:2},
+      {code:'5',name_ar:'المصروفات',name_en:'Expenses',type:'expense',parent:null,level:1},
+      {code:'51',name_ar:'تكلفة المشاريع',name_en:'Project Costs',type:'expense',parent:'5',level:2},
+      {code:'5110',name_ar:'مواد بناء',name_en:'Materials',type:'expense',parent:'51',level:3},
+      {code:'5120',name_ar:'أجور عمال',name_en:'Labor',type:'expense',parent:'51',level:3},
+      {code:'5130',name_ar:'equipment hire',name_en:'Equipment Rental',type:'expense',parent:'51',level:3},
+      {code:'5140',name_ar:'مقاولين من الباطن',name_en:'Subcontractors',type:'expense',parent:'51',level:3},
+      {code:'52',name_ar:'إدارة عامة',name_en:'General Admin',type:'expense',parent:'5',level:2},
+      {code:'5210',name_ar:'رواتب إدارية',name_en:'Admin Salaries',type:'expense',parent:'52',level:3},
+      {code:'5220',name_ar:'إيجار',name_en:'Rent',type:'expense',parent:'52',level:3},
+      {code:'5230',name_ar:'مرافق',name_en:'Utilities',type:'expense',parent:'52',level:3},
+      {code:'5240',name_ar:'صيانة',name_en:'Maintenance',type:'expense',parent:'52',level:3},
+      {code:'5250',name_ar:'تأمين',name_en:'Insurance',type:'expense',parent:'52',level:3},
+      {code:'53',name_ar:'مصروفات أخرى',name_en:'Other',type:'expense',parent:'5',level:2},
+      {code:'5310',name_ar:'إهلاك',name_en:'Depreciation',type:'expense',parent:'53',level:3},
+      {code:'5320',name_ar:'مالية',name_en:'Finance',type:'expense',parent:'53',level:3},
+      {code:'5330',name_ar:'ضرائب',name_en:'Tax',type:'expense',parent:'53',level:3}
+    ]
+  };
+  return (templates[templateId] || templates.real_estate_egypt)();
 }
 
 function renderCoaTemplatesList() {
