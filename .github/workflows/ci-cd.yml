@@ -10,6 +10,8 @@ on:
       - 'functions/**'
       - 'testsprite_tests/**'
       - '.github/workflows/**'
+      - 'firebase.json'
+      - '.firebaserc'
   pull_request:
     branches: [master, main]
     paths:
