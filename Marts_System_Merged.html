@@ -730,6 +730,7 @@ select{cursor:pointer;appearance:auto}
 @keyframes pulse{0%,100%{opacity:.3;transform:scale(1)}50%{opacity:.5;transform:scale(1.1)}}
 @keyframes fadeInToast{0%{opacity:0;transform:translateX(-50%) translateY(-10px)}100%{opacity:1;transform:translateX(-50%) translateY(0)}}
 @keyframes slideDown{0%{opacity:0;transform:translateY(-100%)}100%{opacity:1;transform:translateY(0)}}
+@keyframes slideUpdateBar{0%{opacity:0;transform:translateY(-100%)}100%{opacity:1;transform:translateY(0)}}
 .crm-promo-title{font-size:15px;font-weight:800;margin-bottom:6px;position:relative;z-index:1}
 .crm-promo-desc{font-size:12px;opacity:.9;line-height:1.5;margin-bottom:14px;position:relative;z-index:1}
 .crm-promo-btn{
@@ -1754,8 +1755,55 @@ try {
   _fbReady = true;
 } catch(e) { console.warn('Firebase init failed:', e); }
 
-const SYSTEM_VERSION = '2.0.0';
+const SYSTEM_VERSION = '2.0.1';
 let _latestUpdate = null;
+let _swRegistration = null;
+
+function _isVersionNewer(remote, local) {
+  const r = remote.split('.').map(Number);
+  const l = local.split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((r[i]||0) > (l[i]||0)) return true;
+    if ((r[i]||0) < (l[i]||0)) return false;
+  }
+  return false;
+}
+
+function _showUpdateNotification(version, notes, source) {
+  const lg = lang === 'ar';
+  if (document.getElementById('updateBanner')) return;
+  const isSW = source === 'sw';
+  const banner = document.createElement('div');
+  banner.id = 'updateBanner';
+  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#827148,#A5AF79);color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.3);animation:slideUpdateBar .3s ease';
+  const desc = isSW
+    ? (lg ? 'تم تحميل نسخة جديدة' : 'A new version has been downloaded')
+    : (lg ? 'تحديث جديد متاح' : 'New update available');
+  banner.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px">
+      <i class="fas fa-${isSW ? 'check-circle' : 'cloud-upload-alt'}" style="font-size:18px"></i>
+      <div>
+        <div>${desc}${version ? ' (' + version + ')' : ''}</div>
+        ${notes ? `<div style="font-size:11px;font-weight:400;opacity:.9">${notes}</div>` : ''}
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <button onclick="applyUpdate()" style="padding:6px 16px;border-radius:6px;border:2px solid #fff;background:transparent;color:#fff;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap"><i class="fas fa-sync-alt"></i> ${lg?'تحديث الآن':'Refresh & Update'}</button>
+      <button onclick="dismissUpdate()" style="padding:6px 10px;border-radius:6px;border:none;background:rgba(255,255,255,.2);color:#fff;cursor:pointer;font-size:12px"><i class="fas fa-times"></i></button>
+    </div>`;
+  document.body.appendChild(banner);
+}
+
+function _showUpdateToast(msg) {
+  const lg = lang === 'ar';
+  const existing = document.getElementById('updateToast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.id = 'updateToast';
+  toast.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99998;background:#333;color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.3);animation:slideUpdateBar .3s ease;max-width:320px';
+  toast.textContent = msg || (lg ? 'جاري التحديث...' : 'Updating...');
+  document.body.appendChild(toast);
+}
 
 async function checkForUpdates() {
   if (!_fbReady || !_fbDb) return;
@@ -1765,40 +1813,10 @@ async function checkForUpdates() {
     const data = doc.data();
     const remoteVer = data.version || '';
     if (!remoteVer || remoteVer === SYSTEM_VERSION) return;
-    const partsLocal = SYSTEM_VERSION.split('.').map(Number);
-    const partsRemote = remoteVer.split('.').map(Number);
-    let isNewer = false;
-    for (let i = 0; i < 3; i++) {
-      if ((partsRemote[i]||0) > (partsLocal[i]||0)) { isNewer = true; break; }
-      if ((partsRemote[i]||0) < (partsLocal[i]||0)) break;
-    }
-    if (!isNewer) return;
-    _latestUpdate = { version: remoteVer, fileUrl: data.fileUrl || '', notes: data.notes || '' };
-    showUpdateBanner(remoteVer, data.notes);
+    if (!_isVersionNewer(remoteVer, SYSTEM_VERSION)) return;
+    _latestUpdate = { version: remoteVer, notes: data.notes || '' };
+    _showUpdateNotification(remoteVer, data.notes, 'firestore');
   } catch(e) { console.warn('[Update] Check failed:', e); }
-}
-
-function showUpdateBanner(version, notes) {
-  const lg = lang === 'ar';
-  const existing = document.getElementById('updateBanner');
-  if (existing) existing.remove();
-  const banner = document.createElement('div');
-  banner.id = 'updateBanner';
-  banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#827148,#A5AF79);color:#fff;padding:12px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:13px;font-weight:600;box-shadow:0 4px 20px rgba(0,0,0,.3);animation:slideDown .3s ease';
-  banner.innerHTML = `
-    <div style="display:flex;align-items:center;gap:10px">
-      <i class="fas fa-download" style="font-size:18px"></i>
-      <div>
-        <div>${lg?'تحديث جديد متاح':'New update available'} (${version})</div>
-        ${notes ? `<div style="font-size:11px;font-weight:400;opacity:.9">${notes}</div>` : ''}
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <span id="updateProgressText" style="font-size:11px;opacity:.8"></span>
-      <button onclick="applyUpdate()" style="padding:6px 16px;border-radius:6px;border:2px solid #fff;background:transparent;color:#fff;cursor:pointer;font-weight:700;font-size:12px;white-space:nowrap"><i class="fas fa-sync-alt"></i> ${lg?'تحديث الآن':'Update Now'}</button>
-      <button onclick="dismissUpdate()" style="padding:6px 10px;border-radius:6px;border:none;background:rgba(255,255,255,.2);color:#fff;cursor:pointer;font-size:12px"><i class="fas fa-times"></i></button>
-    </div>`;
-  document.body.appendChild(banner);
 }
 
 function dismissUpdate() {
@@ -1808,38 +1826,50 @@ function dismissUpdate() {
 
 async function applyUpdate() {
   const lg = lang === 'ar';
-  const progText = document.getElementById('updateProgressText');
-  if (progText) progText.textContent = lg?'جاري التحميل...':'Downloading...';
+  _showUpdateToast(lg ? 'جاري التحديث...' : 'Applying update...');
   try {
-    if (_latestUpdate && _latestUpdate.fileUrl) {
-      const resp = await fetch(_latestUpdate.fileUrl);
-      if (!resp.ok) throw new Error('Download failed');
-      const html = await resp.text();
-      if (html.length < 1000) throw new Error('File too small - invalid');
-      const cache = await caches.open('marts-crm-v3');
-      await cache.put(new Request('./Marts_System_Merged.html'), new Response(html, { headers: { 'Content-Type': 'text/html' } }));
-      if (progText) progText.textContent = lg?'جاري التثبيت...':'Installing...';
-      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-        navigator.serviceWorker.controller.postMessage({ type: 'APPLY_UPDATE' });
-        await new Promise(r => setTimeout(r, 500));
-      }
-      location.reload(true);
-    } else if (_fbStorage) {
-      if (progText) progText.textContent = lg?'جاري التحميل من التخزين...':'Loading from storage...';
-      const ref = _fbStorage.ref('updates/Marts_System_Merged.html');
-      const url = await ref.getDownloadURL();
-      const resp = await fetch(url);
-      const html = await resp.text();
-      if (html.length < 1000) throw new Error('File too small');
-      const cache = await caches.open('marts-crm-v3');
-      await cache.put(new Request('./Marts_System_Merged.html'), new Response(html, { headers: { 'Content-Type': 'text/html' } }));
-      location.reload(true);
+    if (_swRegistration && _swRegistration.waiting) {
+      _swRegistration.waiting.postMessage({ type: 'APPLY_UPDATE' });
+      await new Promise(r => setTimeout(r, 600));
     }
+    if (_fbStorage) {
+      try {
+        const ref = _fbStorage.ref('updates/Marts_System_Merged.html');
+        const url = await ref.getDownloadURL();
+        const resp = await fetch(url);
+        const html = await resp.text();
+        if (html.length > 1000) {
+          const cacheNames = await caches.keys();
+          const cacheName = cacheNames.find(c => c.startsWith('marts-crm-v')) || cacheNames[0];
+          if (cacheName) {
+            const cache = await caches.open(cacheName);
+            await cache.put(new Request('./Marts_System_Merged.html'), new Response(html, { headers: { 'Content-Type': 'text/html' } }));
+          }
+        }
+      } catch(e) { console.warn('[Update] Storage fallback failed:', e); }
+    }
+    location.reload(true);
   } catch(e) {
     console.error('[Update] Apply failed:', e);
-    if (progText) progText.textContent = lg?'فشل التحديث: ':'Update failed: ' + e.message;
+    location.reload(true);
   }
 }
+
+let _pendingSWVersion = null;
+function _onSWUpdateFound(reg) {
+  const installing = reg.installing;
+  if (!installing) return;
+  installing.addEventListener('statechange', function onState() {
+    if (installing.state === 'installed') {
+      installing.removeEventListener('statechange', onState);
+      if (navigator.serviceWorker.controller) {
+        _showUpdateNotification(_pendingSWVersion || '', '', 'sw');
+      }
+    }
+  });
+}
+
+setInterval(checkForUpdates, 5 * 60 * 1000);
 
 const FirebaseSync = {
   _queue: {},
@@ -2992,6 +3022,9 @@ function showApp() {
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.addEventListener('message', e => {
       if (e.data && e.data.type === 'SYNC_NOW') FirebaseSync.flushPending();
+      if (e.data && e.data.type === 'VERSION_INFO') {
+        _pendingSWVersion = e.data.version || '';
+      }
     });
   }
 }
@@ -19626,7 +19659,16 @@ try {
 // PWA - SERVICE WORKER + INSTALL PROMPT
 // ============================================================
 if ('serviceWorker' in navigator) {
-  navigator.serviceWorker.register('sw.js').catch(() => {});
+  navigator.serviceWorker.register('sw.js').then(reg => {
+    _swRegistration = reg;
+    _onSWUpdateFound(reg);
+    reg.addEventListener('updatefound', () => _onSWUpdateFound(reg));
+  }).catch(() => {});
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (document.getElementById('updateBanner')) return;
+    _showUpdateToast(lang==='ar' ? 'تم التحديث! يتم إعادة التحميل...' : 'Updated! Reloading...');
+    setTimeout(() => location.reload(), 800);
+  });
 }
 
 let _deferredPrompt = null;

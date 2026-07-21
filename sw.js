@@ -1,4 +1,4 @@
-const CACHE_NAME = 'marts-crm-v3.7';
+const CACHE_NAME = 'marts-crm-v3.8';
 const ASSETS = [
   './',
   './Marts_System_Merged.html',
@@ -15,7 +15,12 @@ const ASSETS = [
 
 self.addEventListener('install', e => {
   e.waitUntil(
-    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+    caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)).then(() => {
+      self.clients.matchAll().then(clients => {
+        clients.forEach(client => client.postMessage({ type: 'VERSION_INFO', version: CACHE_NAME }));
+      });
+      return self.skipWaiting();
+    })
   );
 });
 
