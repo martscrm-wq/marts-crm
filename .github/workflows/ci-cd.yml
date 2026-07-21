@@ -23,10 +23,126 @@ env:
 
 jobs:
   # ══════════════════════════════════════════════
-  # Stage 1: Lint & Validate
+  # Stage 1: Security Scan (SAST)
+  # ══════════════════════════════════════════════
+  security:
+    name: Security Scan (SAST)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Scan for hardcoded secrets
+        run: |
+          echo "## Security Scan: Hardcoded Secrets" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          FAIL=false
+
+          PATTERNS=(
+            'password\s*[=:]\s*["\x27][^"\x27]+'
+            'api[_-]?key\s*[=:]\s*["\x27][^"\x27]+'
+            'secret\s*[=:]\s*["\x27][^"\x27]+'
+            'token\s*[=:]\s*["\x27][A-Za-z0-9_-]{20,}'
+            'aws_access_key_id\s*[=:]\s*["\x27][A-Z0-9]+'
+            'private[_-]?key\s*[=:]\s*["\x27]'
+            'mongodb(\+srv)?://[^\s]+'
+            'mysql://[^\s]+'
+            'postgres(ql)?://[^\s]+'
+            'BEGIN\s+(RSA\s+)?PRIVATE\s+KEY'
+          )
+
+          for pat in "${PATTERNS[@]}"; do
+            MATCHES=$(grep -inE "$pat" Marts_System_Merged.html sw.js 2>/dev/null || true)
+            if [ -n "$MATCHES" ]; then
+              echo "### Potential secret found:" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "$MATCHES" | head -5 >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "Pattern: \`$pat\`" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+              FAIL=true
+            fi
+          done
+
+          if [ "$FAIL" = "true" ]; then
+            echo "Status: POTENTIAL SECRETS DETECTED" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Review the matches above. If these are false positives, this step will continue." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Status: CLEAN - No hardcoded secrets detected" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Scan for XSS vulnerabilities
+        run: |
+          echo "## Security Scan: XSS Vulnerabilities" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          ISSUES=0
+
+          XSS_PATTERNS=(
+            'document\.write\s*\('
+            'innerHTML\s*='
+            'eval\s*\('
+            'new\s+Function\s*\('
+            'setTimeout\s*\(["\x27]'
+            'setInterval\s*\(["\x27]'
+          )
+
+          for pat in "${XSS_PATTERNS[@]}"; do
+            COUNT=$(grep -cE "$pat" Marts_System_Merged.html 2>/dev/null || echo "0")
+            if [ "$COUNT" -gt 0 ]; then
+              echo "- \`$pat\` — **$COUNT** occurrence(s)" >> $GITHUB_STEP_SUMMARY
+              ISSUES=$((ISSUES + COUNT))
+            fi
+          done
+
+          if [ "$ISSUES" -gt 0 ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Status: $ISSUES potential XSS patterns found (review recommended)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "Status: CLEAN - No XSS patterns detected" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Scan for insecure practices
+        run: |
+          echo "## Security Scan: Insecure Practices" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Check for HTTP (non-HTTPS) URLs
+          HTTP_COUNT=$(grep -oE 'http://[^"\x27 <]+' Marts_System_Merged.html 2>/dev/null | grep -v 'http://localhost' | grep -v '127.0.0.1' | wc -l || echo "0")
+          echo "- HTTP (non-HTTPS) URLs: **$HTTP_COUNT**" >> $GITHUB_STEP_SUMMARY
+
+          # Check for inline event handlers
+          INLINE_COUNT=$(grep -coE 'on(click|load|error|submit|change|mouseover)\s*=' Marts_System_Merged.html 2>/dev/null || echo "0")
+          echo "- Inline event handlers: **$INLINE_COUNT**" >> $GITHUB_STEP_SUMMARY
+
+          # Check Content-Security-Policy in sw.js
+          if grep -q "Content-Security-Policy" sw.js 2>/dev/null; then
+            echo "- CSP in Service Worker: PRESENT" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- CSP in Service Worker: NOT FOUND (recommended)" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Status: Scan complete" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload security report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: ${{ github.workspace }}/.github/workflows/ci-cd.yml
+          retention-days: 30
+
+  # ══════════════════════════════════════════════
+  # Stage 2: Lint & Validate
   # ══════════════════════════════════════════════
   lint:
     name: Lint & Validate
+    needs: security
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -114,7 +230,7 @@ jobs:
           "
 
   # ══════════════════════════════════════════════
-  # Stage 2: Build
+  # Stage 3: Build
   # ══════════════════════════════════════════════
   build:
     name: Build
@@ -153,7 +269,7 @@ jobs:
           retention-days: 7
 
   # ══════════════════════════════════════════════
-  # Stage 3a: Preview Deploy (for PRs)
+  # Stage 4a: Preview Deploy (for PRs)
   # ══════════════════════════════════════════════
   preview-deploy:
     name: Deploy Preview
@@ -192,7 +308,6 @@ jobs:
             --expire 7d \
             2>&1 | tee /tmp/deploy.log
 
-          # Extract the preview URL from output
           PREVIEW_URL=$(grep -oP 'https://[^\s]+\.web\.app' /tmp/deploy.log | tail -1)
           if [ -z "$PREVIEW_URL" ]; then
             echo "Could not extract preview URL, using default pattern"
@@ -211,7 +326,6 @@ jobs:
             const version = '${{ needs.build.outputs.version }}';
             const body = `## Preview Deployment Ready\n\n| | |\n|---|---|\n| **URL** | [${previewUrl}](${previewUrl}) |\n| **Version** | \`${version}\` |\n| **Channel** | pr-${{ github.event.pull_request.number }} |\n| **Expires** | 7 days |\n\n> TestSprite will run automated tests against this preview URL.`;
 
-            // Find and update existing comment or create new one
             const comments = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -237,7 +351,7 @@ jobs:
             }
 
   # ══════════════════════════════════════════════
-  # Stage 4a: TestSprite on PR preview
+  # Stage 5a: TestSprite on PR preview
   # ══════════════════════════════════════════════
   test-pr:
     name: TestSprite (PR)
@@ -255,13 +369,13 @@ jobs:
       - name: Check for TestSprite tests
         id: check-tests
         run: |
-          if [ -d "testsprite_tests" ] && [ "$(ls -A testsprite_tests 2>/dev/null)" ]; then
+          if [ -d "testsprite_tests" ] && [ "$(find testsprite_tests -name '*.spec.*' -o -name '*.test.*' -o -name 'test_*.py' 2>/dev/null)" ]; then
             echo "has_tests=true" >> $GITHUB_OUTPUT
-            echo "Found testsprite_tests/ directory"
-            ls testsprite_tests/
+            echo "Found test files:"
+            find testsprite_tests -name '*.spec.*' -o -name '*.test.*' -o -name 'test_*.py'
           else
             echo "has_tests=false" >> $GITHUB_OUTPUT
-            echo "No testsprite_tests/ found - skipping TestSprite"
+            echo "No real test files found in testsprite_tests/ - skipping"
           fi
 
       - name: Run TestSprite
@@ -272,6 +386,17 @@ jobs:
           base_url: ${{ needs.preview-deploy.outputs.preview-url }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           blocking: 'false'
+
+      - name: Upload TestSprite results
+        if: always() && steps.check-tests.outputs.has_tests == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: testsprite-pr-results
+          path: |
+            testsprite_tests/tmp/
+            testsprite_tests/*.json
+            testsprite_tests/*.xml
+          retention-days: 30
 
       - name: Comment PR with test results
         if: always() && steps.check-tests.outputs.has_tests == 'true'
@@ -308,12 +433,26 @@ jobs:
             }
 
   # ══════════════════════════════════════════════
-  # Stage 3b: Production Deploy (push to master)
+  # Stage 4b: Approval Gate (production only)
+  # ══════════════════════════════════════════════
+  approve:
+    name: Approval Gate
+    needs: build
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://marts-crm-6ca37.web.app
+    steps:
+      - name: Approved
+        run: echo "Production deployment approved for v${{ needs.build.outputs.version }}"
+
+  # ══════════════════════════════════════════════
+  # Stage 5b: Production Deploy
   # ══════════════════════════════════════════════
   deploy:
     name: Deploy to Production
-    needs: build
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    needs: [build, approve]
     runs-on: ubuntu-latest
     outputs:
       production-url: ${{ steps.deploy.outputs.url }}
@@ -376,7 +515,7 @@ jobs:
           echo "- Clients auto-update on next login." >> $GITHUB_STEP_SUMMARY
 
   # ══════════════════════════════════════════════
-  # Stage 4b: TestSprite on production
+  # Stage 6a: TestSprite on production
   # ══════════════════════════════════════════════
   test-production:
     name: TestSprite (Production)
@@ -396,7 +535,7 @@ jobs:
       - name: Check for TestSprite tests
         id: check-tests
         run: |
-          if [ -d "testsprite_tests" ] && [ "$(find testsprite_tests -name '*.spec.*' -o -name '*.test.*' -o -name 'test_*.py' -o -name '*.spec.js' -o -name '*.spec.ts' 2>/dev/null)" ]; then
+          if [ -d "testsprite_tests" ] && [ "$(find testsprite_tests -name '*.spec.*' -o -name '*.test.*' -o -name 'test_*.py' 2>/dev/null)" ]; then
             echo "has_tests=true" >> $GITHUB_OUTPUT
             echo "Found test files:"
             find testsprite_tests -name '*.spec.*' -o -name '*.test.*' -o -name 'test_*.py'
@@ -413,6 +552,17 @@ jobs:
           base_url: https://marts-crm-6ca37.web.app
           github-token: ${{ secrets.GITHUB_TOKEN }}
           blocking: 'false'
+
+      - name: Upload TestSprite results
+        if: always() && steps.check-tests.outputs.has_tests == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: testsprite-production-results
+          path: |
+            testsprite_tests/tmp/
+            testsprite_tests/*.json
+            testsprite_tests/*.xml
+          retention-days: 30
 
       - name: Create issue if tests fail
         if: failure() && steps.check-tests.outputs.has_tests == 'true'
