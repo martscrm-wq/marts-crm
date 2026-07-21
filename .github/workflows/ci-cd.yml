@@ -326,13 +326,15 @@ jobs:
 
       - name: Setup Service Account
         run: |
-          echo '${{ secrets.FIREBASE_SA_KEY }}' > /tmp/sa-key.json
+          echo '${{ secrets.FIREBASE_SA_KEY }}' | python3 -c "import sys,json; json.load(sys.stdin)" > /tmp/sa-key.json
+          echo "SA key written, size: $(wc -c < /tmp/sa-key.json) bytes"
+          echo "SA email: $(python3 -c "import json; print(json.load(open('/tmp/sa-key.json'))['client_email'])")"
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa-key.json" >> $GITHUB_ENV
 
       - name: Deploy to Firebase Hosting
         id: deploy
         run: |
-          firebase deploy --only hosting --project marts-crm-6ca37
+          firebase deploy --only hosting --project marts-crm-6ca37 --debug 2>&1 | tail -50
           echo "url=https://marts-crm-6ca37.web.app" >> $GITHUB_OUTPUT
 
       - name: Update Firestore version doc
