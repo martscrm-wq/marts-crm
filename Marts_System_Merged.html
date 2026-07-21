@@ -3751,7 +3751,25 @@ function saveContractPayment(id) {
 function renderOpsSales(el) {
   const sales = STORAGE.get('sales',[]);
   const employees = STORAGE.get('employees',[]);
+  const totalValue = sales.reduce((s,x)=>s+(x.unitPrice||0),0);
+  const totalComm = sales.reduce((s,x)=>s+((x.unitPrice||0)*(x.commissionRate||0)/100),0);
+  const avgPrice = sales.length?Math.round(totalValue/sales.length):0;
+  const thisMonth = sales.filter(s=>s.date&&s.date.startsWith(today().slice(0,7)));
+  const monthValue = thisMonth.reduce((s,x)=>s+(x.unitPrice||0),0);
+  const projects = [...new Set(sales.map(s=>s.project).filter(Boolean))];
+  const topProjects = projects.map(p=>({name:p,count:sales.filter(s=>s.project===p).length,value:sales.filter(s=>s.project===p).reduce((s,x)=>s+(x.unitPrice||0),0)})).sort((a,b)=>b.count-a.count).slice(0,5);
+  const lg=lang==='ar';
   el.innerHTML = `
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px">
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid var(--primary)"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي المبيعات':'Total Sales'}</div><div style="font-size:22px;font-weight:800;color:var(--primary)">${sales.length}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #27ae60"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي القيمة':'Total Value'}</div><div style="font-size:18px;font-weight:800;color:#27ae60">${fmt(totalValue)}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #6C63FF"><div style="font-size:11px;color:var(--text-light)">${lg?'متوسط السعر':'Avg Price'}</div><div style="font-size:18px;font-weight:800;color:#6C63FF">${fmt(avgPrice)}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #E67E22"><div style="font-size:11px;color:var(--text-light)">${lg?'عمولات الشركة':'Commissions'}</div><div style="font-size:18px;font-weight:800;color:#E67E22">${fmt(totalComm)}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #EC4899"><div style="font-size:11px;color:var(--text-light)">${lg?'مبيعات الشهر':'This Month'}</div><div style="font-size:22px;font-weight:800;color:#EC4899">${thisMonth.length}</div><div style="font-size:11px;color:var(--text-light)">${fmt(monthValue)}</div></div>
+  </div>
+  <div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:10px"><i class="fas fa-trophy"></i> ${lg?'أبرز المشاريع':'Top Projects'}</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${topProjects.length?topProjects.map(p=>`<div style="flex:1;min-width:120px;padding:10px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:16px;font-weight:800;color:var(--primary)">${p.count}</div><div style="font-size:11px;color:var(--text-light)">${p.name}</div><div style="font-size:10px;color:var(--text-light)">${fmt(p.value)}</div></div>`).join(''):`<span style="font-size:12px;color:var(--text-light)">${lg?'لا توجد بيانات':'No data'}</span>`}</div>
+  </div>
   <div class="card"><div class="flex-between mb-16"><h3><i class="fas fa-file-invoice-dollar"></i> ${lang==='ar'?'المبيعات':'Sales'} (${sales.length})</h3>
   <div style="display:flex;gap:8px;flex-wrap:wrap">`;
   if(canEdit()) el.querySelector('.card').innerHTML += `<button class="btn btn-primary btn-sm" onclick="openSaleForm()"><i class="fas fa-plus"></i> ${t('addSale_title')}</button>`;
@@ -3926,6 +3944,7 @@ function openSaleForm(saleId) {
     <div class="form-group"><label>${t('acc_journalBranch')}</label><select id="s_branch">${bOpts}</select></div>
   </div>
   <div id="commPreviewBox" style="background:var(--bg);padding:16px;border-radius:8px;margin-bottom:16px;font-size:13px"></div>
+  <div id="saleValidationErrors" style="display:none;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.25);border-radius:8px;padding:12px 16px;margin-bottom:16px;font-size:12px;color:var(--danger)"></div>
   <div class="modal-actions">
     <button class="btn btn-primary" onclick="saveSale('${saleId||''}')"><i class="fas fa-save"></i> ${t('save')}</button>
     <button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button>
@@ -4066,7 +4085,30 @@ function saveSale(saleId) {
     branchId: document.getElementById('s_branch')?.value||'',
     commRuleHash: getRulesHash()
   };
-  if(!data.client) return;
+  const lg = lang==='ar';
+  const errors = [];
+  if(!data.client) errors.push(lg?'اسم العميل مطلوب':'Client name is required');
+  if(!data.date) errors.push(lg?'تاريخ البيع مطلوب':'Sale date is required');
+  if(!data.project) errors.push(lg?'اسم المشروع مطلوب':'Project name is required');
+  if(!data.unitPrice || data.unitPrice <= 0) errors.push(lg?'سعر الوحدة يجب أن يكون أكبر من صفر':'Unit price must be greater than 0');
+  if(data.unitPrice > 0 && data.unitPrice < 50000) errors.push(lg?'سعر منخفض جداً - تأكد من الصلاحية':'Price too low - please verify');
+  if(data.commissionRate < 0 || data.commissionRate > 100) errors.push(lg?'نسبة العمولة يجب أن تكون بين 0 و 100':'Commission rate must be between 0 and 100');
+  if(data.clientPhone && !/^[\d\s\-\+\(\)]{7,20}$/.test(data.clientPhone)) errors.push(lg?'رقم الهاتف غير صحيح':'Invalid phone number format');
+  if(data.area && data.area > 0 && data.unitPrice && data.unitPrice > 0) {
+    const pricePerM2 = data.unitPrice / data.area;
+    if(pricePerM2 < 1000) errors.push(lg?'السعر لكل م² منخفض جداً - تأكد من البيانات':'Price/m² too low - check data');
+    if(pricePerM2 > 500000) errors.push(lg?'السعر لكل م² مرتفع جداً - تأكد من البيانات':'Price/m² too high - check data');
+  }
+  if(!saleId) {
+    const existing = STORAGE.get('sales',[]).filter(s=>s.client===data.client && s.project===data.project && s.unitNum===data.unitNum && s.unitPrice===data.unitPrice);
+    if(existing.length > 0) errors.push(lg?'هذا العميل مسجل بنفس البيانات مسبقاً - صفقة مكررة':'Duplicate sale detected for same client/project/unit');
+  }
+  if(errors.length > 0) {
+    const errBox = document.getElementById('saleValidationErrors');
+    if(errBox) { errBox.innerHTML = errors.map(e=>'<div style="display:flex;align-items:center;gap:6px;padding:4px 0"><i class="fas fa-exclamation-circle" style="color:var(--danger)"></i> '+e+'</div>').join(''); errBox.style.display='block'; }
+    else { alert(errors.join('\n')); }
+    return;
+  }
   let sales = STORAGE.get('sales',[]);
   if(saleId) {
     sales = sales.map(s=>s.id===saleId?{...s,...data}:s);
