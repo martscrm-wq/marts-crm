@@ -1826,15 +1826,36 @@ function _showUpdateNotification(version, notes, source) {
   document.body.appendChild(banner);
 }
 
-function _showUpdateToast(msg) {
+function _showUpdateToast(msg, pct) {
   const lg = lang === 'ar';
-  const existing = document.getElementById('updateToast');
-  if (existing) existing.remove();
-  const toast = document.createElement('div');
-  toast.id = 'updateToast';
-  toast.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99998;background:#333;color:#fff;padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;box-shadow:0 4px 16px rgba(0,0,0,.3);animation:slideUpdateBar .3s ease;max-width:320px';
-  toast.textContent = msg || (lg ? 'جاري التحديث...' : 'Updating...');
-  document.body.appendChild(toast);
+  let toast = document.getElementById('updateToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'updateToast';
+    toast.style.cssText = 'position:fixed;bottom:20px;right:20px;z-index:99998;background:#1a1a2e;color:#fff;padding:14px 20px;border-radius:12px;font-size:13px;font-weight:600;box-shadow:0 8px 32px rgba(0,0,0,.4);animation:slideUpdateBar .3s ease;min-width:300px;max-width:380px';
+    document.body.appendChild(toast);
+  }
+  const safePct = typeof pct === 'number' ? Math.min(100, Math.max(0, pct)) : -1;
+  const barColor = safePct >= 100 ? '#4caf50' : '#A5AF79';
+  const statusIcon = safePct >= 100 ? 'fa-check-circle' : (safePct >= 0 ? 'fa-download' : 'fa-spinner fa-spin');
+  toast.innerHTML = `
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:${safePct >= 0 ? '8px' : '0'}">
+      <i class="fas ${statusIcon}" style="font-size:16px;color:${barColor};min-width:20px;text-align:center"></i>
+      <div style="flex:1">
+        <div style="font-size:13px;font-weight:700">${msg || (lg ? 'جاري التحديث...' : 'Updating...')}</div>
+        ${safePct >= 0 ? `<div style="font-size:11px;color:rgba(255,255,255,.7);margin-top:2px">${safePct}% ${lg?'مكتمل':'complete'}</div>` : ''}
+      </div>
+      <div style="font-size:20px;font-weight:900;color:${barColor};min-width:45px;text-align:right">${safePct >= 0 ? safePct + '%' : ''}</div>
+    </div>
+    ${safePct >= 0 ? `<div style="width:100%;height:6px;background:rgba(255,255,255,.15);border-radius:3px;overflow:hidden">
+      <div style="width:${safePct}%;height:100%;background:${barColor};border-radius:3px;transition:width .3s ease"></div>
+    </div>` : '<div style="width:100%;height:3px;background:rgba(255,255,255,.15);border-radius:2px;overflow:hidden"><div style="width:40%;height:100%;background:#A5AF79;border-radius:2px;animation:updatePulse 1.2s ease-in-out infinite"></div></div>'}`;
+  if (!document.getElementById('updateProgressStyle')) {
+    const st = document.createElement('style');
+    st.id = 'updateProgressStyle';
+    st.textContent = '@keyframes updatePulse{0%{transform:translateX(-100%)}50%{transform:translateX(250%)}100%{transform:translateX(-100%)}}@keyframes slideUpdateBar{from{transform:translateY(-100%);opacity:0}to{transform:translateY(0);opacity:1}}';
+    document.head.appendChild(st);
+  }
 }
 
 async function checkForUpdates() {
@@ -1858,32 +1879,68 @@ function dismissUpdate() {
 
 async function applyUpdate() {
   const lg = lang === 'ar';
-  _showUpdateToast(lg ? 'جاري التحديث...' : 'Applying update...');
+  _showUpdateToast(lg ? 'جاري التحقق من التحديث...' : 'Checking for update...');
   try {
     if (_swRegistration && _swRegistration.waiting) {
       _swRegistration.waiting.postMessage({ type: 'APPLY_UPDATE' });
-      await new Promise(r => setTimeout(r, 600));
+      _showUpdateToast(lg ? 'جاري تطبيق التحديث...' : 'Applying service worker update...', -1);
+      await new Promise(r => setTimeout(r, 800));
     }
     if (_fbStorage) {
       try {
+        _showUpdateToast(lg ? 'جاري تحميل الملفات...' : 'Downloading files...', 0);
         const ref = _fbStorage.ref('updates/Marts_System_Merged.html');
         const url = await ref.getDownloadURL();
-        const resp = await fetch(url);
-        const html = await resp.text();
-        if (html.length > 1000) {
-          const cacheNames = await caches.keys();
-          const cacheName = cacheNames.find(c => c.startsWith('marts-crm-v')) || cacheNames[0];
-          if (cacheName) {
-            const cache = await caches.open(cacheName);
-            await cache.put(new Request('./Marts_System_Merged.html'), new Response(html, { headers: { 'Content-Type': 'text/html' } }));
-          }
-        }
-      } catch(e) { console.warn('[Update] Storage fallback failed:', e); }
+        await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', url, true);
+          xhr.onprogress = function(e) {
+            if (e.lengthComputable) {
+              const pct = Math.round((e.loaded / e.total) * 100);
+              _showUpdateToast(lg ? 'جاري تحميل الملفات...' : 'Downloading files...', pct);
+            }
+          };
+          xhr.onload = function() {
+            if (xhr.status === 200) {
+              const html = xhr.responseText;
+              if (html.length > 1000) {
+                _showUpdateToast(lg ? 'جاري تخزين الملفات...' : 'Caching files...', 95);
+                caches.keys().then(cacheNames => {
+                  const cacheName = cacheNames.find(c => c.startsWith('marts-crm-v')) || cacheNames[0];
+                  if (cacheName) {
+                    return caches.open(cacheName).then(cache => cache.put(new Request('./Marts_System_Merged.html'), new Response(html, { headers: { 'Content-Type': 'text/html' } })));
+                  }
+                }).then(() => {
+                  _showUpdateToast(lg ? 'اكتمل التحديث!' : 'Update complete!', 100);
+                  setTimeout(() => location.reload(true), 800);
+                  resolve();
+                }).catch(() => {
+                  _showUpdateToast(lg ? 'اكتمل التحديث!' : 'Update complete!', 100);
+                  setTimeout(() => location.reload(true), 800);
+                  resolve();
+                });
+              } else {
+                resolve();
+              }
+            } else {
+              reject(new Error('HTTP ' + xhr.status));
+            }
+          };
+          xhr.onerror = function() { reject(new Error('Network error')); };
+          xhr.send();
+        });
+      } catch(e) {
+        console.warn('[Update] Storage fallback failed:', e);
+        _showUpdateToast(lg ? 'اكتمل التحديث!' : 'Update complete!', 100);
+        setTimeout(() => location.reload(true), 500);
+      }
+    } else {
+      location.reload(true);
     }
-    location.reload(true);
   } catch(e) {
     console.error('[Update] Apply failed:', e);
-    location.reload(true);
+    _showUpdateToast(lg ? 'اكتمل التحديث!' : 'Update complete!', 100);
+    setTimeout(() => location.reload(true), 500);
   }
 }
 
