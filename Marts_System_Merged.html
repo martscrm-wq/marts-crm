@@ -1025,6 +1025,31 @@ select{cursor:pointer;appearance:auto}
 .deals-circ-chart canvas{width:100%!important;height:100%!important}
 .deals-circ-label{font-size:13px;font-weight:700;color:var(--crm-text-primary)}
 .deals-circ-sublabel{font-size:10px;color:var(--crm-text-muted);margin-top:2px}
+.pipeline-board{display:flex;gap:12px;overflow-x:auto;padding:16px 0;min-height:400px;align-items:flex-start}
+.pipeline-column{min-width:260px;max-width:300px;flex:1;background:var(--crm-page-bg);border:1px solid var(--crm-card-border);border-radius:var(--crm-radius);display:flex;flex-direction:column;max-height:calc(100vh - 260px)}
+.pipeline-column-header{padding:12px 14px;border-bottom:2px solid var(--stage-color,var(--crm-card-border));display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:var(--crm-card-bg);border-radius:var(--crm-radius) var(--crm-radius) 0 0;z-index:2}
+.pipeline-col-title{font-size:12px;font-weight:800;color:var(--crm-text-primary);display:flex;align-items:center;gap:8px}
+.pipeline-col-count{width:24px;height:24px;border-radius:50%;background:var(--stage-color,var(--crm-primary));color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800}
+.pipeline-col-value{font-size:10px;color:var(--crm-text-muted);font-weight:600;margin-top:2px}
+.pipeline-cards{flex:1;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:8px;min-height:60px}
+.pipeline-cards.drag-over{background:rgba(107,99,131,.06);border-radius:var(--crm-radius-sm)}
+.pipeline-card{background:var(--crm-card-bg);border:1px solid var(--crm-card-border);border-radius:var(--crm-radius-sm);padding:12px;cursor:grab;transition:all .15s;position:relative}
+.pipeline-card:hover{box-shadow:0 4px 12px rgba(0,0,0,.1);transform:translateY(-1px)}
+.pipeline-card.dragging{opacity:.4;transform:rotate(2deg)}
+.pipeline-card-name{font-size:13px;font-weight:700;color:var(--crm-text-primary);margin-bottom:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pipeline-card-phone{font-size:11px;color:var(--crm-text-muted);margin-bottom:6px;display:flex;align-items:center;gap:4px}
+.pipeline-card-meta{display:flex;align-items:center;justify-content:space-between;font-size:10px}
+.pipeline-card-budget{font-weight:700;color:var(--crm-success)}
+.pipeline-card-agent{color:var(--crm-text-muted);display:flex;align-items:center;gap:4px}
+.pipeline-card-time{font-size:10px;color:var(--crm-text-muted);margin-top:4px}
+.pipeline-card:hover .pipeline-card-actions{opacity:1}
+.pipeline-card-actions{position:absolute;top:8px;left:8px;display:flex;gap:4px;opacity:0;transition:opacity .15s}
+.pipeline-card-action{width:22px;height:22px;border-radius:4px;border:none;background:var(--crm-page-bg);color:var(--crm-text-muted);cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:10px}
+.pipeline-card-action:hover{background:var(--crm-primary);color:#000}
+.pipeline-empty{padding:20px;text-align:center;color:var(--crm-text-muted);font-size:11px}
+.pipeline-toolbar{display:flex;align-items:center;justify-content:space-between;padding:12px 0;gap:12px;flex-wrap:wrap}
+.pipeline-search{padding:8px 14px;border:1px solid var(--crm-card-border);border-radius:var(--crm-radius-sm);font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary);min-width:200px}
+.pipeline-search:focus{outline:none;border-color:var(--crm-primary)}
 
 /* ============================================================
    MARKETING PAGE
@@ -17118,6 +17143,7 @@ function renderCrmDealsView(el){
       <div class="deals-tab-bar">
         <div class="deals-tabs-left">
           <div class="deals-tab active" onclick="dealsShowTab('insights',this)"><i class="fas fa-chart-pie"></i> ${t('deal_insights')}</div>
+          <div class="deals-tab" onclick="dealsShowTab('pipeline',this)"><i class="fas fa-columns"></i> ${lg?'المسار':'Pipeline'}</div>
           <div class="deals-tab" onclick="dealsShowTab('list',this)"><i class="fas fa-list"></i> ${t('deal_list')}</div>
           <div class="deals-tab" onclick="dealsShowTab('feed',this)"><i class="fas fa-rss"></i> ${lg?'سجل الصفقات':'Deal Feed'}</div>
         </div>
@@ -17198,6 +17224,8 @@ function renderCrmDealsView(el){
         </div>
       </div>
       </div><!-- /dealsInsightsPanel -->
+
+      <div id="dealsPipelinePanel" style="display:none"></div>
 
       <div id="dealsListPanel" style="display:none">
       <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0">
@@ -17327,11 +17355,108 @@ function dealsShowTab(tab, btn){
   document.querySelectorAll('.deals-tabs-left .deals-tab').forEach(t=>t.classList.remove('active'));
   btn.classList.add('active');
   const insightsPanel = document.getElementById('dealsInsightsPanel');
+  const pipelinePanel = document.getElementById('dealsPipelinePanel');
   const listPanel = document.getElementById('dealsListPanel');
   const feedPanel = document.getElementById('dealsFeedPanel');
   if(insightsPanel) insightsPanel.style.display = tab === 'insights' ? '' : 'none';
+  if(pipelinePanel) pipelinePanel.style.display = tab === 'pipeline' ? '' : 'none';
   if(listPanel) listPanel.style.display = tab === 'list' ? '' : 'none';
   if(feedPanel) feedPanel.style.display = tab === 'feed' ? '' : 'none';
+  if(tab === 'pipeline') renderDealsPipeline();
+}
+
+let _pipelineSearch='';let _draggedClientId=null;
+const PIPELINE_STAGES=['fresh_leads','follow_up','hot_cases','scheduled_meeting','reservation','done_deal'];
+const PIPELINE_STAGE_COLORS={fresh_leads:'#3B82F6',follow_up:'#F59E0B',hot_cases:'#EF4444',scheduled_meeting:'#8B5CF6',reservation:'#EC4899',done_deal:'#10B981'};
+
+function renderDealsPipeline(){
+  const el=document.getElementById('dealsPipelinePanel');
+  if(!el)return;
+  const lg=lang==='ar';
+  let clients=getVisibleClients().filter(c=>!c.isDeleted);
+  if(_pipelineSearch){const q=_pipelineSearch.toLowerCase();clients=clients.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.phone||'').includes(q)||(c.assignedUser||'').toLowerCase().includes(q));}
+  const totalVal=clients.reduce((s,c)=>s+(parseFloat(c.budget)||0),0);
+  el.innerHTML=`
+  <div class="pipeline-toolbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <input type="text" class="pipeline-search" placeholder="${lg?'بحث بالاسم/هاتف/وكيل...':'Search name/phone/agent...'}" value="${_pipelineSearch}" oninput="_pipelineSearch=this.value;renderDealsPipeline()">
+      <span style="font-size:12px;color:var(--crm-text-muted);font-weight:600">${lg?'الإجمالي:':'Total:'} ${fmt(totalVal)}</span>
+    </div>
+    <div style="display:flex;gap:6px">
+      <button class="deals-chart-btn" onclick="renderCrmDealsView(document.getElementById('crmViewContent'))" title="${lg?'تحديث':'Refresh'}"><i class="fas fa-sync-alt"></i></button>
+    </div>
+  </div>
+  <div class="pipeline-board" id="pipelineBoard">
+    ${PIPELINE_STAGES.map(stage=>{
+      const stageClients=clients.filter(c=>(c.stage||'fresh_leads')===stage);
+      const stageVal=stageClients.reduce((s,c)=>s+(parseFloat(c.budget)||0),0);
+      const color=PIPELINE_STAGE_COLORS[stage]||'#6B7280';
+      return `<div class="pipeline-column" style="--stage-color:${color}" data-stage="${stage}">
+        <div class="pipeline-column-header">
+          <div>
+            <div class="pipeline-col-title"><span class="pipeline-col-count" style="background:${color}">${stageClients.length}</span> ${t('crm_stage_'+stage)}</div>
+            <div class="pipeline-col-value">${fmt(stageVal)}</div>
+          </div>
+        </div>
+        <div class="pipeline-cards" data-stage="${stage}"
+          ondragover="event.preventDefault();this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="pipelineDrop(event,'${stage}');this.classList.remove('drag-over')">
+          ${stageClients.length?stageClients.map(c=>{
+            const age=c.createdAt?Math.round((Date.now()-new Date(c.createdAt).getTime())/86400000):0;
+            const budget=parseFloat(c.budget)||0;
+            return `<div class="pipeline-card" draggable="true" data-id="${c.id}"
+              ondragstart="pipelineDragStart(event,'${c.id}')"
+              ondragend="pipelineDragEnd(event)">
+              <div class="pipeline-card-actions">
+                <button class="pipeline-card-action" onclick="event.stopPropagation();openCrmClientForm('${c.id}')" title="${lg?'عرض':'View'}"><i class="fas fa-eye"></i></button>
+              </div>
+              <div class="pipeline-card-name">${c.name||'-'}</div>
+              <div class="pipeline-card-phone"><i class="fas fa-phone" style="font-size:9px"></i> ${c.phone||'-'}</div>
+              <div class="pipeline-card-meta">
+                <span class="pipeline-card-budget">${budget>0?fmt(budget):''}</span>
+                <span class="pipeline-card-agent"><i class="fas fa-user" style="font-size:9px"></i> ${c.assignedUser||lg?'غير مسند':'Unassigned'}</span>
+              </div>
+              <div class="pipeline-card-time"><i class="far fa-clock" style="font-size:9px"></i> ${age} ${lg?'يوم':'d'} ${c.source?'| '+c.source:''}</div>
+            </div>`;
+          }).join(''):`<div class="pipeline-empty"><i class="fas fa-inbox" style="font-size:24px;display:block;margin-bottom:6px;opacity:.3"></i>${lg?'لا يوجد عملاء':'No clients'}</div>`}
+        </div>
+      </div>`;
+    }).join('')}
+  </div>`;
+}
+
+function pipelineDragStart(e,clientId){
+  _draggedClientId=clientId;
+  e.target.classList.add('dragging');
+  e.dataTransfer.effectAllowed='move';
+  e.dataTransfer.setData('text/plain',clientId);
+}
+function pipelineDragEnd(e){
+  e.target.classList.remove('dragging');
+  _draggedClientId=null;
+  document.querySelectorAll('.pipeline-cards').forEach(c=>c.classList.remove('drag-over'));
+}
+function pipelineDrop(e,newStage){
+  e.preventDefault();
+  const clientId=e.dataTransfer.getData('text/plain')||_draggedClientId;
+  if(!clientId)return;
+  const clients=STORAGE.get('crmClients',[]);
+  const client=clients.find(c=>c.id===clientId);
+  if(!client)return;
+  const oldStage=client.stage||'fresh_leads';
+  if(oldStage===newStage)return;
+  client.stage=newStage;
+  if(newStage==='done_deal'){client.status='converted';client.convertedDate=today();}
+  else if(newStage!=='done_deal'&&client.status==='converted'){client.status='new';}
+  client.lastUpdate=today();
+  STORAGE.set('crmClients',clients);
+  addCrmActivity({type:'stage_changed',clientId:client.id,desc:(lang==='ar'?'تحريك من ':'Moved from ')+t('crm_stage_'+oldStage)+(lang==='ar'?' إلى ':' to ')+t('crm_stage_'+newStage),userName:currentUser.username});
+  renderDealsPipeline();
+  const toast=document.createElement('div');
+  toast.style.cssText='position:fixed;top:24px;left:50%;transform:translateX(-50%);background:var(--crm-success);color:#fff;padding:10px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:10001;box-shadow:0 4px 20px rgba(0,0,0,.2)';
+  toast.innerHTML='<i class="fas fa-check-circle" style="margin-left:6px"></i> '+(lang==='ar'?'تم التحريك إلى ':'Moved to ')+t('crm_stage_'+newStage);
+  document.body.appendChild(toast);setTimeout(()=>toast.remove(),2000);
 }
 
 function dealsApplyFilters(){
