@@ -11560,6 +11560,37 @@ function saveCrmClients(c){ STORAGE.set('crm_clients',c); }
 function getCrmActivities(){ return STORAGE.get('crm_activities',[]); }
 function saveCrmActivities(a){ STORAGE.set('crm_activities',a); }
 
+let _pendingAttachments=[];
+function handleCrmAttachmentSelect(event,clientId){
+  const files=event.target.files;
+  for(let f of files){
+    if(f.size>5*1024*1024){alert(lang==='ar'?'الملف يتجاوز 5MB':'File exceeds 5MB');continue;}
+    const reader=new FileReader();
+    reader.onload=function(e){
+      _pendingAttachments.push({name:f.name,size:(f.size/1024).toFixed(1)+'KB',dataUrl:e.target.result});
+      const list=document.getElementById('crmAttachmentsList');
+      if(list){
+        const idx=_pendingAttachments.length-1;
+        const div=document.createElement('div');
+        div.style.cssText='display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--crm-card-bg);border:1px solid var(--crm-card-border);border-radius:6px;margin-bottom:4px;font-size:12px';
+        div.innerHTML=`<i class="fas fa-file" style="color:var(--primary)"></i><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</span><span style="color:var(--text-light);font-size:10px">${(f.size/1024).toFixed(1)+'KB'}</span>`;
+        list.appendChild(div);
+      }
+    };
+    reader.readAsDataURL(f);
+  }
+}
+function removeCrmAttachment(idx,clientId){
+  if(clientId){
+    const clients=getCrmClients();
+    const c=clients.find(x=>x.id===clientId);
+    if(c&&c.attachments){c.attachments.splice(idx,1);saveCrmClients(clients);}
+  } else {
+    _pendingAttachments.splice(idx,1);
+  }
+  if(clientId) openCrmClientForm(clientId);
+}
+
 function generateTrialEmail(name){
   const slug = name.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]+/g,'').substring(0,12);
   const rand = Math.floor(1000+Math.random()*9000);
@@ -11890,7 +11921,8 @@ function renderCrmEventsView(el){
             <div class="crm-filter-group" style="flex:1;min-width:140px"><select id="evtFilterCreator" onchange="filterEvents()"><option value="">${lg?'المنشئ':'Creator'}</option>${userOpts}</select></div>
             <div class="crm-filter-group" style="flex:1;min-width:140px"><select id="evtFilterAgent" onchange="filterEvents()"><option value="">${lg?'الوكيل':'Agent'}</option>${userOpts}</select></div>
             <div class="crm-filter-group" style="flex:1;min-width:140px"><select id="evtFilterDone" onchange="filterEvents()"><option value="">${lg?'الكل':'All'}</option><option value="done">${lg?'منجز':'Done'}</option><option value="pending">${lg?'قيد التنفيذ':'Pending'}</option></select></div>
-            <div class="crm-filter-group" style="flex:1;min-width:140px"><div class="ws-date-input"><i class="fas fa-calendar-alt"></i><input type="date" id="evtFilterDate" onchange="filterEvents()"></div></div>
+            <div class="crm-filter-group" style="flex:1;min-width:140px"><div class="ws-date-input"><i class="fas fa-calendar-alt"></i><input type="date" id="evtFilterDateFrom" onchange="filterEvents()" placeholder="${lg?'من':'From'}"></div></div>
+            <div class="crm-filter-group" style="flex:1;min-width:140px"><div class="ws-date-input"><i class="fas fa-calendar-alt"></i><input type="date" id="evtFilterDateTo" onchange="filterEvents()" placeholder="${lg?'إلى':'To'}"></div></div>
             <div class="crm-filter-group" style="flex:1;min-width:140px"><select id="evtFilterCity" onchange="filterEvents()"><option value="">${lg?'المدينة':'City'}</option>${cityOpts}</select></div>
             <button class="ws-apply-btn" onclick="applyAndExportEvents()"><i class="fas fa-file-export"></i> ${lg?'تطبيق وتصدير':'Apply & Export'}</button>
             <button class="ws-apply-btn" onclick="resetEventFilters()" style="background:transparent;border:1px solid var(--crm-card-border);color:var(--crm-text-secondary)"><i class="fas fa-undo"></i> ${lg?'إعادة تعيين':'Reset'}</button>
@@ -11921,21 +11953,26 @@ function renderCrmEventsView(el){
 function filterEvents(){
   const creator = document.getElementById('evtFilterCreator')?.value || '';
   const agent = document.getElementById('evtFilterAgent')?.value || '';
-  const dateVal = document.getElementById('evtFilterDate')?.value || '';
+  const dateFrom = document.getElementById('evtFilterDateFrom')?.value || '';
+  const dateTo = document.getElementById('evtFilterDateTo')?.value || '';
   const doneVal = document.getElementById('evtFilterDone')?.value || '';
   const cityVal = document.getElementById('evtFilterCity')?.value || '';
   const items = document.querySelectorAll('#eventsList .crm-activity-item');
   items.forEach(item => {
     let show = true;
     const by = item.dataset?.by || '';
-    const source = item.dataset?.source || '';
     const city = item.dataset?.city || '';
     if(agent && by !== agent) show = false;
     if(creator && by !== creator) show = false;
     if(cityVal && city !== cityVal) show = false;
-    if(dateVal){
-      const itemDate = item.dataset?.date || '';
-      if(itemDate !== new Date(dateVal).toLocaleDateString('ar-EG')) show = false;
+    if(dateFrom || dateTo){
+      const itemDateStr = item.dataset?.date || '';
+      if(itemDateStr){
+        const parts = itemDateStr.split('/');
+        const itemDate = new Date(parseInt(parts[2]), parseInt(parts[1])-1, parseInt(parts[0]));
+        if(dateFrom && itemDate < new Date(dateFrom)) show = false;
+        if(dateTo && itemDate > new Date(dateTo)) show = false;
+      }
     }
     if(doneVal){
       const isDone = item.dataset?.done === 'true';
@@ -11950,7 +11987,8 @@ function resetEventFilters(){
   document.getElementById('evtFilterCreator').value = '';
   document.getElementById('evtFilterAgent').value = '';
   document.getElementById('evtFilterDone').value = '';
-  document.getElementById('evtFilterDate').value = '';
+  document.getElementById('evtFilterDateFrom').value = '';
+  document.getElementById('evtFilterDateTo').value = '';
   document.getElementById('evtFilterCity').value = '';
   document.querySelectorAll('#eventsList .crm-activity-item').forEach(i => i.style.display = '');
 }
@@ -13073,6 +13111,7 @@ function renderCrmWorkspaceView(el){
         <div class="ws-chip" onclick="wsChipFilter(this,'today')"><span>${lang==='ar'?'اليوم':'Today'}</span></div>
         <div class="ws-chip" onclick="wsChipFilter(this,'tomorrow')"><span>${lang==='ar'?'غداً':'Tomorrow'}</span></div>
         <div class="ws-chip" onclick="wsChipFilter(this,'upcoming')"><span>${lang==='ar'?'القادمة':'Upcoming'}</span></div>
+        <div class="ws-chip" onclick="wsChipFilter(this,'completed')"><span>${lang==='ar'?'مكتمل':'Completed'}</span></div>
       </div>
       <div class="ws-header-right">
         <button class="ws-action-btn" onclick="wsMarkAllComplete()" title="${lang==='ar'?'تحديد الكل كمكتمل':'Mark All Complete'}"><i class="fas fa-check-double"></i> ${lang==='ar'?'إكمال الكل':'Complete All'}</button>
@@ -13225,7 +13264,35 @@ function wsChipFilter(el, filter){
   el.parentElement.querySelectorAll('.ws-chip').forEach(c=>c.classList.remove('active'));
   el.classList.add('active');
   const lg = lang==='ar';
-  const labels = {late:lg?'متأخر':'Late', today:lg?'اليوم':'Today', tomorrow:lg?'غداً':'Tomorrow', upcoming:lg?'القادمة':'Upcoming'};
+  const labels = {late:lg?'متأخر':'Late', today:lg?'اليوم':'Today', tomorrow:lg?'غداً':'Tomorrow', upcoming:lg?'القادمة':'Upcoming', completed:lg?'مكتمل':'Completed'};
+  const rows = document.querySelectorAll('.ws-row');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate()+1);
+  const dayAfter = new Date(today); dayAfter.setDate(dayAfter.getDate()+2);
+  let count = 0;
+  rows.forEach(row => {
+    const clientId = row.dataset?.clientId;
+    if(!clientId){ row.style.display = ''; count++; return; }
+    const clients = getCrmClients();
+    const c = clients.find(x=>x.id===clientId);
+    if(!c){ row.style.display = ''; count++; return; }
+    let show = true;
+    if(filter === 'late'){
+      show = c.nextFollowUp && new Date(c.nextFollowUp) < today;
+    } else if(filter === 'today'){
+      show = c.nextFollowUp && new Date(c.nextFollowUp).toDateString() === today.toDateString();
+    } else if(filter === 'tomorrow'){
+      show = c.nextFollowUp && new Date(c.nextFollowUp).toDateString() === tomorrow.toDateString();
+    } else if(filter === 'upcoming'){
+      show = c.nextFollowUp && new Date(c.nextFollowUp) >= dayAfter;
+    } else if(filter === 'completed'){
+      show = c.status === 'converted' || c.status === 'done_deal' || c.stage === 'done_deal';
+    }
+    row.style.display = show ? '' : 'none';
+    if(show) count++;
+  });
+  const label = document.querySelector('.ws-toolbar-left .count');
+  if(label) label.textContent = (lg?'عرض ':'Showing ') + count + (lg?' من ':' of ') + rows.length;
   wsToast(labels[filter] || filter);
 }
 
@@ -14868,6 +14935,11 @@ function openCrmClientForm(clientId){
     <div class="form-group"><label>${t('integ_campaignName')}</label><input type="text" id="crm_campaignName" value="${c?c.campaignName||'':''}" placeholder="${lang==='ar'?'اسم الحملة الإعلانية':'Ad campaign name'}"></div>
   </div>
   <div class="form-group full"><label>${t('crm_clientNotes')}</label><input type="text" id="crm_notes" value="${c?c.notes||'':''}"></div>
+  <div class="form-group full"><label>${lang==='ar'?'المرفقات (مستندات الحجز/الصفقة)':'Attachments (Reservation/Deal Documents)'}</label>
+    <div id="crmAttachmentsList" style="margin-bottom:8px">${(c&&c.attachments)?c.attachments.map((a,i)=>`<div style="display:flex;align-items:center;gap:8px;padding:4px 8px;background:var(--crm-card-bg);border:1px solid var(--crm-card-border);border-radius:6px;margin-bottom:4px;font-size:12px"><i class="fas fa-file" style="color:var(--primary)"></i><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${a.name}</span><span style="color:var(--text-light);font-size:10px">${a.size||''}</span><button type="button" class="btn btn-danger btn-sm" style="padding:1px 4px;font-size:9px" onclick="removeCrmAttachment(${i},'${clientId||''}')"><i class="fas fa-times"></i></button></div>`).join(''):'')}</div>
+    <input type="file" id="crm_attachments" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" onchange="handleCrmAttachmentSelect(event,'${clientId||''}')" style="font-size:12px">
+    <div style="font-size:10px;color:var(--text-light);margin-top:4px">${lang==='ar'?'PDF, صورة, أو مستند Word (حد أقصى 5MB)':'PDF, Image, or Word doc (max 5MB)'}</div>
+  </div>
   <div class="modal-actions">
     <button class="btn btn-primary" onclick="saveCrmClient('${clientId||''}')"><i class="fas fa-save"></i> ${t('save')}</button>
     <button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button>
@@ -14896,7 +14968,8 @@ function saveCrmClient(clientId){
     address:document.getElementById('crm_address').value.trim(),
     nextFollowUp:document.getElementById('crm_nextFollowUp').value,
     notes:document.getElementById('crm_notes').value.trim(),
-    campaignName:document.getElementById('crm_campaignName')?.value?.trim()||''
+    campaignName:document.getElementById('crm_campaignName')?.value?.trim()||'',
+    attachments:_pendingAttachments.length>0?_pendingAttachments:undefined
   };
   if(clientId){
     const idx=clients.findIndex(c=>c.id===clientId);
@@ -14905,6 +14978,37 @@ function saveCrmClient(clientId){
       addCrmActivity(clientId,'updated',t('edit'));
     }
   } else {
+    // Duplicate detection for new leads
+    const dupPhone = data.phone ? clients.find(c=>c.phone && c.phone===data.phone && c.id!==clientId) : null;
+    const dupEmail = data.email ? clients.find(c=>c.email && c.email===data.email && c.id!==clientId) : null;
+    const duplicate = dupPhone || dupEmail;
+    if(duplicate){
+      const lg=lang==='ar';
+      const dupBy = dupPhone ? lg?'الهاتف':'Phone' : lg?'البريد':'Email';
+      const dupVal = dupPhone ? duplicate.phone : duplicate.email;
+      const html=`<h3>${lg?'تم العثور على عميل مكرر':'Duplicate Lead Found'}</h3>
+      <div style="padding:16px;margin:12px 0;background:var(--crm-card-bg);border:1px solid var(--crm-card-border);border-radius:8px">
+        <p style="margin-bottom:8px;font-size:13px">${lg?'يوجد عميل مسجل بنفس ال':'A lead exists with the same '} <strong>${dupBy}</strong>: <strong>${dupVal}</strong></p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;color:var(--crm-text-secondary)">
+          <div><strong>${lg?'الاسم':'Name'}:</strong> ${duplicate.name}</div>
+          <div><strong>${lg?'الهاتف':'Phone'}:</strong> ${duplicate.phone||'-'}</div>
+          <div><strong>${lg?'المرحلة':'Stage'}:</strong> ${t('crm_stage_'+(duplicate.stage||'fresh_leads'))}</div>
+          <div><strong>${lg?'المصدر':'Source'}:</strong> ${getCrmSourceLabel(duplicate.source)}</div>
+        </div>
+      </div>
+      <p style="margin:8px 0;font-size:13px;font-weight:600">${lg?'ما الذي تريد فعله؟':'What would you like to do?'}</p>
+      <div class="modal-actions" style="flex-direction:column;gap:8px">
+        <button class="btn btn-primary" style="width:100%" onclick="saveCrmClientAsNew()"><i class="fas fa-plus-circle"></i> ${lg?'إضافة كعميل جديد':'Add as New Lead'}</button>
+        <button class="btn btn-outline" style="width:100%" onclick="saveCrmClientReassign('${duplicate.id}')"><i class="fas fa-exchange-alt"></i> ${lg?'إعادة التعيين':'Reassign'}</button>
+        <button class="btn btn-outline" style="width:100%" onclick="saveCrmClientMerge('${duplicate.id}')"><i class="fas fa-code-branch"></i> ${lg?'دمج العميلين':'Merge Leads'}</button>
+        <button class="btn btn-outline" style="width:100%" onclick="closeModal()">${lg?'إلغاء':'Cancel'}</button>
+      </div>`;
+      window._pendingCrmData = data;
+      window._duplicateClientId = duplicate.id;
+      document.getElementById('modalContainer').innerHTML=html;
+      document.getElementById('modalContainer').style.width='500px';
+      return;
+    }
     data.id='c_'+Date.now();
     data.date=new Date().toISOString().split('T')[0];
     data.lastContact=new Date().toISOString();
@@ -14921,6 +15025,69 @@ function saveCrmClient(clientId){
     addCrmActivity(data.id,'created',t('crm_addClient'));
   }
   saveCrmClients(clients);
+  _pendingAttachments=[];
+  closeModal();
+  renderCrmStats();
+  switchCrmTab('list',document.querySelector('.crm-tab'));
+}
+
+function saveCrmClientAsNew(){
+  const clients=getCrmClients();
+  const data=window._pendingCrmData;
+  if(!data)return;
+  data.id='c_'+Date.now();
+  data.date=new Date().toISOString().split('T')[0];
+  data.lastContact=new Date().toISOString();
+  if(!data.assignedUser && currentUser){
+    const cu=getUserByUsername(currentUser.username);
+    if(cu && ['sales','tl','sm','marketer','ma','md'].includes(cu.role)){
+      data.assignedUser=currentUser.username;
+    }
+  }
+  if(currentUser) data.assignedBy = currentUser.username;
+  clients.push(data);
+  addCrmActivity(data.id,'created',t('crm_addClient'));
+  saveCrmClients(clients);
+  window._pendingCrmData=null;
+  closeModal();
+  renderCrmStats();
+  switchCrmTab('list',document.querySelector('.crm-tab'));
+}
+
+function saveCrmClientReassign(existingId){
+  const clients=getCrmClients();
+  const data=window._pendingCrmData;
+  if(!data)return;
+  const idx=clients.findIndex(c=>c.id===existingId);
+  if(idx>=0){
+    Object.assign(clients[idx],{phone:data.phone,email:data.email,address:data.address,budget:data.budget,preferredProject:data.preferredProject,preferredUnit:data.preferredUnit,assignedUser:data.assignedUser,assignedTo:data.assignedTo});
+    addCrmActivity(existingId,'updated',lang==='ar'?'إعادة تعيين من عميل مكرر':'Reassigned from duplicate');
+  }
+  saveCrmClients(clients);
+  window._pendingCrmData=null;
+  closeModal();
+  renderCrmStats();
+  switchCrmTab('list',document.querySelector('.crm-tab'));
+}
+
+function saveCrmClientMerge(existingId){
+  const clients=getCrmClients();
+  const data=window._pendingCrmData;
+  if(!data)return;
+  const idx=clients.findIndex(c=>c.id===existingId);
+  if(idx>=0){
+    const c=clients[idx];
+    if(!c.phone && data.phone) c.phone=data.phone;
+    if(!c.email && data.email) c.email=data.email;
+    if(!c.nationalId && data.nationalId) c.nationalId=data.nationalId;
+    if(!c.address && data.address) c.address=data.address;
+    if(!c.budget && data.budget) c.budget=data.budget;
+    if(!c.preferredProject && data.preferredProject) c.preferredProject=data.preferredProject;
+    if(!c.notes && data.notes) c.notes=data.notes;
+    addCrmActivity(existingId,'updated',lang==='ar'?'دمج من عميل مكرر':'Merged from duplicate');
+  }
+  saveCrmClients(clients);
+  window._pendingCrmData=null;
   closeModal();
   renderCrmStats();
   switchCrmTab('list',document.querySelector('.crm-tab'));
@@ -14977,10 +15144,12 @@ function openCrmClientDetail(clientId){
         <div><span style="color:var(--text-light)">${t('crm_clientDate')}:</span> <strong>${c.date||'-'}</strong></div>
         ${c.nextFollowUp?`<div><span style="color:var(--text-light)">${t('crm_clientNextFollowUp')}:</span> <strong>${c.nextFollowUp}</strong> <span class="crm-followup-badge ${followUpClass}">${new Date(c.nextFollowUp)<new Date()?'⚠':'✓'}</span></div>`:''}
         ${c.notes?`<div style="grid-column:1/-1"><span style="color:var(--text-light)">${t('crm_clientNotes')}:</span> <strong>${c.notes}</strong></div>`:''}
+        ${c.attachments&&c.attachments.length?`<div style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:10px;margin-top:6px"><span style="color:var(--text-light)">${lang==='ar'?'المرفقات':'Attachments'}:</span><div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px">${c.attachments.map(a=>`<a href="${a.dataUrl}" download="${a.name}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--primary)10;border:1px solid var(--primary)30;border-radius:6px;font-size:11px;color:var(--primary);text-decoration:none"><i class="fas fa-file"></i>${a.name}<span style="color:var(--text-light);font-size:9px">${a.size||''}</span></a>`).join('')}</div></div>`:''}
         ${c.trialEmail?`<div style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:10px;margin-top:6px"><span style="color:var(--text-light)">${t('crm_trialAccount')}:</span> <span style="color:var(--primary);font-family:monospace">${c.trialEmail}</span></div>`:''}
       </div>
       <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
         ${canEditCrm()?`<button class="btn btn-outline btn-sm" onclick="closeModal();openCrmClientForm('${c.id}')"><i class="fas fa-pen"></i> ${t('edit')}</button>`:''}
+        ${!canEditCrm()?`<button class="btn btn-outline btn-sm" onclick="addCrmDescriptionOnly('${c.id}')"><i class="fas fa-sticky-note"></i> ${lang==='ar'?'إضافة وصف':'Add Description'}</button>`:''}
         ${canEditCrm()?`<button class="btn btn-success btn-sm" onclick="logCrmActivity('${c.id}','call')"><i class="fas fa-phone"></i> ${t('crm_call')}</button>`:''}
         ${canEditCrm()?`<button class="btn btn-primary btn-sm" onclick="logCrmActivity('${c.id}','meeting')"><i class="fas fa-handshake"></i> ${t('crm_meeting')}</button>`:''}
         ${canEditCrm()?`<button class="btn btn-outline btn-sm" onclick="logCrmActivity('${c.id}','email')"><i class="fas fa-envelope"></i> ${t('crm_email')}</button>`:''}
@@ -15023,6 +15192,20 @@ function changeCrmStatus(clientId,newStatus){
   }
   openCrmClientDetail(clientId);
   renderCrmStats();
+}
+
+function addCrmDescriptionOnly(clientId){
+  const desc=prompt(lang==='ar'?'أضف وصف/ملاحظة للعميل:':'Add description/note for this lead:');
+  if(desc===null||!desc.trim())return;
+  addCrmActivity(clientId,'note',(lang==='ar'?'ملاحظة: ':'Note: ')+desc.trim());
+  const clients=getCrmClients();
+  const c=clients.find(x=>x.id===clientId);
+  if(c){
+    c.notes = c.notes ? c.notes+' | '+desc.trim() : desc.trim();
+    c.lastContact=new Date().toISOString();
+    saveCrmClients(clients);
+  }
+  openCrmClientDetail(clientId);
 }
 
 // ============================================================
@@ -16369,6 +16552,7 @@ function renderSettings(el) {
   ${renderSettingsSystemHealth()}
   ${renderSettingsPermissionsAudit()}
   ${renderSettingsActivityLog()}
+  ${renderCrmSettingsSection()}
   `;
 
   renderCompanyProfilesList();
@@ -16501,6 +16685,74 @@ function renderSettingsActivityLog() {
     </div>
   </div>`;
   return h;
+}
+
+function renderCrmSettingsSection(){
+  const lg=lang==='ar';
+  const interests=STORAGE.get('crmInterests',[]);
+  const tags=STORAGE.get('crmTags',[]);
+  return `<div class="card" style="border-left:4px solid #6366F1">
+    <h3><i class="fas fa-cog"></i> ${lg?'إعدادات CRM':'CRM Settings'}</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px">
+      <div>
+        <h4 style="font-size:13px;margin-bottom:10px"><i class="fas fa-heart" style="color:#EC4899"></i> ${lg?'إدارة الاهتمامات':'Manage Interests'}</h4>
+        <div id="crmInterestsList" style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px">
+          ${interests.length?interests.map((t,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">
+            <span>${t}</span>
+            <button class="btn btn-danger btn-sm" style="padding:2px 6px;font-size:10px" onclick="removeCrmInterest(${i})"><i class="fas fa-times"></i></button>
+          </div>`).join(''):`<div style="text-align:center;padding:12px;color:var(--text-light);font-size:12px">${lg?'لا توجد اهتمامات':'No interests'}</div>`}
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <input type="text" id="newCrmInterest" placeholder="${lg?'اهتمام جديد':'New interest'}" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+          <button class="btn btn-primary btn-sm" onclick="addCrmInterest()"><i class="fas fa-plus"></i></button>
+        </div>
+      </div>
+      <div>
+        <h4 style="font-size:13px;margin-bottom:10px"><i class="fas fa-tag" style="color:#8B5CF6"></i> ${lg?'إدارة الوسوم':'Manage Tags'}</h4>
+        <div id="crmTagsList" style="max-height:180px;overflow-y:auto;border:1px solid var(--border);border-radius:8px;padding:8px">
+          ${tags.length?tags.map((t,i)=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--border);font-size:12px">
+            <span style="display:inline-block;padding:2px 8px;background:#8B5CF620;color:#8B5CF6;border-radius:12px;font-size:11px">${t}</span>
+            <button class="btn btn-danger btn-sm" style="padding:2px 6px;font-size:10px" onclick="removeCrmTag(${i})"><i class="fas fa-times"></i></button>
+          </div>`).join(''):`<div style="text-align:center;padding:12px;color:var(--text-light);font-size:12px">${lg?'لا توجد وسوم':'No tags'}</div>`}
+        </div>
+        <div style="display:flex;gap:6px;margin-top:8px">
+          <input type="text" id="newCrmTag" placeholder="${lg?'وسم جديد':'New tag'}" style="flex:1;padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px">
+          <button class="btn btn-primary btn-sm" onclick="addCrmTag()"><i class="fas fa-plus"></i></button>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function addCrmInterest(){
+  const input=document.getElementById('newCrmInterest');
+  if(!input||!input.value.trim())return;
+  const interests=STORAGE.get('crmInterests',[]);
+  interests.push(input.value.trim());
+  STORAGE.set('crmInterests',interests);
+  input.value='';
+  renderSettings(document.getElementById('mainContent'));
+}
+function removeCrmInterest(idx){
+  const interests=STORAGE.get('crmInterests',[]);
+  interests.splice(idx,1);
+  STORAGE.set('crmInterests',interests);
+  renderSettings(document.getElementById('mainContent'));
+}
+function addCrmTag(){
+  const input=document.getElementById('newCrmTag');
+  if(!input||!input.value.trim())return;
+  const tags=STORAGE.get('crmTags',[]);
+  tags.push(input.value.trim());
+  STORAGE.set('crmTags',tags);
+  input.value='';
+  renderSettings(document.getElementById('mainContent'));
+}
+function removeCrmTag(idx){
+  const tags=STORAGE.get('crmTags',[]);
+  tags.splice(idx,1);
+  STORAGE.set('crmTags',tags);
+  renderSettings(document.getElementById('mainContent'));
 }
 
 // ============================================================
