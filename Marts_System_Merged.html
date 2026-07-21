@@ -1169,6 +1169,7 @@ select{cursor:pointer;appearance:auto}
 
 </style>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
 </head>
@@ -1746,16 +1747,17 @@ const FIREBASE_CONFIG = {
 };
 
 let _fbApp = null, _fbDb = null, _fbReady = false;
-let _fbStorage = null;
+let _fbStorage = null, _fbAuth = null;
 try {
   _fbApp = firebase.initializeApp(FIREBASE_CONFIG);
   _fbDb = firebase.firestore();
   _fbStorage = firebase.storage();
+  _fbAuth = firebase.auth();
   _fbDb.enablePersistence({ synchronizeTabs: true }).catch(() => {});
   _fbReady = true;
 } catch(e) { console.warn('Firebase init failed:', e); }
 
-const SYSTEM_VERSION = '2.0.1';
+const SYSTEM_VERSION = '2.1.0';
 let _latestUpdate = null;
 let _swRegistration = null;
 
@@ -2940,7 +2942,7 @@ function initData() {
 // ============================================================
 // AUTH
 // ============================================================
-function doLogin() {
+async function doLogin() {
   try {
     const u = document.getElementById('loginUser').value.trim();
     const p = document.getElementById('loginPass').value;
@@ -2958,13 +2960,19 @@ function doLogin() {
       document.getElementById('loginError').textContent = lang==='ar'?'اسم المستخدم أو كلمة المرور غير صحيحة':'Invalid credentials';
       return;
     }
-    // تأكد من أن المالك لديه جميع الصلاحيات
     if(found.role === 'owner') {
       found.permissions = PERMISSIONS_LIST.map(p => p.id);
     }
     currentUser = {username:found.username,role:found.role,fullName:found.fullName,permissions:found.permissions};
     STORAGE.set('currentUser', currentUser);
     document.getElementById('loginError').textContent = '';
+    if(_fbAuth && found.email) {
+      try {
+        const email = found.email;
+        try { await _fbAuth.createUserWithEmailAndPassword(email, p); }
+        catch(e) { if(e.code !== 'auth/email-already-in-use') { await _fbAuth.signInWithEmailAndPassword(email, p); } }
+      } catch(e) { console.warn('[Auth] Firebase Auth optional login failed:', e); }
+    }
     showApp();
   } catch(e) {
     document.getElementById('loginError').textContent = 'Error: ' + e.message;
@@ -2973,6 +2981,7 @@ function doLogin() {
 function doLogout() {
   currentUser = null;
   safeStorage.remove('currentUser');
+  if(_fbAuth) { _fbAuth.signOut().catch(()=>{}); }
   document.getElementById('app').classList.remove('active');
   document.getElementById('loginPage').style.display = 'flex';
 }
@@ -7387,7 +7396,8 @@ function renderTreasury() {
   filterTreasury();
 }
 
-function filterTreasury() {
+function filterTreasury(page) {
+  page = page || AccPagination.getPage('treasury', 25);
   let entries = STORAGE.get('treasury',[]);
   if(accFilterFranchise) entries = entries.filter(e => e.franchiseId === accFilterFranchise);
   if(accFilterBranch) entries = entries.filter(e => e.branchId === accFilterBranch);
@@ -7395,18 +7405,21 @@ function filterTreasury() {
   const to = document.getElementById('treasuryTo')?.value;
   if(from) entries = entries.filter(e=>e.date>=from);
   if(to) entries = entries.filter(e=>e.date<=to);
+  const total = entries.length;
+  const paged = AccPagination.paginate(entries, page, 25);
   let h = '';
-  if(entries.length===0) { h='<div class="empty-state"><p>'+t('noData')+'</p></div>'; }
+  if(total===0) { h='<div class="empty-state"><p>'+t('noData')+'</p></div>'; }
   else {
     const franchises = STORAGE.get('franchises',[]);
     const branches = STORAGE.get('branches',[]);
-    h='<div class="table-wrap"><table><thead><tr><th>'+t('acc_date')+'</th><th>'+t('acc_type')+'</th><th>'+t('acc_amount')+'</th><th>'+t('acc_journalFranchise')+'</th><th>'+t('acc_journalBranch')+'</th><th>'+t('acc_description')+'</th><th></th></tr></thead><tbody>';
-    entries.forEach(e=>{
+    h='<div class="table-wrap"><table><thead><tr><th>'+t('acc_date')+'</th><th>'+t('acc_type')+'</th><th>'+t('acc_amount')+'</th><th>'+t('acc_journalFranchise')+'</th><th>'+t('acc_journalBranch')+'</th><th>'+t('acc_description')+'</th><th>'+(lang==='ar'?'إجراءات':'Actions')+'</th></tr></thead><tbody>';
+    paged.forEach(e=>{
       const f = franchises.find(fr=>fr.id===e.franchiseId);
       const b = branches.find(br=>br.id===e.branchId);
-      h+=`<tr><td>${fmtDate(e.date)}</td><td><span class="badge ${e.type==='income'?'badge-green':'badge-red'}">${e.type==='income'?t('acc_income'):t('acc_expenseType')}</span></td><td>${fmt(e.amount)}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):(e.franchiseId?t('acc_noFranchise'):'-')}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):(e.branchId?'-':'-')}</td><td>${e.desc}</td><td>${canAccounting()?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteTreasuryEntry(\''+e.id+'\')"><i class="fas fa-trash"></i></button>':''}</td></tr>`;
+      h+=`<tr><td>${fmtDate(e.date)}</td><td><span class="badge ${e.type==='income'?'badge-green':'badge-red'}">${e.type==='income'?t('acc_income'):t('acc_expenseType')}</span></td><td>${fmt(e.amount)}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):(e.franchiseId?t('acc_noFranchise'):'-')}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):(e.branchId?'-':'-')}</td><td>${e.desc}</td><td>${canAccounting()?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editTreasuryEntry(\''+e.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteTreasuryEntry(\''+e.id+'\')"><i class="fas fa-trash"></i></button>':''}</td></tr>`;
     });
     h+='</tbody></table></div>';
+    h += AccPagination.render('treasury', total, page, 25, 'filterTreasury');
   }
   document.getElementById('treasuryTable').innerHTML=h;
 }
@@ -7459,6 +7472,195 @@ function deleteTreasuryEntry(id){
   renderTreasury();
 }
 
+function editTreasuryEntry(id) {
+  const entries = STORAGE.get('treasury',[]);
+  const entry = entries.find(e => e.id === id);
+  if (!entry) return;
+  const franchises = STORAGE.get('franchises',[]);
+  const branches = STORAGE.get('branches',[]);
+  let fOpts = `<option value="">${t('acc_noFranchise')}</option>`;
+  franchises.forEach(f => { fOpts += `<option value="${f.id}" ${entry.franchiseId===f.id?'selected':''}>${lang==='ar'?f.name_ar:f.name_en}</option>`; });
+  let bOpts = `<option value="">-</option>`;
+  branches.forEach(b => { const f = franchises.find(fr=>fr.id===b.franchiseId); bOpts += `<option value="${b.id}" ${entry.branchId===b.id?'selected':''}>${f?(lang==='ar'?f.name_ar:f.name_en)+' - ':''}${lang==='ar'?b.name_ar:b.name_en}</option>`; });
+  document.getElementById('modalContainer').innerHTML=`<h3>${lang==='ar'?'تعديل قيد الخزينة':'Edit Treasury Entry'}</h3>
+  <div class="form-row"><div class="form-group"><label>${t('acc_date')}</label><input type="date" id="t_date" value="${entry.date}"></div>
+  <div class="form-group"><label>${t('acc_type')}</label><select id="t_type"><option value="income" ${entry.type==='income'?'selected':''}>${t('acc_income')}</option><option value="expense" ${entry.type==='expense'?'selected':''}>${t('acc_expenseType')}</option></select></div></div>
+  <div class="form-row"><div class="form-group"><label>${t('acc_amount')}</label><input type="number" id="t_amount" min="0" value="${entry.amount}"></div>
+  <div class="form-group"><label>${t('acc_description')}</label><input type="text" id="t_desc" value="${entry.desc}"></div></div>
+  <div class="form-row"><div class="form-group"><label>${t('acc_journalFranchise')}</label><select id="t_franchise">${fOpts}</select></div>
+  <div class="form-group"><label>${t('acc_journalBranch')}</label><select id="t_branch">${bOpts}</select></div></div>
+  <div class="modal-actions"><button class="btn btn-primary" onclick="updateTreasury('${id}')"><i class="fas fa-save"></i> ${t('save')}</button><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function updateTreasury(id) {
+  const entries = STORAGE.get('treasury',[]);
+  const idx = entries.findIndex(e => e.id === id);
+  if (idx === -1) return;
+  const amt = parseFloat(document.getElementById('t_amount').value)||0;
+  if (amt <= 0) { wsToast(lang==='ar'?'أدخل مبلغ صحيح':'Enter valid amount'); return; }
+  entries[idx] = { ...entries[idx],
+    date: document.getElementById('t_date').value,
+    type: document.getElementById('t_type').value,
+    amount: amt,
+    desc: document.getElementById('t_desc').value.trim(),
+    franchiseId: document.getElementById('t_franchise').value||'',
+    branchId: document.getElementById('t_branch').value||''
+  };
+  STORAGE.set('treasury', entries);
+  closeModal(); renderTreasury();
+  wsToast(lang==='ar'?'تم التحديث':'Updated');
+}
+
+function editExpense(id) {
+  const expenses = STORAGE.get('expenses',[]);
+  const exp = expenses.find(e => e.id === id);
+  if (!exp) return;
+  const franchises = STORAGE.get('franchises',[]);
+  const branches = STORAGE.get('branches',[]);
+  let fOpts = `<option value="">${t('acc_noFranchise')}</option>`;
+  franchises.forEach(f => { fOpts += `<option value="${f.id}" ${exp.franchiseId===f.id?'selected':''}>${lang==='ar'?f.name_ar:f.name_en}</option>`; });
+  let bOpts = `<option value="">-</option>`;
+  branches.forEach(b => { const f = franchises.find(fr=>fr.id===b.franchiseId); bOpts += `<option value="${b.id}" ${exp.branchId===b.id?'selected':''}>${f?(lang==='ar'?f.name_ar:f.name_en)+' - ':''}${lang==='ar'?b.name_ar:b.name_en}</option>`; });
+  document.getElementById('modalContainer').innerHTML=`<h3>${lang==='ar'?'تعديل مصروف':'Edit Expense'}</h3>
+  <div class="form-row"><div class="form-group"><label>${t('acc_category')}</label><input type="text" id="ex_cat" value="${exp.category}"></div>
+  <div class="form-group"><label>${t('acc_amount')}</label><input type="number" id="ex_amount" min="0" value="${exp.amount}"></div></div>
+  <div class="form-row"><div class="form-group"><label>${t('acc_date')}</label><input type="date" id="ex_date" value="${exp.date}"></div>
+  <div class="form-group"><label>${t('acc_description')}</label><input type="text" id="ex_desc" value="${exp.desc}"></div></div>
+  <div class="form-row"><div class="form-group"><label>${t('acc_journalFranchise')}</label><select id="ex_franchise">${fOpts}</select></div>
+  <div class="form-group"><label>${t('acc_journalBranch')}</label><select id="ex_branch">${bOpts}</select></div></div>
+  <div class="modal-actions"><button class="btn btn-primary" onclick="updateExpense('${id}')"><i class="fas fa-save"></i> ${t('save')}</button><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function updateExpense(id) {
+  const expenses = STORAGE.get('expenses',[]);
+  const idx = expenses.findIndex(e => e.id === id);
+  if (idx === -1) return;
+  const amt = parseFloat(document.getElementById('ex_amount').value)||0;
+  if (amt <= 0) { wsToast(lang==='ar'?'أدخل مبلغ صحيح':'Enter valid amount'); return; }
+  expenses[idx] = { ...expenses[idx],
+    category: document.getElementById('ex_cat').value.trim(),
+    amount: amt,
+    date: document.getElementById('ex_date').value,
+    desc: document.getElementById('ex_desc').value.trim(),
+    franchiseId: document.getElementById('ex_franchise').value||'',
+    branchId: document.getElementById('ex_branch').value||''
+  };
+  STORAGE.set('expenses', expenses);
+  closeModal(); renderExpenses();
+  wsToast(lang==='ar'?'تم التحديث':'Updated');
+}
+
+function editSalary(id) {
+  const payments = STORAGE.get('salaries',[]);
+  const sal = payments.find(p => p.id === id);
+  if (!sal) return;
+  const employees = STORAGE.get('employees',[]);
+  const franchises = STORAGE.get('franchises',[]);
+  const branches = STORAGE.get('branches',[]);
+  const opts = employees.map(e=>`<option value="${e.id}" ${sal.empId===e.id?'selected':''}>${e.name}</option>`).join('');
+  let fOpts = `<option value="">${t('acc_noFranchise')}</option>`;
+  franchises.forEach(f => { fOpts += `<option value="${f.id}" ${sal.franchiseId===f.id?'selected':''}>${lang==='ar'?f.name_ar:f.name_en}</option>`; });
+  let bOpts = `<option value="">-</option>`;
+  branches.forEach(b => { const f = franchises.find(fr=>fr.id===b.franchiseId); bOpts += `<option value="${b.id}" ${sal.branchId===b.id?'selected':''}>${f?(lang==='ar'?f.name_ar:f.name_en)+' - ':''}${lang==='ar'?b.name_ar:b.name_en}</option>`; });
+  document.getElementById('modalContainer').innerHTML=`<h3>${lang==='ar'?'تعديل راتب':'Edit Salary Payment'}</h3>
+  <div class="form-row"><div class="form-group"><label>${t('acc_employee')}</label><select id="sal_emp">${opts}</select></div>
+  <div class="form-group"><label>${t('acc_amount')}</label><input type="number" id="sal_amount" min="0" value="${sal.amount}"></div></div>
+  <div class="form-row"><div class="form-group"><label>${t('acc_date')}</label><input type="date" id="sal_date" value="${sal.date}"></div>
+  <div class="form-group"><label>${t('acc_notes')}</label><input type="text" id="sal_notes" value="${sal.notes||''}"></div></div>
+  <div class="form-row"><div class="form-group"><label>${t('acc_journalFranchise')}</label><select id="sal_franchise">${fOpts}</select></div>
+  <div class="form-group"><label>${t('acc_journalBranch')}</label><select id="sal_branch">${bOpts}</select></div></div>
+  <div class="modal-actions"><button class="btn btn-primary" onclick="updateSalary('${id}')"><i class="fas fa-save"></i> ${t('save')}</button><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function updateSalary(id) {
+  const payments = STORAGE.get('salaries',[]);
+  const idx = payments.findIndex(p => p.id === id);
+  if (idx === -1) return;
+  const amt = parseFloat(document.getElementById('sal_amount').value)||0;
+  if (amt <= 0) { wsToast(lang==='ar'?'أدخل مبلغ صحيح':'Enter valid amount'); return; }
+  payments[idx] = { ...payments[idx],
+    empId: document.getElementById('sal_emp').value,
+    amount: amt,
+    date: document.getElementById('sal_date').value,
+    notes: document.getElementById('sal_notes').value.trim(),
+    franchiseId: document.getElementById('sal_franchise')?.value||'',
+    branchId: document.getElementById('sal_branch')?.value||''
+  };
+  STORAGE.set('salaries', payments);
+  closeModal(); renderSalaries();
+  wsToast(lang==='ar'?'تم التحديث':'Updated');
+}
+
+function editPartner(id) {
+  const payments = STORAGE.get('partners',[]);
+  const partner = payments.find(p => p.id === id);
+  if (!partner) return;
+  const franchises = STORAGE.get('franchises',[]);
+  const branches = STORAGE.get('branches',[]);
+  let fOpts = `<option value="">${t('acc_noFranchise')}</option>`;
+  franchises.forEach(f => { fOpts += `<option value="${f.id}" ${partner.franchiseId===f.id?'selected':''}>${lang==='ar'?f.name_ar:f.name_en}</option>`; });
+  let bOpts = `<option value="">-</option>`;
+  branches.forEach(b => { const f = franchises.find(fr=>fr.id===b.franchiseId); bOpts += `<option value="${b.id}" ${partner.branchId===b.id?'selected':''}>${f?(lang==='ar'?f.name_ar:f.name_en)+' - ':''}${lang==='ar'?b.name_ar:b.name_en}</option>`; });
+  document.getElementById('modalContainer').innerHTML=`<h3>${lang==='ar'?'تعديل توزيع شريك':'Edit Partner Distribution'}</h3>
+  <div class="form-row"><div class="form-group"><label>${t('acc_partnerName')}</label><input type="text" id="p_name" value="${partner.name}"></div>
+  <div class="form-group"><label>${t('acc_amount')}</label><input type="number" id="p_amount" min="0" value="${partner.amount}"></div></div>
+  <div class="form-row"><div class="form-group"><label>${t('acc_date')}</label><input type="date" id="p_date" value="${partner.date}"></div>
+  <div class="form-group"><label>${t('acc_notes')}</label><input type="text" id="p_notes" value="${partner.notes||''}"></div></div>
+  <div class="form-row"><div class="form-group"><label>${t('acc_journalFranchise')}</label><select id="p_franchise">${fOpts}</select></div>
+  <div class="form-group"><label>${t('acc_journalBranch')}</label><select id="p_branch">${bOpts}</select></div></div>
+  <div class="modal-actions"><button class="btn btn-primary" onclick="updatePartner('${id}')"><i class="fas fa-save"></i> ${t('save')}</button><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function updatePartner(id) {
+  const payments = STORAGE.get('partners',[]);
+  const idx = payments.findIndex(p => p.id === id);
+  if (idx === -1) return;
+  const amt = parseFloat(document.getElementById('p_amount').value)||0;
+  if (amt <= 0) { wsToast(lang==='ar'?'أدخل مبلغ صحيح':'Enter valid amount'); return; }
+  payments[idx] = { ...payments[idx],
+    name: document.getElementById('p_name').value.trim(),
+    amount: amt,
+    date: document.getElementById('p_date').value,
+    notes: document.getElementById('p_notes').value.trim(),
+    franchiseId: document.getElementById('p_franchise')?.value||'',
+    branchId: document.getElementById('p_branch')?.value||''
+  };
+  STORAGE.set('partners', payments);
+  closeModal(); renderPartners();
+  wsToast(lang==='ar'?'تم التحديث':'Updated');
+}
+
+function deleteExpense(id){
+  const lg = lang==='ar';
+  if(!confirm(lg?'هل أنت متأكد من حذف هذا المصروف؟':'Are you sure you want to delete this expense?')) return;
+  let expenses = STORAGE.get('expenses',[]);
+  expenses = expenses.filter(e => e.id !== id);
+  STORAGE.set('expenses', expenses);
+  renderExpenses();
+}
+
+function deleteSalary(id){
+  const lg = lang==='ar';
+  if(!confirm(lg?'هل أنت متأكد من حذف هذا الراتب؟':'Are you sure you want to delete this salary payment?')) return;
+  let payments = STORAGE.get('salaries',[]);
+  payments = payments.filter(p => p.id !== id);
+  STORAGE.set('salaries', payments);
+  renderSalaries();
+}
+
+function deletePartnerEntry(id){
+  const lg = lang==='ar';
+  if(!confirm(lg?'هل أنت متأكد من حذف هذا التوزيع؟':'Are you sure you want to delete this distribution?')) return;
+  let payments = STORAGE.get('partners',[]);
+  payments = payments.filter(p => p.id !== id);
+  STORAGE.set('partners', payments);
+  renderPartners();
+}
+
 function deleteAllTreasury(){
   const lg = lang==='ar';
   if(!confirm(lg?'هل أنت متأكد من حذف جميع قيود الخزينة؟ هذا لا يمكن التراجع عنه.':'Are you sure you want to delete ALL treasury entries? This cannot be undone.')) return;
@@ -7485,7 +7687,8 @@ function renderSalaries() {
   filterSalaries();
 }
 
-function filterSalaries() {
+function filterSalaries(page) {
+  page = page || AccPagination.getPage('salaries', 25);
   let payments = STORAGE.get('salaries',[]);
   const employees = STORAGE.get('employees',[]);
   const from = document.getElementById('salaryFrom')?.value;
@@ -7494,14 +7697,17 @@ function filterSalaries() {
   if(to) payments = payments.filter(p=>p.date<=to);
   if(accFilterFranchise) payments = payments.filter(p=>p.franchiseId===accFilterFranchise);
   if(accFilterBranch) payments = payments.filter(p=>p.branchId===accFilterBranch);
+  const total = payments.length;
+  const paged = AccPagination.paginate(payments, page, 25);
   let h = '';
-  if(payments.length===0) { h='<div class="empty-state"><p>'+t('noData')+'</p></div>'; }
+  if(total===0) { h='<div class="empty-state"><p>'+t('noData')+'</p></div>'; }
   else {
     const franchises = STORAGE.get('franchises',[]);
     const branches = STORAGE.get('branches',[]);
-    h='<div class="table-wrap"><table><thead><tr><th>'+t('acc_employee')+'</th><th>'+t('acc_amount')+'</th><th>'+t('acc_date')+'</th><th>'+t('acc_notes')+'</th><th>'+t('acc_journalFranchise')+'</th><th>'+t('acc_journalBranch')+'</th></tr></thead><tbody>';
-    payments.forEach(p=>{const emp=employees.find(e=>e.id===p.empId);const f=franchises.find(fr=>fr.id===p.franchiseId);const b=branches.find(br=>br.id===p.branchId);h+=`<tr><td>${emp?emp.name:'-'}</td><td>${fmt(p.amount)}</td><td>${fmtDate(p.date)}</td><td>${p.notes||''}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):'-'}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</td></tr>`;});
+    h='<div class="table-wrap"><table><thead><tr><th>'+t('acc_employee')+'</th><th>'+t('acc_amount')+'</th><th>'+t('acc_date')+'</th><th>'+t('acc_notes')+'</th><th>'+t('acc_journalFranchise')+'</th><th>'+t('acc_journalBranch')+'</th><th>'+(lang==='ar'?'إجراءات':'Actions')+'</th></tr></thead><tbody>';
+    paged.forEach(p=>{const emp=employees.find(e=>e.id===p.empId);const f=franchises.find(fr=>fr.id===p.franchiseId);const b=branches.find(br=>br.id===p.branchId);h+=`<tr><td>${emp?emp.name:'-'}</td><td>${fmt(p.amount)}</td><td>${fmtDate(p.date)}</td><td>${p.notes||''}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):'-'}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</td><td>${canAccounting()?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editSalary(\''+p.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteSalary(\''+p.id+'\')"><i class="fas fa-trash"></i></button>':''}</td></tr>`;});
     h+='</tbody></table></div>';
+    h += AccPagination.render('salaries', total, page, 25, 'filterSalaries');
   }
   document.getElementById('salaryTable').innerHTML=h;
 }
@@ -7567,7 +7773,8 @@ function renderPartners() {
   filterPartners();
 }
 
-function filterPartners() {
+function filterPartners(page) {
+  page = page || AccPagination.getPage('partners', 25);
   let payments = STORAGE.get('partners',[]);
   const from = document.getElementById('partnerFrom')?.value;
   const to = document.getElementById('partnerTo')?.value;
@@ -7575,14 +7782,17 @@ function filterPartners() {
   if(to) payments = payments.filter(p=>p.date<=to);
   if(accFilterFranchise) payments = payments.filter(p=>p.franchiseId===accFilterFranchise);
   if(accFilterBranch) payments = payments.filter(p=>p.branchId===accFilterBranch);
+  const total = payments.length;
+  const paged = AccPagination.paginate(payments, page, 25);
   let h = '';
-  if(payments.length===0) { h='<div class="empty-state"><p>'+t('noData')+'</p></div>'; }
+  if(total===0) { h='<div class="empty-state"><p>'+t('noData')+'</p></div>'; }
   else {
     const franchises = STORAGE.get('franchises',[]);
     const branches = STORAGE.get('branches',[]);
-    h='<div class="table-wrap"><table><thead><tr><th>'+t('acc_partnerName')+'</th><th>'+t('acc_amount')+'</th><th>'+t('acc_date')+'</th><th>'+t('acc_notes')+'</th><th>'+t('acc_journalFranchise')+'</th><th>'+t('acc_journalBranch')+'</th></tr></thead><tbody>';
-    payments.forEach(p=>{const f=franchises.find(fr=>fr.id===p.franchiseId);const b=branches.find(br=>br.id===p.branchId);h+=`<tr><td>${p.name}</td><td>${fmt(p.amount)}</td><td>${fmtDate(p.date)}</td><td>${p.notes||''}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):'-'}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</td></tr>`;});
+    h='<div class="table-wrap"><table><thead><tr><th>'+t('acc_partnerName')+'</th><th>'+t('acc_amount')+'</th><th>'+t('acc_date')+'</th><th>'+t('acc_notes')+'</th><th>'+t('acc_journalFranchise')+'</th><th>'+t('acc_journalBranch')+'</th><th>'+(lang==='ar'?'إجراءات':'Actions')+'</th></tr></thead><tbody>';
+    paged.forEach(p=>{const f=franchises.find(fr=>fr.id===p.franchiseId);const b=branches.find(br=>br.id===p.branchId);h+=`<tr><td>${p.name}</td><td>${fmt(p.amount)}</td><td>${fmtDate(p.date)}</td><td>${p.notes||''}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):'-'}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</td><td>${canAccounting()?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editPartner(\''+p.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deletePartnerEntry(\''+p.id+'\')"><i class="fas fa-trash"></i></button>':''}</td></tr>`;});
     h+='</tbody></table></div>';
+    h += AccPagination.render('partners', total, page, 25, 'filterPartners');
   }
   document.getElementById('partnerTable').innerHTML=h;
 }
@@ -7644,7 +7854,8 @@ function renderExpenses() {
   filterExpenses();
 }
 
-function filterExpenses() {
+function filterExpenses(page) {
+  page = page || AccPagination.getPage('expenses', 25);
   let expenses = STORAGE.get('expenses',[]);
   if(accFilterFranchise) expenses = expenses.filter(e => e.franchiseId === accFilterFranchise);
   if(accFilterBranch) expenses = expenses.filter(e => e.branchId === accFilterBranch);
@@ -7652,18 +7863,21 @@ function filterExpenses() {
   const to = document.getElementById('expenseTo')?.value;
   if(from) expenses = expenses.filter(e=>e.date>=from);
   if(to) expenses = expenses.filter(e=>e.date<=to);
+  const total = expenses.length;
+  const paged = AccPagination.paginate(expenses, page, 25);
   let h = '';
-  if(expenses.length===0) { h='<div class="empty-state"><p>'+t('noData')+'</p></div>'; }
+  if(total===0) { h='<div class="empty-state"><p>'+t('noData')+'</p></div>'; }
   else {
     const franchises = STORAGE.get('franchises',[]);
     const branches = STORAGE.get('branches',[]);
-    h='<div class="table-wrap"><table><thead><tr><th>'+t('acc_category')+'</th><th>'+t('acc_amount')+'</th><th>'+t('acc_date')+'</th><th>'+t('acc_journalFranchise')+'</th><th>'+t('acc_journalBranch')+'</th><th>'+t('acc_description')+'</th></tr></thead><tbody>';
-    expenses.forEach(e=>{
+    h='<div class="table-wrap"><table><thead><tr><th>'+t('acc_category')+'</th><th>'+t('acc_amount')+'</th><th>'+t('acc_date')+'</th><th>'+t('acc_journalFranchise')+'</th><th>'+t('acc_journalBranch')+'</th><th>'+t('acc_description')+'</th><th>'+(lang==='ar'?'إجراءات':'Actions')+'</th></tr></thead><tbody>';
+    paged.forEach(e=>{
       const f = franchises.find(fr=>fr.id===e.franchiseId);
       const b = branches.find(br=>br.id===e.branchId);
-      h+=`<tr><td>${e.category}</td><td>${fmt(e.amount)}</td><td>${fmtDate(e.date)}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):'-'}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</td><td>${e.desc}</td></tr>`;
+      h+=`<tr><td>${e.category}</td><td>${fmt(e.amount)}</td><td>${fmtDate(e.date)}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):'-'}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</td><td>${e.desc}</td><td>${canAccounting()?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editExpense(\''+e.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteExpense(\''+e.id+'\')"><i class="fas fa-trash"></i></button>':''}</td></tr>`;
     });
     h+='</tbody></table></div>';
+    h += AccPagination.render('expenses', total, page, 25, 'filterExpenses');
   }
   document.getElementById('expenseTable').innerHTML=h;
 }
@@ -19654,6 +19868,61 @@ try {
   currentUser = null;
   safeStorage.remove('currentUser');
 }
+
+// ============================================================
+// REUSABLE PAGINATION COMPONENT
+// ============================================================
+const AccPagination = {
+  _state: {},
+
+  render(key, totalItems, currentPage, perPage, onPageChange) {
+    const totalPages = Math.ceil(totalItems / perPage);
+    if (totalPages <= 1) return '';
+    const cp = Math.min(Math.max(1, currentPage), totalPages);
+    this._state[key] = { page: cp, perPage, total: totalItems };
+    const lg = lang === 'ar';
+    const maxVisible = 7;
+    let pages = [];
+    if (totalPages <= maxVisible) {
+      pages = Array.from({length: totalPages}, (_, i) => i + 1);
+    } else {
+      pages = [1];
+      if (cp > 3) pages.push('...');
+      for (let i = Math.max(2, cp - 1); i <= Math.min(totalPages - 1, cp + 1); i++) pages.push(i);
+      if (cp < totalPages - 2) pages.push('...');
+      pages.push(totalPages);
+    }
+    const prev = cp > 1 ? cp - 1 : null;
+    const next = cp < totalPages ? cp + 1 : null;
+    const start = (cp - 1) * perPage + 1;
+    const end = Math.min(cp * perPage, totalItems);
+    let h = `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:12px;padding:8px 0;font-size:12px">`;
+    h += `<span style="color:var(--text-light)">${lg ? 'عرض' : 'Showing'} ${start}-${end} ${lg ? 'من' : 'of'} ${totalItems}</span>`;
+    h += `<div style="display:flex;align-items:center;gap:4px">`;
+    if (prev) h += `<button onclick="${onPageChange}(${prev})" style="padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:#fff;cursor:pointer;font-size:12px"><i class="fas fa-chevron-${lg?'right':'left'}"></i></button>`;
+    pages.forEach(p => {
+      if (p === '...') {
+        h += `<span style="padding:4px 6px;color:var(--text-light)">...</span>`;
+      } else {
+        const active = p === cp;
+        h += `<button onclick="${onPageChange}(${p})" style="padding:4px 10px;border:1px solid ${active?'var(--primary)':'var(--border)'};border-radius:4px;background:${active?'var(--primary)':'#fff'};color:${active?'#fff':'var(--text)'};cursor:pointer;font-weight:${active?'700':'400'};font-size:12px">${p}</button>`;
+      }
+    });
+    if (next) h += `<button onclick="${onPageChange}(${next})" style="padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:#fff;cursor:pointer;font-size:12px"><i class="fas fa-chevron-${lg?'left':'right'}"></i></button>`;
+    h += `</div></div>`;
+    return h;
+  },
+
+  getPage(key, perPage) {
+    const s = this._state[key];
+    return s ? s.page : 1;
+  },
+
+  paginate(items, page, perPage) {
+    const start = (page - 1) * perPage;
+    return items.slice(start, start + perPage);
+  }
+};
 
 // ============================================================
 // PWA - SERVICE WORKER + INSTALL PROMPT

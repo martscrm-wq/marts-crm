@@ -1,4 +1,4 @@
-const CACHE_NAME = 'marts-crm-v3.8';
+const CACHE_NAME = 'marts-crm-v3.9';
 const ASSETS = [
   './',
   './Marts_System_Merged.html',
@@ -9,6 +9,7 @@ const ASSETS = [
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
+  'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js'
 ];
