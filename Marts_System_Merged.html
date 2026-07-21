@@ -13265,7 +13265,7 @@ function renderCrmWorkspaceView(el){
             <button class="ws-row-action-icon" title="${lang==='ar'?'جدولة اجتماع':'Schedule Meeting'}" style="background:#F59E0B;color:#fff;border-radius:6px" onclick="wsScheduleMeeting('${c.id}')"><i class="fas fa-handshake"></i></button>
             <button class="ws-row-action-icon reject" title="${lang==='ar'?'رفض':'Reject'}" onclick="wsRejectClient('${c.id}')"><i class="fas fa-times"></i></button>
             <button class="ws-row-action-icon whatsapp" title="WhatsApp" onclick="wsWhatsAppClient('${c.phone||''}')"><i class="fab fa-whatsapp"></i></button>
-            <button class="ws-row-action-icon add" onclick="openCrmClientForm('${c.id}')"><i class="fas fa-plus"></i></button>
+            <button class="ws-row-action-icon add" title="${lang==='ar'?'تعديل':'Edit'}" onclick="openCrmClientForm('${c.id}')"><i class="fas fa-pen"></i></button>
             <div class="ws-row-action-avatar">${getInitials(c.name)}</div>
           </div>
         </div>
