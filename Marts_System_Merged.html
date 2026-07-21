@@ -1385,7 +1385,8 @@ const NAV_ITEMS = [
   {id:'crm',icon:'fa-address-book',en:'CRM',ar:'إدارة العملاء',perm:'crm_view'},
   {id:'crmAccounts',icon:'fa-user-shield',en:'CRM Accounts',ar:'حسابات CRM',perm:'crm_manage_accounts'},
   {id:'integrations',icon:'fa-plug',en:'Integrations',ar:'ربط المنصات',perm:'integ_view'},
-  {id:'settings',icon:'fa-cog',en:'Settings',ar:'الإعدادات',perm:'settings_view'}
+  {id:'settings',icon:'fa-cog',en:'Settings',ar:'الإعدادات',perm:'settings_view'},
+  {id:'crmSettings',icon:'fa-address-card',en:'CRM Settings',ar:'إعدادات CRM',perm:'crm_view'}
 ];
 
 const AD_PLATFORMS = [
@@ -2046,7 +2047,7 @@ const tr = {
   ar: {
     subtitle:'إدارة العقارات',nav_dashboard:'لوحة التحكم',nav_sales:'العمليات',nav_addSale:'إضافة بيع',
     nav_employees:'الموظفين',nav_orgChart:'الموارد البشرية',    nav_commissions:'العمولات',nav_accounting:'حسابات الشركة',
-    nav_reports:'التقارير',nav_search:'البحث',nav_settings:'الإعدادات',nav_crm:'إدارة العملاء',nav_crmAccounts:'حسابات CRM',
+    nav_reports:'التقارير',nav_search:'البحث',nav_settings:'الإعدادات',nav_crm:'إدارة العملاء',nav_crmAccounts:'حسابات CRM',nav_crmSettings:'إعدادات CRM',
     lang_en:'EN',lang_ar:'AR',save:'حفظ',cancel:'إلغاء',delete:'حذف',edit:'تعديل',
     dash_totalSales:'إجمالي المبيعات',dash_totalCommission:'إجمالي العمولات',dash_activeEmployees:'الموظفين النشطين',
     dash_thisMonth:'هذا الشهر',dash_recentSales:'آخر المبيعات',dash_commissionDue:'عمولات مستحقة',
@@ -2322,7 +2323,7 @@ const tr = {
   en: {
     subtitle:'Real Estate Management',nav_dashboard:'Dashboard',nav_sales:'Operations',nav_addSale:'Add Sale',
     nav_employees:'Employees',nav_orgChart:'HR',    nav_commissions:'Commissions',nav_accounting:'Company Accounts',
-    nav_reports:'Reports',nav_search:'Search',nav_settings:'Settings',nav_crm:'CRM',nav_crmAccounts:'CRM Accounts',
+    nav_reports:'Reports',nav_search:'Search',nav_settings:'Settings',nav_crm:'CRM',nav_crmAccounts:'CRM Accounts',nav_crmSettings:'CRM Settings',
     lang_en:'EN',lang_ar:'AR',save:'Save',cancel:'Cancel',delete:'Delete',edit:'Edit',
     dash_totalSales:'Total Sales',dash_totalCommission:'Total Commission',dash_activeEmployees:'Active Employees',
     dash_thisMonth:'This Month',dash_recentSales:'Recent Sales',dash_commissionDue:'Commission Due',
@@ -3123,7 +3124,7 @@ function renderPage(page) {
   const pages = {
     dashboard: renderDashboard, sales: renderSales, employees: renderEmployees,
     orgChart: renderOrgChart, commissions: renderCommissions, accounting: renderAccounting,
-    reports: renderReports, search: renderSearch, crm: renderCRM, crmAccounts: renderCrmAccounts, integrations: renderIntegrations, settings: renderSettings, marketing: renderMarketing
+    reports: renderReports, search: renderSearch, crm: renderCRM, crmAccounts: renderCrmAccounts, integrations: renderIntegrations, settings: renderSettings, crmSettings: renderCrmSettings, marketing: renderMarketing
   };
   if(pages[page]) pages[page](main);
 }
@@ -16870,7 +16871,6 @@ function renderSettings(el) {
   ${renderSettingsSystemHealth()}
   ${renderSettingsPermissionsAudit()}
   ${renderSettingsActivityLog()}
-  ${renderCrmSettingsSection()}
   `;
 
   renderCompanyProfilesList();
@@ -17079,6 +17079,14 @@ function renderSettingsActivityLog() {
     </div>
   </div>`;
   return h;
+}
+
+function renderCrmSettings(el){
+  el.innerHTML = `
+  <div class="topbar"><h1>${lang==='ar'?'إعدادات CRM':'CRM Settings'}</h1></div>
+  <div style="margin-bottom:16px"><button class="btn btn-outline btn-sm" onclick="showPage('settings')"><i class="fas fa-arrow-right"></i> ${lang==='ar'?'رجوع للإعدادات':'Back to Settings'}</button></div>
+  ${renderCrmSettingsSection()}
+  `;
 }
 
 function renderCrmSettingsSection(){
