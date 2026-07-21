@@ -23,3 +23,6 @@ npm-debug.log*
 # Temporary
 temp/
 tmp/
+
+# Secrets
+sa-key.json
