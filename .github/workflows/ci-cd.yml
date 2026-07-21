@@ -323,12 +323,20 @@ jobs:
 
       - name: Deploy to Firebase Hosting
         id: deploy
-        env:
-          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: |
-          echo "${{ secrets.FIREBASE_SA_KEY }}" > /tmp/sa-key.json
-          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa-key.json
-          firebase deploy --only hosting --project marts-crm-6ca37
+          # Try Service Account auth first, fallback to token
+          if [ -n "${{ secrets.FIREBASE_SA_KEY }}" ]; then
+            echo "Using Service Account auth"
+            echo '${{ secrets.FIREBASE_SA_KEY }}' > /tmp/sa-key.json
+            export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa-key.json
+            firebase deploy --only hosting --project marts-crm-6ca37
+          elif [ -n "${{ secrets.FIREBASE_TOKEN }}" ]; then
+            echo "Using token auth"
+            firebase deploy --only hosting --token "${{ secrets.FIREBASE_TOKEN }}" --project marts-crm-6ca37
+          else
+            echo "ERROR: No FIREBASE_SA_KEY or FIREBASE_TOKEN secret found"
+            exit 1
+          fi
           echo "url=https://marts-crm-6ca37.web.app" >> $GITHUB_OUTPUT
 
       - name: Update Firestore version doc

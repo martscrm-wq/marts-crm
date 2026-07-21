@@ -1,5 +1,8 @@
 {
   "projects": {
     "default": "marts-crm-6ca37"
+  },
+  "hosting": {
+    "marts-crm-6ca37": "marts-crm-6ca37"
   }
 }
