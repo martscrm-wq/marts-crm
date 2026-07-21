@@ -16362,11 +16362,143 @@ function renderSettings(el) {
     </div>
     <p style="font-size:13px;color:var(--text-light);margin:8px 0 16px">${lang==='ar'?'إنشاء وإدارة ملفات شركات متعددة. كل شركة لها بياناتها وإعداداتها الخاصة.':'Create and manage multiple company profiles. Each company has its own data and settings.'}</p>
     <div id="companyProfilesList"></div>
-  </div>`;
+  </div>
+
+  ${renderSettingsSystemHealth()}
+  ${renderSettingsPermissionsAudit()}
+  ${renderSettingsActivityLog()}
+  `;
 
   renderCompanyProfilesList();
   renderUsersTable(users, cu);
 
+}
+
+function renderSettingsSystemHealth() {
+  const lg = lang === 'ar';
+  const sales = STORAGE.get('sales',[]);
+  const employees = STORAGE.get('employees',[]);
+  const crmClients = STORAGE.get('crmClients',[]);
+  const units = STORAGE.get('op_units',[]);
+  const journal = STORAGE.get('journalEntries',[]);
+  const marketingLeads = STORAGE.get('marketingLeads',[]);
+  const marketingCampaigns = STORAGE.get('marketingCampaigns',[]);
+  const users = STORAGE.get('users',defaultUsers);
+  const franchises = STORAGE.get('franchises',[]);
+  const branches = STORAGE.get('branches',[]);
+
+  let storageUsed = 0;
+  try { for(let key in localStorage) { if(localStorage.hasOwnProperty(key) && key.startsWith('marts_')) storageUsed += localStorage.getItem(key).length * 2; } } catch(e) {}
+  const storageMB = (storageUsed / 1048576).toFixed(2);
+  const moduleCounts = [
+    {name:lg?'المبيعات':'Sales',count:sales.length,color:'#27ae60',icon:'fa-file-invoice-dollar'},
+    {name:lg?'العملاء':'CRM',count:crmClients.length,color:'#3B82F6',icon:'fa-users'},
+    {name:lg?'الموظفين':'Employees',count:employees.length,color:'#8B5CF6',icon:'fa-user-tie'},
+    {name:lg?'الوحدات':'Units',count:units.length,color:'#F59E0B',icon:'fa-building'},
+    {name:lg?'القيود':'Journal',count:journal.length,color:'#EC4899',icon:'fa-book'},
+    {name:lg?'العملاء التسويقيين':'Leads',count:marketingLeads.length,color:'#06B6D4',icon:'fa-bullhorn'},
+    {name:lg?'الحملات':'Campaigns',count:marketingCampaigns.length,color:'#EF4444',icon:'fa-ad'},
+    {name:lg?'المستخدمين':'Users',count:users.length,color:'#6366F1',icon:'fa-users-cog'},
+    {name:lg?'الفرع franchises':franchises.length,color:'#10B981',icon:'fa-sitemap'},
+    {name:lg?'الفروع branches':branches.length,color:'#E67E22',icon:'fa-code-branch'}
+  ];
+
+  let h = `<div class="card" style="border-left:4px solid #10B981">
+    <h3><i class="fas fa-heartbeat"></i> ${lg?'صحة النظام':'System Health'}</h3>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin:16px 0">
+      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:8px"><div style="font-size:11px;color:var(--text-light)">${lg?'الإصدار':'Version'}</div><div style="font-weight:800;font-size:16px;color:var(--primary)">v${SYSTEM_VERSION||'2.1.0'}</div></div>
+      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:8px"><div style="font-size:11px;color:var(--text-light)">${lg?'مساحة التخزين':'Storage'}</div><div style="font-weight:800;font-size:16px;color:${parseFloat(storageMB)>50?'#EF4444':'#27ae60'}">${storageMB} MB</div></div>
+      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:8px"><div style="font-size:11px;color:var(--text-light)">${lg?'الاتصال':'Connection'}</div><div style="font-weight:800;font-size:14px;color:#27ae60"><i class="fas fa-wifi"></i> ${lg?'متصل':'Online'}</div></div>
+      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:8px"><div style="font-size:11px;color:var(--text-light)">${lg?'آخر مزامنة':'Last Sync'}</div><div style="font-weight:700;font-size:12px">${new Date().toLocaleTimeString(lg?'ar-EG':'en-US',{hour:'2-digit',minute:'2-digit'})}</div></div>
+    </div>
+    <h4 style="margin:16px 0 10px;font-size:13px"><i class="fas fa-boxes"></i> ${lg?'بيانات الوحدات':'Module Data'}</h4>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px">
+      ${moduleCounts.map(m=>`<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;background:var(--bg);border-radius:8px;border-right:3px solid ${m.color}">
+        <i class="fas ${m.icon}" style="color:${m.color};font-size:14px;width:18px;text-align:center"></i>
+        <div><div style="font-size:11px;color:var(--text-light)">${m.name}</div><div style="font-weight:800;font-size:14px">${m.count}</div></div>
+      </div>`).join('')}
+    </div>
+  </div>`;
+  return h;
+}
+
+function renderSettingsPermissionsAudit() {
+  const lg = lang === 'ar';
+  const users = STORAGE.get('users',defaultUsers);
+  const permModules = ['sales','marketing','accounting','hr','crm','reports','settings','commissions'];
+  const permActions = ['view','edit','delete','export'];
+  const roleCounts = {};
+  users.forEach(u => { roleCounts[u.role]=(roleCounts[u.role]||0)+1; });
+  const roles = Object.keys(roleCounts);
+
+  let h = `<div class="card" style="border-left:4px solid #8B5CF6">
+    <h3><i class="fas fa-shield-alt"></i> ${lg?'مراجعة الصلاحيات':'Permissions Audit'}</h3>
+    <p style="font-size:12px;color:var(--text-light);margin:8px 0 14px">${lg?'توزيع المستخدمين حسب الأدوار':'User distribution by roles'}</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+      ${roles.map(r=>`<div style="display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--bg);border-radius:8px;border:1px solid var(--border)">
+        <div style="width:10px;height:10px;border-radius:50%;background:${hasPermission(r+'_edit')?'#27ae60':'#EF4444'}"></div>
+        <span style="font-weight:700;font-size:12px">${t(r)}</span>
+        <span style="font-size:11px;color:var(--text-light)">×${roleCounts[r]}</span>
+      </div>`).join('')}
+    </div>
+    <h4 style="margin:12px 0 8px;font-size:13px"><i class="fas fa-user-lock"></i> ${lg?'المستخدمون':'Users'}</h4>
+    <div class="table-wrap"><table><thead><tr>
+      <th>${lg?'المستخدم':'User'}</th><th>${lg?'الدور':'Role'}</th><th>${lg?'الصلاحية':'Permissions'}</th><th>${lg?'الحالة':'Status'}</th>
+    </tr></thead><tbody>
+    ${users.map(u => {
+      const canEdit = hasPermission(u.role+'_edit');
+      const canDelete = hasPermission(u.role+'_delete');
+      const perms = [];
+      if(canEdit) perms.push(lg?'تعديل':'edit');
+      if(canDelete) perms.push(lg?'حذف':'delete');
+      if(hasPermission(u.role+'_view')) perms.push(lg?'عرض':'view');
+      if(hasPermission(u.role+'_export')) perms.push(lg?'تصدير':'export');
+      return `<tr>
+        <td><strong>${u.fullName||u.username}</strong></td>
+        <td><span class="badge" style="background:${canEdit?'#27ae6022;color:#27ae60;border:1px solid #27ae6044':'#EF444422;color:#EF4444;border:1px solid #EF444444'}">${t(u.role)}</span></td>
+        <td style="font-size:11px">${perms.length?perms.join(', '):lg?'محدود':'Limited'}</td>
+        <td><span class="badge ${u.status==='active'?'badge-green':'badge-red'}">${u.status==='active'?(lg?'نشط':'Active'):(lg?'غير نشط':'Inactive')}</span></td>
+      </tr>`;
+    }).join('')}
+    </tbody></table></div>
+  </div>`;
+  return h;
+}
+
+function renderSettingsActivityLog() {
+  const lg = lang === 'ar';
+  const logs = STORAGE.get('marketingLogs',[]).slice(-30).reverse();
+  const sales = STORAGE.get('sales',[]);
+  const recentSales = sales.filter(s=>s.date).slice(-5).reverse();
+
+  let h = `<div class="card" style="border-left:4px solid #F59E0B">
+    <h3><i class="fas fa-history"></i> ${lg?'سجل النشاط':'Activity Log'}</h3>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:12px">
+      <div>
+        <h4 style="font-size:12px;margin-bottom:10px;color:var(--text-light)"><i class="fas fa-bullhorn"></i> ${lg?'آخر النشاطات التسويقية':'Recent Marketing Activity'}</h4>
+        <div style="max-height:240px;overflow-y:auto">
+        ${logs.length?logs.slice(0,10).map(l=>{
+          const icons={login:'🔑',lead:'👤',call:'📞',convert:'✅',campaign:'📢',edit:'✏️',delete:'🗑️',assign:'👤'};
+          return `<div style="display:flex;gap:8px;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px">
+            <span style="font-size:14px">${icons[l.type]||'📌'}</span>
+            <div style="flex:1"><strong>${l.userName||'-'}</strong> <span style="color:var(--text-light)">${l.action||''}</span>
+            <div style="font-size:10px;color:var(--text-light)">${l.timestamp?new Date(l.timestamp).toLocaleString(lg?'ar-EG':'en-US'):''}</div></div>
+          </div>`;
+        }).join(''):`<div style="text-align:center;padding:16px;color:var(--text-light);font-size:12px">${lg?'لا توجد نشاطات':'No activity'}</div>`}
+        </div>
+      </div>
+      <div>
+        <h4 style="font-size:12px;margin-bottom:10px;color:var(--text-light)"><i class="fas fa-file-invoice-dollar"></i> ${lg?'آخر المبيعات':'Recent Sales'}</h4>
+        <div style="max-height:240px;overflow-y:auto">
+        ${recentSales.length?recentSales.map(s=>`<div style="display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border);font-size:11px">
+          <div><strong>${s.code||'-'}</strong> - ${s.client||'-'}</div>
+          <div style="font-weight:700;color:#27ae60">${fmt(s.unitPrice)}</div>
+        </div>`).join(''):`<div style="text-align:center;padding:16px;color:var(--text-light);font-size:12px">${lg?'لا توجد مبيعات':'No sales'}</div>`}
+        </div>
+      </div>
+    </div>
+  </div>`;
+  return h;
 }
 
 // ============================================================
