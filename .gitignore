@@ -1,0 +1,25 @@
+# Dependencies
+functions/node_modules/
+node_modules/
+
+# Firebase
+.firebase/
+public/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Temporary
+temp/
+tmp/

@@ -1,0 +1,410 @@
+name: CI/CD - Marts System
+
+on:
+  push:
+    branches: [master, main]
+    paths:
+      - 'Marts_System_Merged.html'
+      - 'sw.js'
+      - 'manifest.json'
+      - 'functions/**'
+      - 'testsprite_tests/**'
+  pull_request:
+    branches: [master, main]
+    paths:
+      - 'Marts_System_Merged.html'
+      - 'sw.js'
+      - 'manifest.json'
+      - 'testsprite_tests/**'
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  # ══════════════════════════════════════════════
+  # Stage 1: Lint & Validate
+  # ══════════════════════════════════════════════
+  lint:
+    name: Lint & Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Validate JavaScript syntax
+        run: |
+          node -e "
+          const fs = require('fs');
+          const html = fs.readFileSync('Marts_System_Merged.html', 'utf8');
+          const scripts = [];
+          let idx = 0;
+          while (true) {
+            const start = html.indexOf('<script', idx);
+            if (start === -1) break;
+            const tagEnd = html.indexOf('>', start);
+            const end = html.indexOf('</script>', tagEnd);
+            if (end === -1) break;
+            scripts.push(html.substring(tagEnd + 1, end));
+            idx = end + 9;
+          }
+          console.log('Found ' + scripts.length + ' script block(s)');
+          let hasError = false;
+          scripts.forEach((code, i) => {
+            if (code.trim().length === 0) return;
+            try {
+              require('vm').compileFunction(code);
+              console.log('  Block ' + i + ': OK (' + code.length + ' chars)');
+            } catch (e) {
+              console.error('  Block ' + i + ': FAIL - ' + e.message);
+              hasError = true;
+            }
+          });
+          if (hasError) { console.error('JavaScript validation FAILED'); process.exit(1); }
+          console.log('All JavaScript blocks validated successfully');
+          "
+
+      - name: Validate HTML structure
+        run: |
+          node -e "
+          const fs = require('fs');
+          const html = fs.readFileSync('Marts_System_Merged.html', 'utf8');
+          const checks = [
+            ['<html', 'Opening html tag'],
+            ['</html>', 'Closing html tag'],
+            ['<body', 'Opening body tag'],
+            ['</body>', 'Closing body tag'],
+            ['<script', 'Script tags'],
+            ['FIREBASE_CONFIG', 'Firebase config'],
+            ['const STORAGE', 'STORAGE object'],
+            ['function doLogin', 'Login function'],
+          ];
+          let fail = false;
+          checks.forEach(([pat, name]) => {
+            const ok = html.includes(pat);
+            console.log('  ' + (ok ? 'PASS' : 'FAIL') + ': ' + name);
+            if (!ok) fail = true;
+          });
+          if (fail) process.exit(1);
+          console.log('HTML validation passed');
+          "
+
+      - name: Extract SYSTEM_VERSION
+        run: |
+          node -e "
+          const fs = require('fs');
+          const html = fs.readFileSync('Marts_System_Merged.html', 'utf8');
+          const m = html.match(/SYSTEM_VERSION\s*=\s*'([^']+)'/);
+          if (!m) { console.error('SYSTEM_VERSION not found!'); process.exit(1); }
+          console.log('SYSTEM_VERSION: ' + m[1]);
+          "
+
+      - name: Validate sw.js
+        if: hashFiles('sw.js') != ''
+        run: |
+          node -e "
+          const fs = require('fs');
+          const sw = fs.readFileSync('sw.js', 'utf8');
+          try { require('vm').compileFunction(sw); console.log('sw.js: OK'); }
+          catch(e) { console.error('sw.js: FAIL - ' + e.message); process.exit(1); }
+          "
+
+  # ══════════════════════════════════════════════
+  # Stage 2: Build
+  # ══════════════════════════════════════════════
+  build:
+    name: Build
+    needs: lint
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Prepare public directory
+        run: |
+          mkdir -p public
+          cp Marts_System_Merged.html public/index.html
+          cp sw.js public/sw.js
+          cp manifest.json public/manifest.json
+          cp icon-192.svg public/icon-192.svg 2>/dev/null || true
+
+      - name: Get version
+        id: version
+        run: |
+          VERSION=$(node -e "
+          const fs = require('fs');
+          const html = fs.readFileSync('public/index.html', 'utf8');
+          const m = html.match(/SYSTEM_VERSION\s*=\s*'([^']+)'/);
+          console.log(m ? m[1] : '0.0.0');
+          ")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: hosting-build
+          path: public/
+          retention-days: 7
+
+  # ══════════════════════════════════════════════
+  # Stage 3a: Preview Deploy (for PRs)
+  # ══════════════════════════════════════════════
+  preview-deploy:
+    name: Deploy Preview
+    needs: build
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      preview-url: ${{ steps.deploy.outputs.preview-url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: hosting-build
+          path: public/
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Deploy to Firebase Preview Channel
+        id: deploy
+        run: |
+          # Deploy to a preview channel (auto-expires in 7 days)
+          CHANNEL="pr-${{ github.event.pull_request.number }}"
+          echo "Deploying to preview channel: $CHANNEL"
+
+          firebase deploy:channel:open \
+            --channel "$CHANNEL" \
+            --expire 7d \
+            --token ${{ secrets.FIREBASE_TOKEN }} \
+            2>&1 | tee /tmp/deploy.log
+
+          # Extract the preview URL from output
+          PREVIEW_URL=$(grep -oP 'https://[^\s]+\.web\.app' /tmp/deploy.log | tail -1)
+          if [ -z "$PREVIEW_URL" ]; then
+            echo "Could not extract preview URL, using default pattern"
+            PREVIEW_URL="https://marts-crm-6ca37--${CHANNEL}.web.app"
+          fi
+
+          echo "Preview URL: $PREVIEW_URL"
+          echo "preview-url=$PREVIEW_URL" >> $GITHUB_OUTPUT
+
+      - name: Comment PR with preview URL
+        if: steps.deploy.outputs.preview-url != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const previewUrl = '${{ steps.deploy.outputs.preview-url }}';
+            const version = '${{ needs.build.outputs.version }}';
+            const body = `## Preview Deployment Ready\n\n| | |\n|---|---|\n| **URL** | [${previewUrl}](${previewUrl}) |\n| **Version** | \`${version}\` |\n| **Channel** | pr-${{ github.event.pull_request.number }} |\n| **Expires** | 7 days |\n\n> TestSprite will run automated tests against this preview URL.`;
+
+            // Find and update existing comment or create new one
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const botComment = comments.data.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Preview Deployment Ready')
+            );
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+  # ══════════════════════════════════════════════
+  # Stage 4a: TestSprite on PR preview
+  # ══════════════════════════════════════════════
+  test-pr:
+    name: TestSprite (PR)
+    needs: [build, preview-deploy]
+    if: >
+      github.event_name == 'pull_request' &&
+      needs.preview-deploy.outputs.preview-url != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for TestSprite tests
+        id: check-tests
+        run: |
+          if [ -d "testsprite_tests" ] && [ "$(ls -A testsprite_tests 2>/dev/null)" ]; then
+            echo "has_tests=true" >> $GITHUB_OUTPUT
+            echo "Found testsprite_tests/ directory"
+            ls testsprite_tests/
+          else
+            echo "has_tests=false" >> $GITHUB_OUTPUT
+            echo "No testsprite_tests/ found - skipping TestSprite"
+          fi
+
+      - name: Run TestSprite
+        if: steps.check-tests.outputs.has_tests == 'true'
+        uses: TestSprite/run-action@v1
+        with:
+          testsprite-api-key: ${{ secrets.TESTSPRITE_API_KEY }}
+          base_url: ${{ needs.preview-deploy.outputs.preview-url }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          blocking: 'false'
+
+      - name: Comment PR with test results
+        if: always() && steps.check-tests.outputs.has_tests == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const passed = '${{ steps.testsprite.outcome }}' === 'success';
+            const emoji = passed ? '✅' : '❌';
+            const previewUrl = '${{ needs.preview-deploy.outputs.preview-url }}';
+            const body = `## ${emoji} TestSprite Results\n\n| Test | Status |\n|------|--------|\n| Automated UI Tests | ${passed ? 'PASSED' : 'FAILED'} |\n| Preview URL | [Open](${previewUrl}) |\n\n${passed ? '> All automated tests passed. Ready to merge.' : '> Tests failed. Check [TestSprite Dashboard](https://app.testsprite.com) for details and video recordings.'}`;
+
+            const comments = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const botComment = comments.data.find(c =>
+              c.user.type === 'Bot' && c.body.includes('TestSprite Results')
+            );
+            if (botComment) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: botComment.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+
+  # ══════════════════════════════════════════════
+  # Stage 3b: Production Deploy (push to master)
+  # ══════════════════════════════════════════════
+  deploy:
+    name: Deploy to Production
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    environment: production
+    outputs:
+      production-url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: hosting-build
+          path: public/
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Deploy to Firebase Hosting
+        id: deploy
+        run: |
+          firebase deploy --only hosting --token ${{ secrets.FIREBASE_TOKEN }}
+          echo "url=https://marts-crm-6ca37.web.app" >> $GITHUB_OUTPUT
+
+      - name: Update Firestore version doc
+        if: success()
+        run: |
+          npm install firebase-admin
+          node -e "
+          const admin = require('firebase-admin');
+          admin.initializeApp({ projectId: 'marts-crm-6ca37' });
+          const db = admin.firestore();
+          const version = '${{ needs.build.outputs.version }}';
+          db.collection('system_config').doc('version').set({
+            version: version,
+            updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+            deployedBy: 'github-actions',
+            commitSha: '${{ github.sha }}',
+            commitMsg: String('${{ github.event.head_commit.message }}').substring(0, 200),
+            hostingUrl: 'https://marts-crm-6ca37.web.app'
+          }, { merge: true }).then(() => {
+            console.log('Firestore updated: version=' + version);
+            process.exit(0);
+          }).catch(e => { console.error(e); process.exit(1); });
+          "
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.FIREBASE_SA_KEY }}
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "## Deployment Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Version:** \`${{ needs.build.outputs.version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL:** https://marts-crm-6ca37.web.app" >> $GITHUB_STEP_SUMMARY
+          echo "- Clients auto-update on next login." >> $GITHUB_STEP_SUMMARY
+
+  # ══════════════════════════════════════════════
+  # Stage 4b: TestSprite on production
+  # ══════════════════════════════════════════════
+  test-production:
+    name: TestSprite (Production)
+    needs: [build, deploy]
+    if: >
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Wait for deploy to propagate
+        run: sleep 30
+
+      - name: Check for TestSprite tests
+        id: check-tests
+        run: |
+          if [ -d "testsprite_tests" ] && [ "$(ls -A testsprite_tests 2>/dev/null)" ]; then
+            echo "has_tests=true" >> $GITHUB_OUTPUT
+          else
+            echo "has_tests=false" >> $GITHUB_OUTPUT
+            echo "No testsprite_tests/ found - skipping"
+          fi
+
+      - name: Run TestSprite against production
+        if: steps.check-tests.outputs.has_tests == 'true'
+        uses: TestSprite/run-action@v1
+        with:
+          testsprite-api-key: ${{ secrets.TESTSPRITE_API_KEY }}
+          base_url: ${{ needs.deploy.outputs.production-url }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          blocking: 'false'
+
+      - name: Create issue if tests fail
+        if: failure() && steps.check-tests.outputs.has_tests == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `TestSprite: Production tests failed for v${{ needs.build.outputs.version }}`,
+              body: `## Test Failure Report\n\n| | |\n|---|---|\n| **Version** | \`${{ needs.build.outputs.version }}\` |\n| **Commit** | \`${{ github.sha }}\` |\n| **URL** | https://marts-crm-6ca37.web.app |\n\nCheck [TestSprite Dashboard](https://app.testsprite.com) for detailed results and video recordings.`,
+              labels: ['bug', 'automated'],
+            });

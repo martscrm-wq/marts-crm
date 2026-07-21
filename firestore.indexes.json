@@ -1,0 +1,11 @@
+{
+  "indexes": [
+    {
+      "collectionGroup": "deployment_log",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "timestamp", "order": "DESCENDING" }
+      ]
+    }
+  ]
+}
