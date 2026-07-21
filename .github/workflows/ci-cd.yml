@@ -391,6 +391,8 @@ jobs:
         run: |
           if [ -d "testsprite_tests" ] && [ "$(ls -A testsprite_tests 2>/dev/null)" ]; then
             echo "has_tests=true" >> $GITHUB_OUTPUT
+            echo "Found testsprite_tests/ directory"
+            ls testsprite_tests/
           else
             echo "has_tests=false" >> $GITHUB_OUTPUT
             echo "No testsprite_tests/ found - skipping"
@@ -401,7 +403,7 @@ jobs:
         uses: TestSprite/run-action@v1
         with:
           testsprite-api-key: ${{ secrets.TESTSPRITE_API_KEY }}
-          base_url: ${{ needs.deploy.outputs.production-url }}
+          base_url: https://marts-crm-6ca37.web.app
           github-token: ${{ secrets.GITHUB_TOKEN }}
           blocking: 'false'
 
