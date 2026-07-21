@@ -498,7 +498,7 @@ jobs:
             updatedAt: new Date(),
             deployedBy: 'github-actions',
             commitSha: '${{ github.sha }}',
-            commitMsg: String('${{ github.event.head_commit.message }}').substring(0, 200),
+            commitMsg: (${{ toJSON(github.event.head_commit.message || '') }}).substring(0, 200),
             hostingUrl: 'https://marts-crm-6ca37.web.app'
           }, { merge: true }).then(() => {
             console.log('Firestore updated: version=' + version);
