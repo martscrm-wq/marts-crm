@@ -7571,18 +7571,20 @@ function renderCommissions(el) {
     ${showRules?`<div class="tab active" onclick="showCommTab('rules')">${t('comm_rules')}</div>`:''}
     <div class="tab${showRules?'':' active'}" onclick="showCommTab('companyDue')">${t('comm_companyDue')}</div>
     <div class="tab" onclick="showCommTab('empPayout')">${t('comm_employeePayout')}</div>
+    <div class="tab" onclick="showCommTab('monthly')"><i class="fas fa-calendar-alt"></i> ${lang==='ar'?'التقرير الشهري':'Monthly Report'}</div>
     <div class="tab" onclick="showCommTab('tester')"><i class="fas fa-flask"></i> ${t('tester_tab')}</div>
   </div>
   <div id="commTab_rules"${showRules?'':' style="display:none"'}></div>
   <div id="commTab_companyDue"${showRules?' style="display:none"':''}></div>
   <div id="commTab_empPayout" style="display:none"></div>
+  <div id="commTab_monthly" style="display:none"></div>
   <div id="commTab_tester" style="display:none"></div>`;
   if(showRules) renderCommRules(); renderCompanyDue(); renderEmpPayouts();
   if(!showRules) showCommTab('companyDue');
 }
 
 function showCommTab(tab) {
-  ['rules','companyDue','empPayout','tester'].forEach(t=>{
+  ['rules','companyDue','empPayout','monthly','tester'].forEach(t=>{
     const el = document.getElementById('commTab_'+t);
     if(el) el.style.display = t===tab?'block':'none';
   });
@@ -7591,6 +7593,89 @@ function showCommTab(tab) {
     t.classList.toggle('active', onclick.includes("'"+tab+"'"));
   });
   if(tab==='tester') renderRuleTester();
+  if(tab==='monthly') renderCommMonthly();
+  if(tab==='companyDue') renderCompanyDue();
+  if(tab==='empPayout') renderEmpPayouts();
+}
+
+function renderCommMonthly() {
+  const container = document.getElementById('commTab_monthly');
+  if(!container) return;
+  const lg = lang==='ar';
+  const sales = STORAGE.get('sales',[]);
+  const employees = STORAGE.get('employees',[]);
+  const contracts = sales.filter(s=>s.bookingType==='contract'&&s.date);
+
+  // Build monthly data for last 6 months
+  const months = [];
+  const now = new Date();
+  for(let i=0;i<6;i++){
+    const d = new Date(now.getFullYear(),now.getMonth()-i,1);
+    months.push({key:d.toISOString().slice(0,7),label:d.toLocaleDateString(lg?'ar-EG':'en-US',{month:'short',year:'numeric'})});
+  }
+
+  const monthlyData = months.map(m => {
+    const mSales = contracts.filter(s=>s.date&&s.date.startsWith(m.key));
+    const totalValue = mSales.reduce((s,x)=>s+(x.unitPrice||0),0);
+    const totalComm = mSales.reduce((s,x)=>s+(x.unitPrice||0)*(x.commissionRate||0)/100,0);
+    const avgRate = mSales.length>0?(mSales.reduce((s,x)=>s+(x.commissionRate||0),0)/mSales.length).toFixed(1):0;
+    return {...m,salesCount:mSales.length,totalValue,totalComm,avgRate};
+  }).reverse();
+
+  const totalAllComm = monthlyData.reduce((s,m)=>s+m.totalComm,0);
+  const totalAllSales = monthlyData.reduce((s,m)=>s+m.totalValue,0);
+  const totalAllCount = monthlyData.reduce((s,m)=>s+m.salesCount,0);
+  const avgMonthly = monthlyData.length>0?Math.round(totalAllComm/monthlyData.length):0;
+
+  // Per-employee monthly breakdown
+  const empMonthly = employees.filter(e=>e.status==='active').map(emp => {
+    const empSales = contracts.filter(s=>s.salesPersonId===emp.id);
+    const empTotalComm = empSales.reduce((s,x)=>s+(x.unitPrice||0)*(x.commissionRate||0)/100,0);
+    const empMonthlyData = months.map(m => {
+      const ms = empSales.filter(s=>s.date&&s.date.startsWith(m.key));
+      return {count:ms.length,value:ms.reduce((s,x)=>s+(x.unitPrice||0),0),comm:ms.reduce((s,x)=>s+(x.unitPrice||0)*(x.commissionRate||0)/100,0)};
+    }).reverse();
+    return {emp,salesCount:empSales.length,totalComm:empTotalComm,monthlyData:empMonthlyData};
+  }).filter(e=>e.salesCount>0).sort((a,b)=>b.totalComm-a.totalComm);
+
+  let h = `<div style="padding:16px 0">`;
+  h += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:20px">
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid var(--primary)"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي 6 أشهر':'6-Month Total'}</div><div style="font-size:20px;font-weight:800;color:var(--primary)">${fmt(totalAllComm)}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #27ae60"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي المبيعات':'Total Sales'}</div><div style="font-size:20px;font-weight:800;color:#27ae60">${fmt(totalAllSales)}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #6C63FF"><div style="font-size:11px;color:var(--text-light)">${lg?'متوسط الشهري':'Monthly Avg'}</div><div style="font-size:20px;font-weight:800;color:#6C63FF">${fmt(avgMonthly)}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #E67E22"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي الصفقات':'Total Deals'}</div><div style="font-size:20px;font-weight:800;color:#E67E22">${totalAllCount}</div></div>
+  </div>`;
+
+  // Monthly trend table
+  h += `<div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:12px"><i class="fas fa-calendar-alt"></i> ${lg?'الاتجاه الشهري':'Monthly Trend'}</h3>
+    <div class="table-wrap"><table><thead><tr>
+    <th>${lg?'الشهر':'Month'}</th><th>${lg?'الصفقات':'Sales'}</th><th>${lg?'القيمة':'Value'}</th><th>${lg?'العمولة':'Commission'}</th><th>${lg?'متوسط العمولة':'Avg Rate'}</th><th>${lg?'الاتجاه':'Trend'}</th>
+    </tr></thead><tbody>`;
+  monthlyData.forEach((m,i) => {
+    const prev = i>0?monthlyData[i-1]:null;
+    const trend = prev&&prev.totalComm>0?Math.round((m.totalComm-prev.totalComm)/prev.totalComm*100):0;
+    const trendIcon = trend>0?'<i class="fas fa-arrow-up" style="color:#27ae60"></i> +'+trend+'%':(trend<0?'<i class="fas fa-arrow-down" style="color:#EF4444"></i> '+trend+'%':'-');
+    h += `<tr><td><strong>${m.label}</strong></td><td style="text-align:center">${m.salesCount}</td><td style="font-weight:700">${fmt(m.totalValue)}</td><td style="font-weight:700;color:#27ae60">${fmt(m.totalComm)}</td><td>${m.avgRate}%</td><td>${trendIcon}</td></tr>`;
+  });
+  h += `</tbody></table></div></div>`;
+
+  // Per-employee commission summary
+  h += `<div class="card"><h3 style="margin-bottom:12px"><i class="fas fa-user-tie"></i> ${lg?'عمولات الموظفين (6 أشهر)':'Employee Commissions (6 months)'}</h3>
+    <div class="table-wrap"><table><thead><tr>
+    <th>${lg?'الموظف':'Employee'}</th><th>${lg?'الدور':'Role'}</th><th>${lg?'الصفقات':'Sales'}</th><th>${lg?'العمولة':'Commission'}</th>`;
+  months.slice().reverse().forEach(m => { h += `<th style="font-size:10px">${m.label}</th>`; });
+  h += `</tr></thead><tbody>`;
+  empMonthly.forEach(ec => {
+    h += `<tr><td><strong>${ec.emp.name}</strong></td><td style="font-size:11px">${getRoleLabel(ec.emp.role)}</td><td style="text-align:center">${ec.salesCount}</td><td style="font-weight:700;color:#27ae60">${fmt(ec.totalComm)}</td>`;
+    ec.monthlyData.forEach(md => {
+      h += `<td style="font-size:11px;text-align:center">${md.count>0?fmt(md.comm):'-'}</td>`;
+    });
+    h += `</tr>`;
+  });
+  h += `</tbody></table></div></div>`;
+
+  h += `</div>`;
+  container.innerHTML = h;
 }
 
 function renderRuleTester() {
@@ -7995,6 +8080,7 @@ function renderCompanyDue() {
   const sales = STORAGE.get('sales',[]);
   const employees = STORAGE.get('employees',[]);
   const container = document.getElementById('commTab_companyDue');
+  const lg = lang==='ar';
 
   // Expiry alerts
   const expiring = sales.filter(s => {
@@ -8021,7 +8107,19 @@ function renderCompanyDue() {
 
   if(contracts.length===0) { container.innerHTML=alertHtml+'<div class="card"><div class="empty-state"><p>'+t('noData')+'</p></div></div>'; return; }
 
-  let h = alertHtml + '<div class="card"><div class="table-wrap"><table><thead><tr><th>'+t('comm_saleCode')+'</th><th>'+t('comm_dueDate')+'</th><th>'+t('comm_client')+'</th><th>'+t('comm_unitType')+'</th><th>'+t('sale_price')+'</th><th>'+t('sale_commissionRate')+'</th><th>'+t('comm_companyAmount')+'</th><th>'+t('comm_resaleTeam')+'</th><th>'+t('comm_daysLeft')+'</th><th>'+t('sale_commissionCondition')+'</th></tr></thead><tbody>';
+  const totalCompanyComm = contracts.reduce((s,c)=>s+c.companyComm,0);
+  const totalResale = contracts.reduce((s,c)=>s+c.resaleTotal,0);
+  const overdue = contracts.filter(s=>s.daysLeft<=0).length;
+  const expiringSoon = contracts.filter(s=>s.daysLeft>0&&s.daysLeft<=2).length;
+
+  let h = alertHtml + `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px">
+    <div class="card" style="padding:12px;text-align:center;border-left:4px solid var(--primary)"><div style="font-size:11px;color:var(--text-light)">${lg?'العمولات المستحقة':'Due Commissions'}</div><div style="font-size:20px;font-weight:800;color:var(--primary)">${fmt(totalCompanyComm)}</div></div>
+    <div class="card" style="padding:12px;text-align:center;border-left:4px solid #B76E79"><div style="font-size:11px;color:var(--text-light)">${lg?'فريق إعادة البيع':'Resale Team'}</div><div style="font-size:20px;font-weight:800;color:#B76E79">${fmt(totalResale)}</div></div>
+    <div class="card" style="padding:12px;text-align:center;border-left:4px solid #EF4444"><div style="font-size:11px;color:var(--text-light)">${lg?'متأخر':'Overdue'}</div><div style="font-size:20px;font-weight:800;color:#EF4444">${overdue}</div></div>
+    <div class="card" style="padding:12px;text-align:center;border-left:4px solid #F59E0B"><div style="font-size:11px;color:var(--text-light)">${lg?'قريب الانتظار':'Expiring Soon'}</div><div style="font-size:20px;font-weight:800;color:#F59E0B">${expiringSoon}</div></div>
+  </div>`;
+
+  h += '<div class="card"><div class="table-wrap"><table><thead><tr><th>'+t('comm_saleCode')+'</th><th>'+t('comm_dueDate')+'</th><th>'+t('comm_client')+'</th><th>'+t('comm_unitType')+'</th><th>'+t('sale_price')+'</th><th>'+t('sale_commissionRate')+'</th><th>'+t('comm_companyAmount')+'</th><th>'+t('comm_resaleTeam')+'</th><th>'+t('comm_daysLeft')+'</th><th>'+t('sale_commissionCondition')+'</th></tr></thead><tbody>';
   contracts.forEach(s => {
     const daysClass = s.daysLeft<=0?'badge-red':(s.daysLeft<=2?'badge-yellow':'badge-green');
     const resaleBadge = s.saleType==='resale' ? `<span style="color:#B76E79;font-weight:700">${fmt(s.resaleTotal)}</span>` : '-';
@@ -8041,6 +8139,7 @@ function renderEmpPayouts() {
   const sales = STORAGE.get('sales',[]);
   const employees = STORAGE.get('employees',[]);
   const container = document.getElementById('commTab_empPayout');
+  const lg = lang==='ar';
 
   const contracts = sales.filter(s=>s.bookingType==='contract');
   const millions = (price) => price / 1000000;
@@ -8118,13 +8217,23 @@ function renderEmpPayouts() {
 
   if(Object.keys(empCommissions).length===0) { container.innerHTML='<div class="card"><div class="empty-state"><p>'+t('noData')+'</p></div></div>'; return; }
 
-  let h = `<div class="card"><h3>${t('comm_payoutSchedule')}: <span class="badge badge-blue">${t('comm_payoutDay')} ${payoutDay} / 1</span> | ${t('sale_expiry')}: <b>${fmtDate(nextPayout)}</b></h3>`;
-  h+='<div class="table-wrap"><table><thead><tr><th>'+t('comm_empName')+'</th><th>'+t('comm_empRole')+'</th><th>'+t('comm_amount')+'</th><th>'+t('sale_commissionCondition')+'</th></tr></thead><tbody>';
+  const totalEmpComm = Object.values(empCommissions).reduce((s,e)=>s+e.total,0);
+  const empCount = Object.keys(empCommissions).length;
+
+  let h = `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px">
+    <div class="card" style="padding:12px;text-align:center;border-left:4px solid var(--primary)"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي المستحق':'Total Due'}</div><div style="font-size:20px;font-weight:800;color:var(--primary)">${fmt(totalEmpComm)}</div></div>
+    <div class="card" style="padding:12px;text-align:center;border-left:4px solid #6C63FF"><div style="font-size:11px;color:var(--text-light)">${lg?'عدد الموظفين':'Employees'}</div><div style="font-size:20px;font-weight:800;color:#6C63FF">${empCount}</div></div>
+    <div class="card" style="padding:12px;text-align:center;border-left:4px solid #E67E22"><div style="font-size:11px;color:var(--text-light)">${lg?'متوسط المستحق':'Avg Due'}</div><div style="font-size:20px;font-weight:800;color:#E67E22">${fmt(Math.round(totalEmpComm/empCount))}</div></div>
+  </div>`;
+
+  h += `<div class="card"><h3>${t('comm_payoutSchedule')}: <span class="badge badge-blue">${t('comm_payoutDay')} ${payoutDay} / 1</span> | ${t('sale_expiry')}: <b>${fmtDate(nextPayout)}</b></h3>`;
+  h+='<div class="table-wrap"><table><thead><tr><th>'+t('comm_empName')+'</th><th>'+t('comm_empRole')+'</th><th>'+t('comm_amount')+'</th><th>'+lg?'التفاصيل':'Details'+'</th><th>'+t('sale_commissionCondition')+'</th></tr></thead><tbody>';
   Object.keys(empCommissions).sort((a,b)=>empCommissions[b].total-empCommissions[a].total).forEach(empId => {
     const emp = employees.find(e=>e.id===empId);
     if(!emp) return;
     const data = empCommissions[empId];
-    h+=`<tr><td><strong>${emp.name}</strong></td><td>${getRoleLabel(emp.role)}</td><td><strong>${fmt(data.total)}</strong></td><td><span class="badge badge-green">${t('comm_pending')}</span></td></tr>`;
+    const detailCount = data.details.length;
+    h+=`<tr><td><strong>${emp.name}</strong></td><td>${getRoleLabel(emp.role)}</td><td><strong>${fmt(data.total)}</strong></td><td style="font-size:11px;color:var(--text-light)">${detailCount} ${lg?'صفقة':'sales'}</td><td><span class="badge badge-green">${t('comm_pending')}</span></td></tr>`;
   });
   h+='</tbody></table></div></div>';
   container.innerHTML=h;
