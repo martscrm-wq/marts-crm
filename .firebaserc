@@ -2,7 +2,13 @@
   "projects": {
     "default": "marts-crm-6ca37"
   },
-  "hosting": {
-    "marts-crm-6ca37": "marts-crm-6ca37"
+  "targets": {
+    "marts-crm-6ca37": {
+      "hosting": {
+        "marts-crm-6ca37": {
+          "site": "marts-crm-6ca37"
+        }
+      }
+    }
   }
 }

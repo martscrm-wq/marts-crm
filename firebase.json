@@ -1,6 +1,6 @@
 {
   "hosting": {
-    "site": "marts-crm-6ca37",
+    "target": "marts-crm-6ca37",
     "public": "public",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
@@ -26,10 +26,5 @@
         ]
       }
     ]
-  },
-  "functions": {
-    "source": "functions",
-    "runtime": "nodejs18",
-    "predeploy": []
   }
 }
