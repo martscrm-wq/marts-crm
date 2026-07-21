@@ -323,8 +323,12 @@ jobs:
 
       - name: Deploy to Firebase Hosting
         id: deploy
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
         run: |
-          firebase deploy --only hosting --token ${{ secrets.FIREBASE_TOKEN }}
+          echo "${{ secrets.FIREBASE_SA_KEY }}" > /tmp/sa-key.json
+          export GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa-key.json
+          firebase deploy --only hosting --project marts-crm-6ca37
           echo "url=https://marts-crm-6ca37.web.app" >> $GITHUB_OUTPUT
 
       - name: Update Firestore version doc
