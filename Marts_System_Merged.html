@@ -9572,21 +9572,24 @@ function renderFinancials() {
     <div class="tab active" onclick="showFinTab('trialBalance')">${t('acc_trialBalance')}</div>
     <div class="tab" onclick="showFinTab('incomeStatement')">${t('acc_incomeStatement')}</div>
     <div class="tab" onclick="showFinTab('balanceSheet')">${t('acc_balanceSheet')}</div>
+    <div class="tab" onclick="showFinTab('equityChanges')">${lang==='ar'?'قائمة حقوق الملكية':'Equity Changes'}</div>
   </div>
   <div id="finTab_trialBalance"></div>
   <div id="finTab_incomeStatement" style="display:none"></div>
   <div id="finTab_balanceSheet" style="display:none"></div>
+  <div id="finTab_equityChanges" style="display:none"></div>
   </div>`;
   document.getElementById('accTab_financials').innerHTML = h;
-  renderTrialBalance(); renderIncomeStatement(); renderBalanceSheet();
+  renderTrialBalance(); renderIncomeStatement(); renderBalanceSheet(); renderEquityChanges();
 }
 
 function showFinTab(tab) {
-  ['trialBalance','incomeStatement','balanceSheet'].forEach(t => {
+  const tabs = ['trialBalance','incomeStatement','balanceSheet','equityChanges'];
+  tabs.forEach(t => {
     const el = document.getElementById('finTab_'+t);
     if(el) el.style.display = t===tab?'block':'none';
   });
-  document.querySelectorAll('#finTabBar .tab').forEach((el,i) => el.classList.toggle('active',['trialBalance','incomeStatement','balanceSheet'][i]===tab));
+  document.querySelectorAll('#finTabBar .tab').forEach((el,i) => el.classList.toggle('active',tabs[i]===tab));
 }
 
 function getAccountBalances() {
@@ -9736,6 +9739,75 @@ function renderBalanceSheet() {
   document.getElementById('finTab_balanceSheet').innerHTML = h;
 }
 
+function renderEquityChanges() {
+  const lg = lang === 'ar';
+  const balances = getAccountBalances();
+  const coa = STORAGE.get('chartOfAccounts', []);
+  const entries = getFilteredJournalEntries();
+  const eqCodes = coa.filter(a => a.type === 'equity').map(a => a.code);
+  let prevBalances = {};
+  eqCodes.forEach(c => { prevBalances[c] = {debit:0, credit:0}; });
+  const currentYear = new Date().getFullYear();
+  entries.forEach(e => {
+    const year = new Date(e.date).getFullYear();
+    (e.lines||[]).forEach(l => {
+      if(eqCodes.includes(l.code)) {
+        if(year === currentYear) {
+          if(!prevBalances[l.code]) prevBalances[l.code] = {debit:0, credit:0};
+        } else {
+          if(!prevBalances[l.code]) prevBalances[l.code] = {debit:0, credit:0};
+          prevBalances[l.code].debit += parseFloat(l.debit) || 0;
+          prevBalances[l.code].credit += parseFloat(l.credit) || 0;
+        }
+      }
+    });
+  });
+  let totalBegBal = 0;
+  const netIncome = (() => {
+    let rev = 0, crev = 0, cogs = 0, opexp = 0;
+    Object.values(balances).forEach(b => {
+      if(b.debit === 0 && b.credit === 0) return;
+      if(b.type === 'revenue' && b.credit > 0) rev += b.credit;
+      else if(b.type === 'contra_revenue' && b.debit > 0) crev += b.debit;
+      else if(b.type === 'expense' && b.debit > 0) {
+        if(b.code.startsWith('51')) cogs += b.debit;
+        else opexp += b.debit;
+      }
+    });
+    return (rev - crev) - cogs - opexp;
+  })();
+  let h = '<div class="table-wrap" style="max-width:650px;margin:0 auto"><table style="width:100%">';
+  h += `<tr><td colspan="2" style="text-align:center;font-size:18px;font-weight:700;padding:16px;border-bottom:2px solid var(--border)">${lg?'قائمة التغيرات في حقوق الملكية':'Statement of Changes in Equity'}</td></tr>`;
+  h += `<tr><td style="padding:8px 24px;font-weight:700">${lg?'رصيد بداية الفترة':'Beginning Balance'}</td><td style="direction:ltr;text-align:right;padding:8px;font-weight:700"></td></tr>`;
+  eqCodes.forEach(c => {
+    const b = balances[c];
+    if(!b || (b.debit === 0 && b.credit === 0)) return;
+    const net = b.credit - b.debit;
+    const prevNet = (prevBalances[c]?.credit || 0) - (prevBalances[c]?.debit || 0);
+    totalBegBal += prevNet;
+    const change = net - prevNet;
+    h += `<tr><td style="padding:4px 40px">${lg?b.name_ar:b.name_en}: ${lg?'الرصيد السابق':'Prev Balance'}</td><td style="direction:ltr;text-align:right;padding:4px 8px">${fmt(prevNet)}</td></tr>`;
+    if(Math.abs(change) > 0.01) {
+      h += `<tr><td style="padding:4px 40px;color:#A5AF79">↳ ${lg?'التغير خلال الفترة':'Change for Period'}</td><td style="direction:ltr;text-align:right;padding:4px 8px;color:#A5AF79">${change >= 0 ? '' : ''}${fmt(change)}</td></tr>`;
+    }
+    h += `<tr><td style="padding:4px 40px;border-bottom:1px dashed #eee">${lg?'رصيد نهاية الفترة':'Ending Balance'}</td><td style="direction:ltr;text-align:right;padding:4px 8px;border-bottom:1px dashed #eee;font-weight:700">${fmt(net)}</td></tr>`;
+  });
+  if(netIncome !== 0) {
+    h += `<tr><td style="padding:8px 24px;color:#A5AF79;font-weight:600">${lg?'صافي الربح/الخسارة للعام الحالي':'Net Income/Loss Current Year'}</td><td style="direction:ltr;text-align:right;padding:8px;font-weight:700;color:#A5AF79">${fmt(netIncome)}</td></tr>`;
+  }
+  let totalEndEq = 0;
+  eqCodes.forEach(c => {
+    const b = balances[c];
+    if(!b) return;
+    totalEndEq += (b.credit - b.debit);
+  });
+  totalEndEq += netIncome;
+  h += `<tr><td style="padding:12px 24px;font-weight:700;border-top:3px double var(--border);background:rgba(165,175,121,0.08);font-size:15px">${lg?'إجمالي حقوق الملكية نهاية الفترة':'Total Equity, End of Period'}</td>
+    <td style="direction:ltr;text-align:right;padding:12px;font-weight:700;border-top:3px double var(--border);background:rgba(165,175,121,0.08);font-size:15px">${fmt(totalEndEq)}</td></tr>`;
+  h += '</table></div>';
+  document.getElementById('finTab_equityChanges').innerHTML = h;
+}
+
 // ============================================================
 // FINANCIAL ANALYSIS
 // ============================================================
@@ -9844,6 +9916,108 @@ function renderAnalysis() {
     h += ratioBox(t('acc_debtRatio')+' (%)', debtRatio, 50, t('acc_ratioPoor'), t('acc_ratioFair'), t('acc_ratioGood'), t('acc_totalLiabilities')+': '+fmt(totalLiab)+'<br>'+t('acc_totalAssets')+': '+fmt(totalAssets));
     h += ratioBox(t('acc_debtToEquity'), debtToEquity, 1.0, t('acc_ratioPoor'), t('acc_ratioFair'), t('acc_ratioGood'), t('acc_totalLiabilities')+': '+fmt(totalLiab)+'<br>'+t('acc_totalEquity')+': '+fmt(totalEquity));
     h += '</div></div>';
+
+    // --- Activity / Efficiency Ratios ---
+    const arBalance = (balances['1140'] ? balances['1140'].debit - balances['1140'].credit : 0);
+    const inventoryBal = (balances['1160'] ? balances['1160'].debit - balances['1160'].credit : 0);
+    const interestExp = (balances['5510'] ? balances['5510'].debit : 0) + (balances['5520'] ? balances['5520'].debit : 0);
+    const taxExp = (balances['5710'] ? balances['5710'].debit : 0);
+    const ebit = netIncome + interestExp + taxExp;
+    const invTurnover = inventoryBal > 0 ? (totalCOGS / inventoryBal) : 0;
+    const recCollectionPeriod = netRevenue > 0 ? ((arBalance / netRevenue) * 365) : 0;
+    const intCoverage = interestExp > 0 ? (ebit / interestExp) : 0;
+    h += '<div class="card" style="margin-bottom:16px;border-left:4px solid #3B82F6"><h3 style="margin-bottom:12px;color:#3B82F6"><i class="fas fa-chart-simple"></i> '+(lg?'نسب النشاط والكفاءة':'Activity & Efficiency Ratios')+'</h3>';
+    h += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px">';
+    h += ratioBox(lg?'معدل دوران المخزون':'Inventory Turnover', invTurnover, 4, lg?'جيد':'Good', lg?'مقبول':'Fair', lg?'ضعيف':'Poor', lg?'تكلفة المبيعات: '+fmt(totalCOGS)+'<br>المخزون: '+fmt(inventoryBal):'COGS: '+fmt(totalCOGS)+'<br>Inventory: '+fmt(inventoryBal));
+    h += ratioBox(lg?'فترة تحصيل المدينون (أيام)':'Receivables Collection (Days)', recCollectionPeriod, 45, lg?'جيد':'Good', lg?'مقبول':'Fair', lg?'ضعيف':'Poor', lg?'المدينون: '+fmt(arBalance)+'<br>الإيرادات: '+fmt(netRevenue):'AR: '+fmt(arBalance)+'<br>Revenue: '+fmt(netRevenue));
+    h += ratioBox(lg?'تغطية الفوائد (مرات)':'Interest Coverage (x)', intCoverage, 3, lg?'جيد':'Good', lg?'مقبول':'Fair', lg?'ضعيف':'Poor', lg?'EBIT: '+fmt(ebit)+'<br>الفوائد: '+fmt(interestExp):'EBIT: '+fmt(ebit)+'<br>Interest: '+fmt(interestExp));
+    h += '</div></div>';
+
+    // --- Vertical Analysis ---
+    h += '<div class="card" style="margin-bottom:16px;border-left:4px solid #8B5CF6"><h3 style="margin-bottom:12px;color:#8B5CF6"><i class="fas fa-percent"></i> '+(lg?'التحليل الرأسي':'Vertical Analysis')+'</h3>';
+    h += '<div class="tab-bar" style="margin-bottom:12px"><div class="tab active" onclick="showVertTab(\'income\',this)">'+(lg?'قائمة الدخل':'Income Statement')+'</div><div class="tab" onclick="showVertTab(\'balance\',this)">'+(lg?'الميزانية':'Balance Sheet')+'</div></div>';
+    h += '<div id="vertIncome">';
+    h += '<div class="table-wrap" style="max-width:600px"><table style="width:100%">';
+    h += '<tr><td colspan="3" style="text-align:center;font-weight:700;padding:8px;border-bottom:2px solid var(--border);background:rgba(165,175,121,0.05)">'+(lg?'قائمة الدخل (نسبة من الإيرادات)':'Income Statement (% of Revenue)')+'</td></tr>';
+    revenueItems.forEach(r => { const pct = netRevenue>0?(r.credit/netRevenue*100):0; h += `<tr><td style="padding:4px 16px;font-size:0.9em">${lg?r.name_ar:r.name_en}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.9em">${fmt(r.credit)}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.9em;font-weight:700;color:#A5AF79">${pct.toFixed(1)}%</td></tr>`; });
+    h += `<tr style="border-top:1px solid var(--border);font-weight:700"><td style="padding:6px 16px">${lg?'صافي الإيرادات':'Net Revenue'}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${fmt(netRevenue)}</td><td style="direction:ltr;text-align:right;padding:6px 8px">100%</td></tr>`;
+    if(totalCOGS>0){
+      cogsItems.forEach(e => { const pct = netRevenue>0?(e.debit/netRevenue*100):0; h += `<tr><td style="padding:4px 16px;font-size:0.9em">${lg?e.name_ar:e.name_en}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.9em">${fmt(e.debit)}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.9em;color:#E8A07C">${pct.toFixed(1)}%</td></tr>`; });
+      const gpPct = netRevenue>0?(grossProfit/netRevenue*100):0;
+      h += `<tr style="font-weight:700;border-top:1px solid var(--border);background:rgba(165,175,121,0.05)"><td style="padding:6px 16px">${lg?'مجمل الربح':'Gross Profit'}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${fmt(grossProfit)}</td><td style="direction:ltr;text-align:right;padding:6px 8px;color:#A5AF79">${gpPct.toFixed(1)}%</td></tr>`;
+    }
+    operatingExpItems.forEach(e => { const pct = netRevenue>0?(e.debit/netRevenue*100):0; h += `<tr><td style="padding:4px 16px;font-size:0.9em">${lg?e.name_ar:e.name_en}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.9em">${fmt(e.debit)}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.9em;color:#C75B4A">${pct.toFixed(1)}%</td></tr>`; });
+    const totalOpPct = netRevenue>0?((totalCOGS+totalOperatingExp)/netRevenue*100):0;
+    const niPct = netRevenue>0?(netIncome/netRevenue*100):0;
+    h += `<tr style="font-weight:700;border-top:1px solid var(--border)"><td style="padding:6px 16px">${lg?'إجمالي المصروفات':'Total Expenses'}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${fmt(totalCOGS+totalOperatingExp)}</td><td style="direction:ltr;text-align:right;padding:6px 8px;color:#C75B4A">${totalOpPct.toFixed(1)}%</td></tr>`;
+    h += `<tr style="font-weight:700;border-top:2px solid var(--border);background:rgba(165,175,121,0.08)"><td style="padding:8px 16px;font-size:14px">${lg?'صافي الربح':'Net Income'}</td><td style="direction:ltr;text-align:right;padding:8px;font-weight:700;font-size:14px">${fmt(netIncome)}</td><td style="direction:ltr;text-align:right;padding:8px;font-weight:700;font-size:14px;color:${netIncome>=0?'#A5AF79':'#C75B4A'}">${niPct.toFixed(1)}%</td></tr>`;
+    h += '</table></div></div>';
+    h += '<div id="vertBalance" style="display:none">';
+    h += '<div class="table-wrap" style="max-width:600px"><table style="width:100%">';
+    const taBase = totalAssets > 0 ? totalAssets : totalLE;
+    h += '<tr><td colspan="3" style="text-align:center;font-weight:700;padding:8px;border-bottom:2px solid var(--border);background:rgba(165,175,121,0.05)">'+(lg?'الميزانية (نسبة من إجمالي الأصول)':'Balance Sheet (% of Total Assets)')+'</td></tr>';
+    h += `<tr style="font-weight:700;color:#827148"><td style="padding:6px 16px">${lg?'الأصول المتداولة':'Current Assets'}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${fmt(ca)}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${taBase>0?(ca/taBase*100).toFixed(1):'0.0'}%</td></tr>`;
+    caItems.forEach(a => { const pct = taBase>0?((a.debit-a.credit)/taBase*100):0; h += `<tr><td style="padding:4px 32px;font-size:0.85em">${lg?a.name_ar:a.name_en}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.85em">${fmt(a.debit-a.credit)}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.85em">${pct.toFixed(1)}%</td></tr>`; });
+    h += `<tr style="font-weight:700;color:#827148"><td style="padding:6px 16px">${lg?'الأصول الثابتة':'Fixed Assets'}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${fmt(fa)}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${taBase>0?(fa/taBase*100).toFixed(1):'0.0'}%</td></tr>`;
+    faItems.forEach(a => { const pct = taBase>0?((a.debit-a.credit)/taBase*100):0; h += `<tr><td style="padding:4px 32px;font-size:0.85em">${lg?a.name_ar:a.name_en}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.85em">${fmt(a.debit-a.credit)}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.85em">${pct.toFixed(1)}%</td></tr>`; });
+    const taPct = taBase>0?(totalAssets/taBase*100):0;
+    h += `<tr style="font-weight:700;border-top:1px solid var(--border);background:rgba(130,113,72,0.05)"><td style="padding:6px 16px">${lg?'إجمالي الأصول':'Total Assets'}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${fmt(totalAssets)}</td><td style="direction:ltr;text-align:right;padding:6px 8px;font-size:14px">${taPct.toFixed(1)}%</td></tr>`;
+    h += `<tr style="font-weight:700;color:#C75B4A"><td style="padding:6px 16px">${lg?'الخصوم المتداولة':'Current Liabilities'}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${fmt(cl)}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${taBase>0?(cl/taBase*100).toFixed(1):'0.0'}%</td></tr>`;
+    clItems.forEach(a => { const pct = taBase>0?((a.credit-a.debit)/taBase*100):0; h += `<tr><td style="padding:4px 32px;font-size:0.85em">${lg?a.name_ar:a.name_en}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.85em">${fmt(a.credit-a.debit)}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.85em">${pct.toFixed(1)}%</td></tr>`; });
+    h += `<tr style="font-weight:700;color:#C75B4A"><td style="padding:6px 16px">${lg?'الخصوم طويلة الأجل':'Long-term Liabilities'}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${fmt(ltl)}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${taBase>0?(ltl/taBase*100).toFixed(1):'0.0'}%</td></tr>`;
+    ltlItems.forEach(a => { const pct = taBase>0?((a.credit-a.debit)/taBase*100):0; h += `<tr><td style="padding:4px 32px;font-size:0.85em">${lg?a.name_ar:a.name_en}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.85em">${fmt(a.credit-a.debit)}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.85em">${pct.toFixed(1)}%</td></tr>`; });
+    h += `<tr style="font-weight:700;color:#827148"><td style="padding:6px 16px">${lg?'حقوق الملكية':'Equity'}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${fmt(equity)}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${taBase>0?(equity/taBase*100).toFixed(1):'0.0'}%</td></tr>`;
+    eqItems.forEach(a => { const pct = taBase>0?((a.credit-a.debit)/taBase*100):0; h += `<tr><td style="padding:4px 32px;font-size:0.85em">${lg?a.name_ar:a.name_en}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.85em">${fmt(a.credit-a.debit)}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.85em">${pct.toFixed(1)}%</td></tr>`; });
+    const tlePct = taBase>0?((cl+ltl+equity)/taBase*100):0;
+    h += `<tr style="font-weight:700;border-top:1px solid var(--border);background:rgba(130,113,72,0.05)"><td style="padding:6px 16px">${lg?'إجمالي الخصوم وحقوق الملكية':'Total L+E'}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${fmt(cl+ltl+equity)}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${tlePct.toFixed(1)}%</td></tr>`;
+    h += '</table></div></div></div>';
+
+    // --- Horizontal Analysis ---
+    const entriesAll = getFilteredJournalEntries();
+    const now = new Date();
+    const currentYearStart = new Date(now.getFullYear(), 0, 1);
+    const prevYearStart = new Date(now.getFullYear()-1, 0, 1);
+    const prevYearEnd = new Date(now.getFullYear()-1, 11, 31);
+    let curRev = 0, prevRev = 0, curExp = 0, prevExp = 0, curCOGS = 0, prevCOGS = 0;
+    entriesAll.forEach(e => {
+      const d = new Date(e.date);
+      (e.lines||[]).forEach(l => {
+        const amt = (parseFloat(l.debit)||0) - (parseFloat(l.credit)||0);
+        const acct = coa.find(a => a.code === l.code);
+        if(!acct) return;
+        const isRev = acct.type === 'revenue';
+        const isExp = acct.type === 'expense';
+        if(d >= currentYearStart) { if(isRev) curRev += parseFloat(l.credit)||0; else if(isExp && acct.code.startsWith('51')) curCOGS += parseFloat(l.debit)||0; else if(isExp) curExp += parseFloat(l.debit)||0; }
+        else if(d >= prevYearStart && d <= prevYearEnd) { if(isRev) prevRev += parseFloat(l.credit)||0; else if(isExp && acct.code.startsWith('51')) prevCOGS += parseFloat(l.debit)||0; else if(isExp) prevExp += parseFloat(l.debit)||0; }
+      });
+    });
+    const curNetRev = curRev;
+    const prevNetRev = prevRev;
+    const curTotalExp = curCOGS + curExp;
+    const prevTotalExp = prevCOGS + prevExp;
+    const curNI = curNetRev - curTotalExp;
+    const prevNI = prevNetRev - prevTotalExp;
+    const revChange = prevNetRev > 0 ? ((curNetRev - prevNetRev) / prevNetRev * 100) : 0;
+    const expChange = prevTotalExp > 0 ? ((curTotalExp - prevTotalExp) / prevTotalExp * 100) : 0;
+    const niChange = prevNI !== 0 ? ((curNI - prevNI) / Math.abs(prevNI) * 100) : 0;
+    h += '<div class="card" style="border-left:4px solid #EC4899"><h3 style="margin-bottom:12px;color:#EC4899"><i class="fas fa-arrow-trend-up"></i> '+(lg?'التحليل الأفقي (عام مقابل عام)':'Horizontal Analysis (YoY)');
+    h += ' <span style="font-size:12px;font-weight:400;color:#888">'+(lg?'العام الحالي: '+now.getFullYear()+' ↔ '+ (now.getFullYear()-1):'Current: '+now.getFullYear()+' vs '+ (now.getFullYear()-1))+'</span></h3>';
+    h += '<div class="table-wrap"><table style="width:100%"><thead><tr><th>'+(lg?'البند':'Item')+'</th><th>'+now.getFullYear()+'</th><th>'+(now.getFullYear()-1)+'</th><th>'+(lg?'التغير':'Change')+'</th><th>%</th></tr></thead><tbody>';
+    h += `<tr><td>${lg?'الإيرادات':'Revenue'}</td><td style="direction:ltr;text-align:right">${fmt(curNetRev)}</td><td style="direction:ltr;text-align:right">${fmt(prevNetRev)}</td><td style="direction:ltr;text-align:right;color:${curNetRev>=prevNetRev?'#A5AF79':'#C75B4A'}">${fmt(curNetRev-prevNetRev)}</td><td style="direction:ltr;text-align:right;font-weight:700;color:${revChange>=0?'#A5AF79':'#C75B4A'}">${revChange >= 0 ? '+':''}${revChange.toFixed(1)}%</td></tr>`;
+    h += `<tr><td>${lg?'المصروفات':'Expenses'}</td><td style="direction:ltr;text-align:right">${fmt(curTotalExp)}</td><td style="direction:ltr;text-align:right">${fmt(prevTotalExp)}</td><td style="direction:ltr;text-align:right;color:${curTotalExp<=prevTotalExp?'#A5AF79':'#C75B4A'}">${fmt(curTotalExp-prevTotalExp)}</td><td style="direction:ltr;text-align:right;font-weight:700;color:${expChange<=0?'#A5AF79':'#C75B4A'}">${expChange >= 0 ? '+':''}${expChange.toFixed(1)}%</td></tr>`;
+    h += `<tr style="font-weight:700;border-top:2px solid var(--border)"><td>${lg?'صافي الربح':'Net Income'}</td><td style="direction:ltr;text-align:right">${fmt(curNI)}</td><td style="direction:ltr;text-align:right">${fmt(prevNI)}</td><td style="direction:ltr;text-align:right;font-weight:700;color:${curNI>=prevNI?'#A5AF79':'#C75B4A'}">${fmt(curNI-prevNI)}</td><td style="direction:ltr;text-align:right;font-weight:700;color:${niChange>=0?'#A5AF79':'#C75B4A'}">${niChange >= 0 ? '+':''}${niChange.toFixed(1)}%</td></tr>`;
+    h += '</tbody></table></div></div>';
+
+    // --- Add vertical analysis toggle function ---
+    if(!window._vertAnalysisInited) {
+      window._vertAnalysisInited = true;
+      window.showVertTab = function(tab, btn) {
+        document.getElementById('vertIncome').style.display = tab==='income'?'block':'none';
+        document.getElementById('vertBalance').style.display = tab==='balance'?'block':'none';
+        btn.parentElement.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        btn.classList.add('active');
+      };
+    }
   }
   document.getElementById('accTab_analysis').innerHTML = renderFranchiseFilterBar() + h;
 }
