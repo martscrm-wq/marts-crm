@@ -8914,7 +8914,7 @@ function renderCoa() {
     ${canAccounting()?'<button class="btn btn-success btn-sm" onclick="openCoaBulkAdd()"><i class="fas fa-layer-group"></i> '+((lang==='ar'?'إضافة جماعية':'Bulk Add'))+'</button>':''}
     ${canAccounting()?'<button class="btn btn-danger btn-sm" onclick="coaBulkDelete()" id="coaBulkDeleteBtn" style="display:none"><i class="fas fa-trash"></i> '+((lang==='ar'?'حذف المحدد':'Delete Selected'))+'</button>':''}
   </div></div>
-  <div id="coaBulkBar" style="display:none;margin-bottom:12px;padding:10px 14px;background:var(--primary);color:#fff;border-radius:8px;display:flex;align-items:center;justify-content:space-between">
+  <div id="coaBulkBar" style="display:none;margin-bottom:12px;padding:10px 14px;background:var(--primary);color:#fff;border-radius:8px;align-items:center;justify-content:space-between">
     <div style="display:flex;align-items:center;gap:10px">
       <input type="checkbox" id="coaSelectAll" onchange="coaToggleSelectAll(this.checked)" style="cursor:pointer;accent-color:#fff">
       <span id="coaSelectedCount" style="font-size:13px;font-weight:600"></span>
@@ -8923,7 +8923,9 @@ function renderCoa() {
       <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4)" onclick="coaBulkDelete()"><i class="fas fa-trash"></i> ${lang==='ar'?'حذف':'Delete'}</button>
       <button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4)" onclick="coaClearSelection()"><i class="fas fa-times"></i> ${lang==='ar'?'إلغاء':'Cancel'}</button>
     </div>
-  </div></div>`;
+  </div>
+  <div id="coaTree"></div>
+</div>`;
   document.getElementById('accTab_coa').innerHTML = h;
   coaUpdateBulkBar();
   renderCoaTemplatesList();
