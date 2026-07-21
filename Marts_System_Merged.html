@@ -2939,6 +2939,9 @@ function initData() {
   if(!STORAGE.get('employeeAdvances')) {
     STORAGE.set('employeeAdvances', []);
   }
+  if(!STORAGE.get('vacations')) STORAGE.set('vacations', []);
+  if(!STORAGE.get('vacationTypes')) STORAGE.set('vacationTypes', [{id:'annual',ar:'إجازة سنوية',en:'Annual Leave',days:21},{id:'sick',ar:'إجازة مرضية',en:'Sick Leave',days:15},{id:'personal',ar:'إجازة شخصية',en:'Personal Leave',days:7},{id:'maternity',ar:'إجازة أمومة',en:'Maternity Leave',days:90},{id:'hajj',ar:'إجازة حج',en:'Hajj Leave',days:30},{id:'bereavement',ar:'إجازة وفاة',en:'Bereavement Leave',days:5}]);
+  if(!STORAGE.get('attendanceLog')) STORAGE.set('attendanceLog', []);
   if(!STORAGE.get('jobRequests')) {
     STORAGE.set('jobRequests', []);
   }
@@ -4139,8 +4142,8 @@ function deleteAllEmployees() {
 // ============================================================
 // ORG CHART
 // ============================================================
-const HR_TABS = ['payroll','empCommissions','kpiRules','jobApplications','laborLaw','socialInsurance','internalRegulation','internalRegulationFull'];
-const HR_TAB_LABELS = {payroll:{ar:'الرواتب',en:'Payroll',icon:'fa-money-check-alt'},empCommissions:{ar:'عمولات الموظفين',en:'Emp. Commissions',icon:'fa-percentage'},kpiRules:{ar:'قواعد KPI',en:'KPI Rules',icon:'fa-percentage'},jobApplications:{ar:'طلبات التوظيف',en:'Job Applications',icon:'fa-file-alt'},laborLaw:{ar:'قانون العمل',en:'Labor Law',icon:'fa-gavel'},socialInsurance:{ar:'التأمينات الاجتماعية',en:'Social Insurance',icon:'fa-shield-alt'},internalRegulation:{ar:'اللائحة الداخلية (ملخص)',en:'Internal Reg. (Summary)',icon:'fa-file-contract'},internalRegulationFull:{ar:'اللائحة الداخلية (تفصيلي)',en:'Internal Reg. (Full)',icon:'fa-book'}};
+const HR_TABS = ['payroll','attendanceLive','vacations','empCommissions','kpiRules','jobApplications','laborLaw','socialInsurance','internalRegulation','internalRegulationFull'];
+const HR_TAB_LABELS = {payroll:{ar:'الرواتب',en:'Payroll',icon:'fa-money-check-alt'},attendanceLive:{ar:'الحضور المباشر',en:'Live Attendance',icon:'fa-clock'},vacations:{ar:'الإجازات',en:'Vacations',icon:'fa-calendar-alt'},empCommissions:{ar:'عمولات الموظفين',en:'Emp. Commissions',icon:'fa-percentage'},kpiRules:{ar:'قواعد KPI',en:'KPI Rules',icon:'fa-percentage'},jobApplications:{ar:'طلبات التوظيف',en:'Job Applications',icon:'fa-file-alt'},laborLaw:{ar:'قانون العمل',en:'Labor Law',icon:'fa-gavel'},socialInsurance:{ar:'التأمينات الاجتماعية',en:'Social Insurance',icon:'fa-shield-alt'},internalRegulation:{ar:'اللائحة الداخلية (ملخص)',en:'Internal Reg. (Summary)',icon:'fa-file-contract'},internalRegulationFull:{ar:'اللائحة الداخلية (تفصيلي)',en:'Internal Reg. (Full)',icon:'fa-book'}};
 let currentHrTab = 'payroll';
 
 function renderOrgChart(el) {
@@ -4177,6 +4180,8 @@ function renderHrTabContent() {
   const container = document.getElementById('hrTabContent');
   if(!container) return;
   if(currentHrTab === 'payroll') renderPayroll(container);
+  else if(currentHrTab === 'attendanceLive') renderAttendanceLive(container);
+  else if(currentHrTab === 'vacations') renderVacations(container);
   else if(currentHrTab === 'empCommissions') renderEmpCommissionsTab(container);
   else if(currentHrTab === 'kpiRules') renderKpiRules(container);
   else if(currentHrTab === 'jobApplications') renderJobApplications(container);
@@ -4184,6 +4189,254 @@ function renderHrTabContent() {
   else if(currentHrTab === 'socialInsurance') renderSocialInsurance(container);
   else if(currentHrTab === 'internalRegulation') renderInternalRegulation(container);
   else if(currentHrTab === 'internalRegulationFull') renderInternalRegulationFull(container);
+}
+
+// ============================================================
+// HR - LIVE ATTENDANCE (Clock In/Out)
+// ============================================================
+function renderAttendanceLive(el) {
+  const employees = STORAGE.get('employees',[]);
+  const log = STORAGE.get('attendanceLog',[]);
+  const todayStr = today();
+  const todayLog = log.filter(e => e.date === todayStr);
+  const checkedIn = todayLog.filter(e => e.checkOut === null);
+  const checkedOut = todayLog.filter(e => e.checkOut !== null);
+  const absent = employees.filter(e => e.status === 'active' && !todayLog.find(l => l.empId === e.id));
+
+  let h = `<div class="card"><div class="flex-between mb-16"><h3><i class="fas fa-clock"></i> ${lang==='ar'?'حضور اليوم':'Today\'s Attendance'} (${fmtDate(todayStr)})</h3></div>`;
+  h += `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">`;
+  h += `<div style="flex:1;min-width:140px;background:#f8f6f0;padding:14px;border-radius:10px;text-align:center"><div style="font-size:28px;font-weight:800;color:var(--primary)">${checkedIn.length + checkedOut.length}</div><div style="font-size:12px;color:var(--text-light)">${lang==='ar'?'الحاضرين':'Present'}</div></div>`;
+  h += `<div style="flex:1;min-width:140px;background:#fff3e0;padding:14px;border-radius:10px;text-align:center"><div style="font-size:28px;font-weight:800;color:#E8A07C">${checkedIn.length}</div><div style="font-size:12px;color:var(--text-light)">${lang==='ar'?'في العمل':'Checked In'}</div></div>`;
+  h += `<div style="flex:1;min-width:140px;background:#e8f5e9;padding:14px;border-radius:10px;text-align:center"><div style="font-size:28px;font-weight:800;color:#A5AF79">${checkedOut.length}</div><div style="font-size:12px;color:var(--text-light)">${lang==='ar'?'انتهوا':'Checked Out'}</div></div>`;
+  h += `<div style="flex:1;min-width:140px;background:#fce4ec;padding:14px;border-radius:10px;text-align:center"><div style="font-size:28px;font-weight:800;color:#C75B4A">${absent.length}</div><div style="font-size:12px;color:var(--text-light)">${lang==='ar'?'الغائبين':'Absent'}</div></div>`;
+  h += `</div>`;
+
+  if(canEdit()) {
+    h += `<div style="margin-bottom:16px;display:flex;gap:8px;flex-wrap:wrap">`;
+    h += `<select id="liveAttEmp" style="padding:8px;border:1px solid var(--border);border-radius:6px;min-width:200px"><option value="">${lang==='ar'?'اختر موظف':'Select Employee'}</option>`;
+    employees.filter(e=>e.status==='active').forEach(e => { h += `<option value="${e.id}">${e.name}</option>`; });
+    h += `</select>`;
+    h += `<button class="btn btn-success btn-sm" onclick="clockIn()"><i class="fas fa-sign-in-alt"></i> ${lang==='ar'?'تسجيل دخول':'Clock In'}</button>`;
+    h += `<button class="btn btn-danger btn-sm" onclick="clockOut()"><i class="fas fa-sign-out-alt"></i> ${lang==='ar'?'تسجيل خروج':'Clock Out'}</button>`;
+    h += `</div>`;
+  }
+
+  h += `<div class="table-wrap"><table><thead><tr><th>${lang==='ar'?'الموظف':'Employee'}</th><th>${lang==='ar'?'دخول':'Check In'}</th><th>${lang==='ar'?'خروج':'Check Out'}</th><th>${lang==='ar'?'المدة':'Duration'}</th><th>${lang==='ar'?'الحالة':'Status'}</th></tr></thead><tbody>`;
+
+  if(todayLog.length === 0) {
+    h += `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-light)">${lang==='ar'?'لا يوجد سجل حضور اليوم':'No attendance records today'}</td></tr>`;
+  } else {
+    todayLog.forEach(entry => {
+      const emp = employees.find(e => e.id === entry.empId);
+      const name = emp ? emp.name : entry.empName || '-';
+      const ci = entry.checkIn || '-';
+      const co = entry.checkOut || '-';
+      let duration = '-';
+      let statusBadge = '';
+      if(entry.checkIn && entry.checkOut) {
+        const mins = Math.round((new Date(entry.checkOut) - new Date(entry.checkIn)) / 60000);
+        const hrs = Math.floor(mins / 60);
+        const m = mins % 60;
+        duration = hrs + 'h ' + m + 'm';
+        statusBadge = `<span class="badge badge-green">${lang==='ar'?'مكتمل':'Complete'}</span>`;
+      } else if(entry.checkIn) {
+        statusBadge = `<span class="badge badge-blue">${lang==='ar'?'في العمل':'In Progress'}</span>`;
+      }
+      const lateMin = entry.lateMinutes || 0;
+      if(lateMin > 0) statusBadge += ` <span class="badge badge-red" style="font-size:10px">+${lateMin}m ${lang==='ar'?'تأخير':'late'}</span>`;
+      h += `<tr><td>${name}</td><td>${ci !== '-' ? new Date(entry.checkIn).toLocaleTimeString('en-EG',{hour:'2-digit',minute:'2-digit'}) : '-'}</td><td>${co !== '-' ? new Date(entry.checkOut).toLocaleTimeString('en-EG',{hour:'2-digit',minute:'2-digit'}) : '-'}</td><td>${duration}</td><td>${statusBadge}</td></tr>`;
+    });
+  }
+  h += `</tbody></table></div></div>`;
+  el.innerHTML = h;
+}
+
+function clockIn() {
+  const empId = document.getElementById('liveAttEmp')?.value;
+  if(!empId) { wsToast(lang==='ar'?'اختر موظف':'Select employee'); return; }
+  const log = STORAGE.get('attendanceLog',[]);
+  const todayStr = today();
+  const existing = log.find(e => e.empId === empId && e.date === todayStr);
+  if(existing && existing.checkIn) { wsToast(lang==='ar'?'تم تسجيل الدخول مسبقاً':'Already checked in'); return; }
+  const now = new Date();
+  const lateMinutes = calcLateMinutes(now);
+  const employees = STORAGE.get('employees',[]);
+  const emp = employees.find(e => e.id === empId);
+  if(existing) {
+    existing.checkIn = now.toISOString();
+    existing.lateMinutes = lateMinutes;
+  } else {
+    log.push({id:uid(),empId:empId,empName:emp?emp.name:'',date:todayStr,checkIn:now.toISOString(),checkOut:null,lateMinutes:lateMinutes});
+  }
+  STORAGE.set('attendanceLog', log);
+  wsToast((lang==='ar'?'تم تسجيل دخول ':'Clock in: ') + (emp?emp.name:''));
+  renderAttendanceLive(document.getElementById('hrTabContent'));
+}
+
+function clockOut() {
+  const empId = document.getElementById('liveAttEmp')?.value;
+  if(!empId) { wsToast(lang==='ar'?'اختر موظف':'Select employee'); return; }
+  const log = STORAGE.get('attendanceLog',[]);
+  const todayStr = today();
+  const existing = log.find(e => e.empId === empId && e.date === todayStr);
+  if(!existing || !existing.checkIn) { wsToast(lang==='ar'?'لم يتم تسجيل الدخول بعد':'Not checked in yet'); return; }
+  if(existing.checkOut) { wsToast(lang==='ar'?'تم تسجيل الخروج مسبقاً':'Already checked out'); return; }
+  existing.checkOut = new Date().toISOString();
+  STORAGE.set('attendanceLog', log);
+  const employees = STORAGE.get('employees',[]);
+  const emp = employees.find(e => e.id === empId);
+  wsToast((lang==='ar'?'تم تسجيل خروج ':'Clock out: ') + (emp?emp.name:''));
+  renderAttendanceLive(document.getElementById('hrTabContent'));
+}
+
+// ============================================================
+// HR - VACATIONS / LEAVE MANAGEMENT
+// ============================================================
+function renderVacations(el) {
+  const vacations = STORAGE.get('vacations',[]);
+  const employees = STORAGE.get('employees',[]);
+  const vacationTypes = STORAGE.get('vacationTypes',[]);
+  const pending = vacations.filter(v => v.status === 'pending');
+  const approved = vacations.filter(v => v.status === 'approved');
+  const rejected = vacations.filter(v => v.status === 'rejected');
+
+  let h = `<div class="card"><div class="flex-between mb-16"><h3><i class="fas fa-calendar-alt"></i> ${lang==='ar'?'إدارة الإجازات':'Vacation Management'}</h3>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">`;
+  if(canEdit()) h += `<button class="btn btn-primary btn-sm" onclick="openVacationForm()"><i class="fas fa-plus"></i> ${lang==='ar'?'طلب إجازة':'Request Leave'}</button>`;
+  h += `</div></div>`;
+
+  h += `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px">`;
+  h += `<div style="flex:1;min-width:120px;background:#fff3e0;padding:14px;border-radius:10px;text-align:center"><div style="font-size:28px;font-weight:800;color:#E8A07C">${pending.length}</div><div style="font-size:12px;color:var(--text-light)">${lang==='ar'?'قيد الانتظار':'Pending'}</div></div>`;
+  h += `<div style="flex:1;min-width:120px;background:#e8f5e9;padding:14px;border-radius:10px;text-align:center"><div style="font-size:28px;font-weight:800;color:#A5AF79">${approved.length}</div><div style="font-size:12px;color:var(--text-light)">${lang==='ar'?'معتمدة':'Approved'}</div></div>`;
+  h += `<div style="flex:1;min-width:120px;background:#fce4ec;padding:14px;border-radius:10px;text-align:center"><div style="font-size:28px;font-weight:800;color:#C75B4A">${rejected.length}</div><div style="font-size:12px;color:var(--text-light)">${lang==='ar'?'مرفوضة':'Rejected'}</div></div>`;
+  h += `</div>`;
+
+  h += `<h4 style="margin:16px 0 8px">${lang==='ar'?'الطلبات':'Requests'}</h4>`;
+  h += `<div class="table-wrap"><table><thead><tr><th>${lang==='ar'?'الموظف':'Employee'}</th><th>${lang==='ar'?'النوع':'Type'}</th><th>${lang==='ar'?'من':'From'}</th><th>${lang==='ar'?'إلى':'To'}</th><th>${lang==='ar'?'الأيام':'Days'}</th><th>${lang==='ar'?'السبب':'Reason'}</th><th>${lang==='ar'?'الحالة':'Status'}</th><th>${lang==='ar'?'إجراءات':'Actions'}</th></tr></thead><tbody>`;
+
+  if(vacations.length === 0) {
+    h += `<tr><td colspan="8" style="text-align:center;padding:20px;color:var(--text-light)">${lang==='ar'?'لا توجد طلبات':'No requests yet'}</td></tr>`;
+  } else {
+    vacations.slice().reverse().forEach(v => {
+      const emp = employees.find(e => e.id === v.empId);
+      const vtype = vacationTypes.find(t => t.id === v.typeId);
+      const typeName = vtype ? (lang==='ar'?vtype.ar:vtype.en) : v.typeId;
+      let statusBadge = '';
+      if(v.status === 'pending') statusBadge = `<span class="badge badge-yellow">${lang==='ar'?'قيد الانتظار':'Pending'}</span>`;
+      else if(v.status === 'approved') statusBadge = `<span class="badge badge-green">${lang==='ar'?'معتمدة':'Approved'}</span>`;
+      else statusBadge = `<span class="badge badge-red">${lang==='ar'?'مرفوضة':'Rejected'}</span>`;
+
+      let actions = '';
+      if(v.status === 'pending' && canEdit()) {
+        actions = `<button class="btn btn-sm" style="padding:2px 8px;background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;margin-right:4px" onclick="approveVacation('${v.id}')"><i class="fas fa-check"></i></button>`;
+        actions += `<button class="btn btn-sm" style="padding:2px 8px;background:#fce4ec;color:#c62828;border:1px solid #ef9a9a" onclick="rejectVacation('${v.id}')"><i class="fas fa-times"></i></button>`;
+      }
+      h += `<tr><td>${emp?emp.name:'-'}</td><td>${typeName}</td><td>${fmtDate(v.from)}</td><td>${fmtDate(v.to)}</td><td>${v.days||'-'}</td><td>${v.reason||'-'}</td><td>${statusBadge}</td><td>${actions}</td></tr>`;
+    });
+  }
+  h += `</tbody></table></div></div>`;
+
+  h += `<div class="card" style="margin-top:16px"><h4 style="margin-bottom:12px">${lang==='ar'?'رصيد الإجازات':'Leave Balance'}</h4>`;
+  h += `<div class="table-wrap"><table><thead><tr><th>${lang==='ar'?'الموظف':'Employee'}</th>`;
+  vacationTypes.forEach(vt => { h += `<th>${lang==='ar'?vt.ar:vt.en}</th>`; });
+  h += `<th>${lang==='ar'?'المجموع':'Total'}</th></tr></thead><tbody>`;
+
+  employees.filter(e => e.status === 'active').forEach(emp => {
+    h += `<tr><td>${emp.name}</td>`;
+    let totalUsed = 0;
+    vacationTypes.forEach(vt => {
+      const used = vacations.filter(v => v.empId === emp.id && v.typeId === vt.id && v.status === 'approved').reduce((s,v) => s + (v.days||0), 0);
+      totalUsed += used;
+      const remaining = vt.days - used;
+      const color = remaining <= 0 ? '#C75B4A' : remaining <= 3 ? '#E8A07C' : '#333';
+      h += `<td style="color:${color}">${used} / ${vt.days}</td>`;
+    });
+    h += `<td><strong>${totalUsed}</strong></td></tr>`;
+  });
+  h += `</tbody></table></div></div>`;
+  el.innerHTML = h;
+}
+
+function openVacationForm() {
+  const employees = STORAGE.get('employees',[]);
+  const vacationTypes = STORAGE.get('vacationTypes',[]);
+  const opts = employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${e.name}</option>`).join('');
+  const typeOpts = vacationTypes.map(vt=>`<option value="${vt.id}">${lang==='ar'?vt.ar:vt.en} (${vt.days} ${lang==='ar'?'يوم':'days'})</option>`).join('');
+
+  document.getElementById('modalContainer').innerHTML=`<h3>${lang==='ar'?'طلب إجازة':'Request Leave'}</h3>
+  <div class="form-row"><div class="form-group"><label>${lang==='ar'?'الموظف':'Employee'}</label><select id="vac_emp">${opts}</select></div>
+  <div class="form-group"><label>${lang==='ar'?'نوع الإجازة':'Leave Type'}</label><select id="vac_type">${typeOpts}</select></div></div>
+  <div class="form-row"><div class="form-group"><label>${lang==='ar'?'من':'From'}</label><input type="date" id="vac_from" value="${today()}"></div>
+  <div class="form-group"><label>${lang==='ar'?'إلى':'To'}</label><input type="date" id="vac_to"></div></div>
+  <div class="form-row"><div class="form-group" style="flex:1"><label>${lang==='ar'?'السبب':'Reason'}</label><input type="text" id="vac_reason" placeholder="${lang==='ar'?'سبب الإجازة...':'Leave reason...'}"></div></div>
+  <div id="vacDaysPreview" style="margin:8px 0;font-size:13px;color:var(--text-light)"></div>
+  <div class="modal-actions"><button class="btn btn-primary" onclick="saveVacation()"><i class="fas fa-save"></i> ${t('save')}</button><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  document.getElementById('modalOverlay').classList.add('active');
+
+  const calcDays = () => {
+    const f = document.getElementById('vac_from').value;
+    const t = document.getElementById('vac_to').value;
+    if(f && t) {
+      const days = daysBetween(f, t) + 1;
+      document.getElementById('vacDaysPreview').textContent = (lang==='ar'?'عدد الأيام: ':'Days: ') + days;
+    }
+  };
+  document.getElementById('vac_from').addEventListener('change', calcDays);
+  document.getElementById('vac_to').addEventListener('change', calcDays);
+}
+
+function saveVacation() {
+  const empId = document.getElementById('vac_emp').value;
+  const typeId = document.getElementById('vac_type').value;
+  const from = document.getElementById('vac_from').value;
+  const to = document.getElementById('vac_to').value;
+  const reason = document.getElementById('vac_reason').value.trim();
+
+  if(!empId || !from || !to) { wsToast(lang==='ar'?'أكمل جميع الحقول':'Fill all fields'); return; }
+  if(new Date(to) < new Date(from)) { wsToast(lang==='ar'?'تاريخ الانتهاء قبل البداية':'End date before start'); return; }
+  const days = daysBetween(from, to) + 1;
+  if(days <= 0) { wsToast(lang==='ar'?'تاريخ غير صحيح':'Invalid dates'); return; }
+
+  const vacations = STORAGE.get('vacations',[]);
+  const employees = STORAGE.get('employees',[]);
+  const emp = employees.find(e => e.id === empId);
+  const vacationTypes = STORAGE.get('vacationTypes',[]);
+  const vtype = vacationTypes.find(vt => vt.id === typeId);
+
+  if(vtype && days > vtype.days) { wsToast(lang==='ar'?'الأيام تتجاوز الحد':'Days exceed limit'); return; }
+
+  const usedDays = vacations.filter(v => v.empId === empId && v.typeId === typeId && v.status === 'approved').reduce((s,v) => s + (v.days||0), 0);
+  if(vtype && (usedDays + days) > vtype.days) { wsToast(lang==='ar'?'الرصيد غير كافي':'Insufficient balance'); return; }
+
+  vacations.push({id:uid(),empId:empId,empName:emp?emp.name:'',typeId:typeId,from:from,to:to,days:days,reason:reason,status:'pending',requestedAt:new Date().toISOString(),approvedBy:null,approvedAt:null});
+  STORAGE.set('vacations', vacations);
+  closeModal();
+  wsToast(lang==='ar'?'تم إرسال الطلب':'Request submitted');
+  renderVacations(document.getElementById('hrTabContent'));
+}
+
+function approveVacation(id) {
+  const vacations = STORAGE.get('vacations',[]);
+  const v = vacations.find(x => x.id === id);
+  if(!v) return;
+  v.status = 'approved';
+  v.approvedBy = currentUser ? currentUser.username : 'system';
+  v.approvedAt = new Date().toISOString();
+  STORAGE.set('vacations', vacations);
+  wsToast(lang==='ar'?'تم الاعتماد':'Approved');
+  renderVacations(document.getElementById('hrTabContent'));
+}
+
+function rejectVacation(id) {
+  const vacations = STORAGE.get('vacations',[]);
+  const v = vacations.find(x => x.id === id);
+  if(!v) return;
+  v.status = 'rejected';
+  v.approvedBy = currentUser ? currentUser.username : 'system';
+  v.approvedAt = new Date().toISOString();
+  STORAGE.set('vacations', vacations);
+  wsToast(lang==='ar'?'تم الرفض':'Rejected');
+  renderVacations(document.getElementById('hrTabContent'));
 }
 
 // ============================================================
