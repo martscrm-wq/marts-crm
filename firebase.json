@@ -1,6 +1,5 @@
 {
   "hosting": {
-    "target": "marts-crm-6ca37",
     "public": "public",
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
