@@ -3097,32 +3097,145 @@ function renderPage(page) {
 // DASHBOARD
 // ============================================================
 function renderDashboard(el) {
-  const sales = STORAGE.get('sales',[]);
-  const employees = STORAGE.get('employees',[]);
-  const now = new Date();
-  const monthSales = sales.filter(s => { const d=new Date(s.date); return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear(); });
-  const totalSales = monthSales.reduce((s,x)=>s+(x.unitPrice||0),0);
-  const totalComm = monthSales.reduce((s,x)=>s+((x.unitPrice||0)*(x.commissionRate||0)/100),0);
-  const activeEmp = employees.filter(e=>e.status==='active').length;
-  const pendingComm = sales.filter(s=>s.bookingType==='contract'&&s.commissionRate>=3.5).length;
+  const lg=lang==='ar';
+  const sales=STORAGE.get('sales',[]);
+  const employees=STORAGE.get('employees',[]);
+  const leads=STORAGE.get('marketingLeads',[]);
+  const campaigns=STORAGE.get('marketingCampaigns',[]);
+  const team=STORAGE.get('marketingTeam',[]);
+  const units=STORAGE.get('op_units',[]);
+  const reservations=STORAGE.get('op_reservations',[]);
+  const contracts=STORAGE.get('op_contracts',[]);
+  const clients=getCrmClients?getCrmClients():[];
+  const now=new Date();
+  const monthStart=new Date(now.getFullYear(),now.getMonth(),1).toISOString().slice(0,10);
+  const weekAgo=new Date(now);weekAgo.setDate(weekAgo.getDate()-7);
+  const monthSales=sales.filter(s=>s.date>=monthStart);
+  const weekLeads=leads.filter(l=>l.createdAt&&new Date(l.createdAt)>=weekAgo);
+  const totalSales=monthSales.reduce((s,x)=>s+(x.unitPrice||0),0);
+  const totalComm=monthSales.reduce((s,x)=>s+((x.unitPrice||0)*(x.commissionRate||0)/100),0);
+  const activeEmp=employees.filter(e=>e.status==='active').length;
+  const activeCmps=campaigns.filter(c=>c.status==='active');
+  const totalBudget=activeCmps.reduce((s,c)=>s+(c.budget||0),0);
+  const totalSpent=activeCmps.reduce((s,c)=>s+(c.spent||0),0);
+  const wonLeads=leads.filter(l=>l.status==='won'||l.status==='converted').length;
+  const convRate=leads.length?Math.round(wonLeads/leads.length*100):0;
+  const available=units.filter(u=>u.status==='available').length;
+  const activeContracts=contracts.filter(c=>c.status==='active').length;
+  const pendingRes=reservations.filter(r=>r.status==='pending').length;
+  const todayAttendance=STORAGE.get('attendanceLog',[]).filter(a=>a.date===now.toDateString()&&a.clockIn).length;
+  const todayPresent=employees.filter(e=>e.status==='active').length;
+  const crmHot=clients.filter?clients.filter(c=>(c.stage||'fresh_leads')==='hot_cases').length:0;
 
-  el.innerHTML = `
-  <div class="topbar"><h1>${t('nav_dashboard')}</h1>
-  <div class="topbar-actions"></div></div>
-  <div class="stats-grid">
-    <div class="stat-card" style="cursor:pointer" onclick="dashShowDetail('sales')"><div class="stat-icon blue"><i class="fas fa-dollar-sign"></i></div><div class="stat-info"><h4>${fmt(totalSales)}</h4><p>${t('dash_totalSales')}</p></div></div>
-    <div class="stat-card" style="cursor:pointer" onclick="dashShowDetail('commission')"><div class="stat-icon green"><i class="fas fa-percent"></i></div><div class="stat-info"><h4>${fmt(totalComm)}</h4><p>${t('dash_totalCommission')}</p></div></div>
-    <div class="stat-card" style="cursor:pointer" onclick="dashShowDetail('employees')"><div class="stat-icon yellow"><i class="fas fa-users"></i></div><div class="stat-info"><h4>${activeEmp}</h4><p>${t('dash_activeEmployees')}</p></div></div>
-    <div class="stat-card" style="cursor:pointer" onclick="dashShowDetail('pending')"><div class="stat-icon red"><i class="fas fa-clock"></i></div><div class="stat-info"><h4>${pendingComm}</h4><p>${t('dash_commissionDue')}</p></div></div>
+  el.innerHTML=`
+  <div class="topbar"><h1><i class="fas fa-tachometer-alt"></i> ${lg?'لوحة التحكم الرئيسية':'Dashboard'}</h1>
+  <div class="topbar-actions">
+    <button class="btn btn-outline btn-sm" onclick="showPage('reports')"><i class="fas fa-chart-bar"></i> ${lg?'التقارير':'Reports'}</button>
+  </div></div>
+
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:24px">
+    <div class="stat-card" style="border-left:4px solid var(--primary,#827148);cursor:pointer" onclick="showPage('sales')"><div class="stat-icon" style="background:rgba(130,113,72,.1);color:var(--primary,#827148)"><i class="fas fa-dollar-sign"></i></div><div class="stat-info"><h4>${fmt(totalSales)}</h4><p>${lg?'مبيعات الشهر':'Monthly Revenue'}</p></div></div>
+    <div class="stat-card" style="border-left:4px solid #10B981;cursor:pointer" onclick="showPage('sales')"><div class="stat-icon green"><i class="fas fa-percent"></i></div><div class="stat-info"><h4>${fmt(totalComm)}</h4><p>${lg?'عمولات الشهر':'Monthly Commissions'}</p></div></div>
+    <div class="stat-card" style="border-left:4px solid #3B82F6;cursor:pointer" onclick="showPage('sales')"><div class="stat-icon blue"><i class="fas fa-file-invoice-dollar"></i></div><div class="stat-info"><h4>${monthSales.length}</h4><p>${lg?'صفقات الشهر':'Monthly Deals'}</p></div></div>
+    <div class="stat-card" style="border-left:4px solid #8B5CF6;cursor:pointer" onclick="showPage('orgChart')"><div class="stat-icon" style="background:rgba(139,92,246,.1);color:#8B5CF6"><i class="fas fa-users"></i></div><div class="stat-info"><h4>${activeEmp}</h4><p>${lg?'موظفين نشطين':'Active Staff'}</p></div></div>
+    <div class="stat-card" style="border-left:4px solid #EC4899;cursor:pointer" onclick="showPage('marketing')"><div class="stat-icon" style="background:rgba(236,72,153,.1);color:#EC4899"><i class="fas fa-user-plus"></i></div><div class="stat-info"><h4>${leads.length}</h4><p>${lg?'عملاء التسويق':'Total Leads'}</p></div></div>
+    <div class="stat-card" style="border-left:4px solid #F59E0B;cursor:pointer" onclick="showPage('marketing')"><div class="stat-icon yellow"><i class="fas fa-check-double"></i></div><div class="stat-info"><h4>${convRate}%</h4><p>${lg?'نسبة التحويل':'Conv. Rate'}</p></div></div>
+    <div class="stat-card" style="border-left:4px solid #06B6D4;cursor:pointer" onclick="showPage('sales')"><div class="stat-icon" style="background:rgba(6,182,212,.1);color:#06B6D4"><i class="fas fa-building"></i></div><div class="stat-info"><h4>${available}/${units.length}</h4><p>${lg?'وحدات متاحة':'Available Units'}</p></div></div>
+    <div class="stat-card" style="border-left:4px solid #EF4444;cursor:pointer" onclick="showPage('crm')"><div class="stat-icon red"><i class="fas fa-fire"></i></div><div class="stat-info"><h4>${crmHot}</h4><p>${lg?'عملاء ساخن':'Hot Leads'}</p></div></div>
   </div>
-  <div id="dashDetail"></div>
-  <div class="card"><h3>${t('dash_recentSales')}</h3><div class="table-wrap" id="dashTable"></div></div>`;
-  const recent = sales.slice(-5).reverse();
-  if(recent.length===0) { document.getElementById('dashTable').innerHTML='<div class="empty-state"><p>'+t('noData')+'</p></div>'; return; }
-  let h='<table><thead><tr><th>'+t('sale_code')+'</th><th>'+t('sale_client')+'</th><th>'+t('sale_project')+'</th><th>'+t('sale_unitType')+'</th><th>'+t('sale_price')+'</th><th>'+t('sale_date')+'</th></tr></thead><tbody>';
-  recent.forEach(s => { h+=`<tr><td>${s.code}</td><td>${s.client}</td><td>${s.project}</td><td>${s.unitType}</td><td>${fmt(s.unitPrice)}</td><td>${fmtDate(s.date)}</td></tr>`; });
-  h+='</tbody></table>';
-  document.getElementById('dashTable').innerHTML=h;
+
+  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px;margin-bottom:24px">
+    <div class="card">
+      <h3 style="margin-bottom:14px"><i class="fas fa-chart-line" style="color:var(--primary)"></i> ${lg?'المبيعات الشهرية':'Monthly Revenue Trend'}</h3>
+      <div style="position:relative;height:260px"><canvas id="dashChartRevenue"></canvas></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-bottom:14px"><i class="fas fa-filter" style="color:#EC4899"></i> ${lg?'قمع العملاء':'Lead Pipeline'}</h3>
+      ${['new','contacted','qualified','proposal','won','lost'].map(s=>{
+        const c=leads.filter(l=>(l.status||'new')===s).length;
+        const pct=leads.length?Math.round(c/leads.length*100):0;
+        return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+          <span style="width:70px;font-size:11px;font-weight:600;color:${MKT_LEAD_STAGE_COLORS[s]}">${MKT_LEAD_STAGE_LABELS[s]?.[lang==='ar'?'ar':'en']||s}</span>
+          <div style="flex:1;height:16px;background:var(--border);border-radius:4px;overflow:hidden"><div style="width:${pct}%;height:100%;background:${MKT_LEAD_STAGE_COLORS[s]};border-radius:4px"></div></div>
+          <span style="width:30px;text-align:right;font-size:11px;font-weight:700">${c}</span>
+        </div>`;
+      }).join('')}
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-bottom:24px">
+    <div class="card">
+      <h3 style="margin-bottom:12px"><i class="fas fa-ad" style="color:#8B5CF6"></i> ${lg?'الحملات النشطة':'Active Campaigns'}</h3>
+      ${activeCmps.length?activeCmps.slice(0,4).map(c=>{
+        const cLeads=leads.filter(l=>l.campaignId===c.id);
+        const cConv=cLeads.filter(l=>l.status==='won'||l.status==='converted').length;
+        const p=MKT_PLATFORMS.find(x=>x.id===c.platform);
+        const budgetPct=c.budget?Math.round((c.spent||0)/c.budget*100):0;
+        return `<div style="display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)">
+          <i class="${p?p.icon:'fas fa-ad'}" style="color:${p?p.color:'#6B7280'};width:20px;text-align:center"></i>
+          <div style="flex:1"><div style="font-size:13px;font-weight:600">${c.name}</div>
+            <div style="font-size:11px;color:var(--text-light)">${cLeads.length} ${lg?'عميل':'leads'} · ${fmt(c.budget||0)} ${lg?'ميزانية':'budget'}</div></div>
+          <div style="width:60px;text-align:center"><div style="font-size:16px;font-weight:800;color:#10B981">${cConv}</div><div style="font-size:10px;color:var(--text-light)">${lg?'محوّل':'conv'}</div></div>
+        </div>`;
+      }).join(''):`<div style="text-align:center;padding:20px;color:var(--text-light)">${lg?'لا توجد حملات نشطة':'No active campaigns'}</div>`}
+    </div>
+    <div class="card">
+      <h3 style="margin-bottom:12px"><i class="fas fa-building" style="color:#06B6D4"></i> ${lg?'ملخص العمليات':'Operations Summary'}</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px">
+        <div style="text-align:center;padding:10px;background:rgba(16,185,129,.08);border-radius:8px"><div style="font-size:20px;font-weight:800;color:#10B981">${available}</div><div style="font-size:11px;color:var(--text-light)">${lg?'متاحة':'Available'}</div></div>
+        <div style="text-align:center;padding:10px;background:rgba(245,158,11,.08);border-radius:8px"><div style="font-size:20px;font-weight:800;color:#F59E0B">${pendingRes}</div><div style="font-size:11px;color:var(--text-light)">${lg?'حجوزات':'Reserved'}</div></div>
+        <div style="text-align:center;padding:10px;background:rgba(59,130,246,.08);border-radius:8px"><div style="font-size:20px;font-weight:800;color:#3B82F6">${activeContracts}</div><div style="font-size:11px;color:var(--text-light)">${lg?'عقود نشطة':'Contracts'}</div></div>
+        <div style="text-align:center;padding:10px;background:rgba(139,92,246,.08);border-radius:8px"><div style="font-size:20px;font-weight:800;color:#8B5CF6">${todayAttendance}</div><div style="font-size:11px;color:var(--text-light)">${lg?'حاضرين':'Present'}</div></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn btn-outline btn-sm" onclick="showPage('sales');showOpsTab('units')" style="flex:1"><i class="fas fa-building"></i> ${lg?'الوحدات':'Units'}</button>
+        <button class="btn btn-outline btn-sm" onclick="showPage('sales');showOpsTab('reservations')" style="flex:1"><i class="fas fa-calendar-check"></i> ${lg?'الحجوزات':'Reservations'}</button>
+        <button class="btn btn-outline btn-sm" onclick="showPage('sales');showOpsTab('contracts')" style="flex:1"><i class="fas fa-file-contract"></i> ${lg?'العقود':'Contracts'}</button>
+      </div>
+    </div>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div class="card">
+      <h3 style="margin-bottom:12px"><i class="fas fa-clock" style="color:#F59E0B"></i> ${lg?'آخر المبيعات':'Recent Sales'}</h3>
+      <div class="table-wrap" id="dashRecentSales"></div>
+    </div>
+    <div class="card">
+      <h3 style="margin-bottom:12px"><i class="fas fa-history" style="color:#8B5CF6"></i> ${lg?'آخر النشاطات':'Recent Activity'}</h3>
+      <div id="dashActivityFeed" style="max-height:340px;overflow-y:auto"></div>
+    </div>
+  </div>`;
+
+  const recentSales=sales.slice(-6).reverse();
+  const recentEl=document.getElementById('dashRecentSales');
+  if(recentEl){
+    if(!recentSales.length){recentEl.innerHTML='<div class="empty-state"><p>'+lg?'لا توجد مبيعات':'No sales'+'</p></div>';}
+    else{
+      const empMap={};employees.forEach(e=>{empMap[e.id]=e.name;});
+      recentEl.innerHTML='<table><thead><tr><th>'+lg?'العميل':'Client'+'</th><th>'+lg?'المشروع':'Project'+'</th><th>'+lg?'السعر':'Price'+'</th><th>'+lg?'التاريخ':'Date'+'</th></tr></thead><tbody>'+
+      recentSales.map(s=>'<tr><td><strong>'+(s.client||'-')+'</strong></td><td style="font-size:12px">'+(s.project||'-')+'</td><td><strong>'+fmt(s.unitPrice)+'</strong></td><td style="font-size:12px">'+(s.date||'-')+'</td></tr>').join('')+
+      '</tbody></table>';
+    }
+  }
+
+  const actEl=document.getElementById('dashActivityFeed');
+  if(actEl){
+    const logs=STORAGE.get('marketingLogs',[]);
+    const attLog=STORAGE.get('attendanceLog',[]);
+    const allAct=[];
+    logs.slice(-10).forEach(l=>allAct.push({time:l.timestamp,text:l.action,icon:l.type==='lead'?'👤':l.type==='convert'?'✅':l.type==='campaign'?'📢':'📌'}));
+    attLog.filter(a=>a.date===now.toDateString()).slice(-5).forEach(a=>{const emp=employees.find(e=>e.id===a.employeeId);allAct.push({time:a.clockIn,text:(emp?emp.name:'')+' - '+(lg?'دخول':'Clock in'),icon:'🕐'});});
+    allAct.sort((a,b)=>(b.time||'').localeCompare(a.time||''));
+    actEl.innerHTML=allAct.length?allAct.slice(0,10).map(a=>'<div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px"><span style="font-size:14px">'+a.icon+'</span><div style="flex:1">'+a.text+'</div><div style="color:var(--text-light);font-size:11px;white-space:nowrap">'+(a.time?new Date(a.time).toLocaleTimeString(lg?'ar-EG':'en-US',{hour:'2-digit',minute:'2-digit'}):'')+'</div></div>').join(''):'<div style="text-align:center;padding:20px;color:var(--text-light)">'+lg?'لا توجد نشاطات':'No activity'+'</div>';
+  }
+
+  setTimeout(()=>{
+    const cc=['#827148','#A5AF79','#E8A07C','#C75B4A','#6B5C3A','#10B981','#3B82F6'];
+    const monthMap={};sales.forEach(s=>{if(s.date){const m=s.date.slice(0,7);monthMap[m]=(monthMap[m]||0)+(s.unitPrice||0);}});
+    const mLbl=Object.keys(monthMap).sort().slice(-6);
+    if(mLbl.length&&document.getElementById('dashChartRevenue'))
+      new Chart(document.getElementById('dashChartRevenue'),{type:'bar',data:{labels:mLbl.map(m=>{const[y,mo]=m.split('-');return mo+'/'+y.slice(2);}),datasets:[{label:lg?'المبيعات':'Revenue',data:mLbl.map(m=>monthMap[m]),backgroundColor:cc.map(c=>c+'cc'),borderColor:cc,borderWidth:2,borderRadius:8}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmt(v)},grid:{color:'rgba(130,113,72,.08)'}},x:{grid:{display:false}}}}});
+  },100);
 }
 
 function dashShowDetail(type) {
@@ -3130,6 +3243,7 @@ function dashShowDetail(type) {
   const employees = STORAGE.get('employees',[]);
   const container = document.getElementById('dashDetail');
   let html = '';
+  const lg = lang === 'ar';
 
   if(type === 'sales') {
     const allSales = sales.slice().sort((a,b)=>(b.date||'').localeCompare(a.date||''));
