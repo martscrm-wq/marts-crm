@@ -15392,6 +15392,39 @@ function openCrmAccountModal(){
       <option value="operations">${t('operations')}</option>
     </select></div>
   </div>
+  <h4 style="color:var(--primary);margin:16px 0 8px"><i class="fas fa-eye"></i> ${lg?'إظهار صفحات السايدبار':'Sidebar Pages'}</h4>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:8px;cursor:pointer;font-size:12px">
+      <input type="checkbox" class="crmA_perm" value="dashboard_view" checked style="width:16px;height:16px;accent-color:var(--primary)"> <i class="fas fa-home" style="font-size:11px;color:var(--primary)"></i> ${lg?'لوحة التحكم':'Dashboard'}
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:8px;cursor:pointer;font-size:12px">
+      <input type="checkbox" class="crmA_perm" value="sales_view" checked style="width:16px;height:16px;accent-color:var(--primary)"> <i class="fas fa-file-invoice-dollar" style="font-size:11px;color:var(--primary)"></i> ${lg?'العمليات':'Operations'}
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:8px;cursor:pointer;font-size:12px">
+      <input type="checkbox" class="crmA_perm" value="marketing_view" checked style="width:16px;height:16px;accent-color:var(--primary)"> <i class="fas fa-bullhorn" style="font-size:11px;color:var(--primary)"></i> ${lg?'التسويق':'Marketing'}
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:8px;cursor:pointer;font-size:12px">
+      <input type="checkbox" class="crmA_perm" value="employees_view" checked style="width:16px;height:16px;accent-color:var(--primary)"> <i class="fas fa-users" style="font-size:11px;color:var(--primary)"></i> ${lg?'الموظفين':'Employees'}
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:8px;cursor:pointer;font-size:12px">
+      <input type="checkbox" class="crmA_perm" value="orgchart_view" checked style="width:16px;height:16px;accent-color:var(--primary)"> <i class="fas fa-sitemap" style="font-size:11px;color:var(--primary)"></i> ${lg?'الموارد البشرية':'HR'}
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:8px;cursor:pointer;font-size:12px">
+      <input type="checkbox" class="crmA_perm" value="commissions_view" checked style="width:16px;height:16px;accent-color:var(--primary)"> <i class="fas fa-percent" style="font-size:11px;color:var(--primary)"></i> ${lg?'العمولات':'Commissions'}
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:8px;cursor:pointer;font-size:12px">
+      <input type="checkbox" class="crmA_perm" value="accounts_view" checked style="width:16px;height:16px;accent-color:var(--primary)"> <i class="fas fa-calculator" style="font-size:11px;color:var(--primary)"></i> ${lg?'حسابات الشركة':'Accounts'}
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:8px;cursor:pointer;font-size:12px">
+      <input type="checkbox" class="crmA_perm" value="reports_view" checked style="width:16px;height:16px;accent-color:var(--primary)"> <i class="fas fa-chart-bar" style="font-size:11px;color:var(--primary)"></i> ${lg?'التقارير':'Reports'}
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:8px;cursor:pointer;font-size:12px">
+      <input type="checkbox" class="crmA_perm" value="crm_view" checked style="width:16px;height:16px;accent-color:var(--primary)"> <i class="fas fa-address-book" style="font-size:11px;color:var(--primary)"></i> ${lg?'إدارة العملاء':'CRM'}
+    </label>
+    <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:8px;cursor:pointer;font-size:12px">
+      <input type="checkbox" class="crmA_perm" value="settings_view" checked style="width:16px;height:16px;accent-color:var(--primary)"> <i class="fas fa-cog" style="font-size:11px;color:var(--primary)"></i> ${lg?'الإعدادات':'Settings'}
+    </label>
+  </div>
   <h4 style="color:var(--primary);margin:16px 0 8px"><i class="fas fa-shield-alt"></i> ${t('crm_acc_crmPerms')}</h4>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
     <label style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:8px;cursor:pointer;font-size:13px">
@@ -15439,7 +15472,7 @@ function openCrmAccountEdit(idx){
   const lg = lang==='ar';
   document.getElementById('modalContainer').innerHTML = `<h3><i class="fas fa-pen" style="color:var(--primary);margin-left:8px"></i> ${t('crm_acc_editUser')}: ${u.username}</h3>
   <div class="form-row">
-    <div class="form-group"><label>${t('crm_acc_username')}</label><input type="text" value="${u.username}" disabled style="opacity:.6"></div>
+    <div class="form-group"><label>${t('crm_acc_username')}</label><input type="text" id="crmA_editUser" value="${u.username}"></div>
     <div class="form-group"><label>${t('crm_acc_name')}</label><input type="text" id="crmA_editName" value="${u.fullName||''}"></div>
   </div>
   <div class="form-row">
@@ -15457,6 +15490,7 @@ function openCrmAccountEdit(idx){
       <option value="ma" ${u.role==='ma'?'selected':''}>${t('ma')}</option>
       <option value="marketer" ${u.role==='marketer'?'selected':''}>${t('marketer')}</option>
       <option value="operations" ${u.role==='operations'?'selected':''}>${t('operations')}</option>
+      <option value="accounting" ${u.role==='accounting'?'selected':''}>${t('accounting')}</option>
     </select></div>
   </div>
   <div class="modal-actions">
@@ -15468,13 +15502,26 @@ function openCrmAccountEdit(idx){
 
 function saveCrmAccountEdit(idx){
   const users = STORAGE.get('users',defaultUsers);
+  const newUsername = document.getElementById('crmA_editUser').value.trim();
+  const oldUsername = users[idx].username;
+  if(!newUsername){ alert(lang==='ar'?'اسم المستخدم مطلوب':'Username required'); return; }
+  if(newUsername !== oldUsername && users.find(u=>u.username===newUsername)){
+    alert(lang==='ar'?'اسم المستخدم موجود مسبقاً':'Username already exists'); return;
+  }
+  users[idx].username = newUsername;
   users[idx].fullName = document.getElementById('crmA_editName').value.trim();
-  users[idx].email = document.getElementById('crmA_editEmail').value.trim() || users[idx].username+'@marts-eg.com';
+  users[idx].email = document.getElementById('crmA_editEmail').value.trim() || newUsername+'@marts-eg.com';
   users[idx].role = document.getElementById('crmA_editRole').value;
   const newPass = document.getElementById('crmA_editPass').value;
   if(newPass && newPass.length>=4) users[idx].password = newPass;
+  if(newUsername !== oldUsername){
+    const allUsers = STORAGE.get('users',defaultUsers);
+    allUsers.forEach(u=>{ if(u.parentId===oldUsername) u.parentId=newUsername; });
+    STORAGE.set('users', allUsers);
+  }
   STORAGE.set('users', users);
-  if(currentUser && users[idx].username===currentUser.username){
+  if(currentUser && (oldUsername===currentUser.username || newUsername===currentUser.username)){
+    currentUser.username = newUsername;
     currentUser.fullName = users[idx].fullName;
     currentUser.role = users[idx].role;
     STORAGE.set('currentUser', currentUser);
@@ -15490,22 +15537,32 @@ function openCrmAccountPerms(idx){
   const lg = lang==='ar';
   const p = u.permissions||[];
   const has = (perm)=>p.includes(perm)?'checked':'';
+  const sidebarPages = [
+    {perm:'dashboard_view',icon:'fa-home',label:lg?'لوحة التحكم':'Dashboard'},
+    {perm:'sales_view',icon:'fa-file-invoice-dollar',label:lg?'العمليات':'Operations'},
+    {perm:'marketing_view',icon:'fa-bullhorn',label:lg?'التسويق':'Marketing'},
+    {perm:'employees_view',icon:'fa-users',label:lg?'الموظفين':'Employees'},
+    {perm:'orgchart_view',icon:'fa-sitemap',label:lg?'الموارد البشرية':'HR'},
+    {perm:'commissions_view',icon:'fa-percent',label:lg?'العمولات':'Commissions'},
+    {perm:'accounts_view',icon:'fa-calculator',label:lg?'حسابات الشركة':'Company Accounts'},
+    {perm:'reports_view',icon:'fa-chart-bar',label:lg?'التقارير':'Reports'},
+    {perm:'search_view',icon:'fa-search',label:lg?'البحث':'Search'},
+    {perm:'crm_view',icon:'fa-address-book',label:lg?'إدارة العملاء':'CRM'},
+    {perm:'crm_manage_accounts',icon:'fa-user-shield',label:lg?'حسابات CRM':'CRM Accounts'},
+    {perm:'integ_view',icon:'fa-plug',label:lg?'ربط المنصات':'Integrations'},
+    {perm:'settings_view',icon:'fa-cog',label:lg?'الإعدادات':'Settings'}
+  ];
 
   document.getElementById('modalContainer').innerHTML = `<h3><i class="fas fa-shield-alt" style="color:var(--primary);margin-left:8px"></i> ${t('crm_acc_perms')}: ${u.fullName||u.username}</h3>
-  <h4 style="color:var(--primary);margin-bottom:12px"><i class="fas fa-address-book"></i> ${t('crm_acc_crmPerms')}</h4>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">
-    <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg);border-radius:8px;cursor:pointer;font-size:13px">
-      <input type="checkbox" class="crmA_permCheck" value="crm_view" ${has('crm_view')} style="width:16px;height:16px;accent-color:var(--primary)"> ${t('crm_acc_view')}
-    </label>
-    <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg);border-radius:8px;cursor:pointer;font-size:13px">
-      <input type="checkbox" class="crmA_permCheck" value="crm_add" ${has('crm_add')} style="width:16px;height:16px;accent-color:var(--primary)"> ${t('crm_acc_add_perm')}
-    </label>
-    <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg);border-radius:8px;cursor:pointer;font-size:13px">
-      <input type="checkbox" class="crmA_permCheck" value="crm_edit" ${has('crm_edit')} style="width:16px;height:16px;accent-color:var(--primary)"> ${t('crm_acc_edit_perm')}
-    </label>
-    <label style="display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--bg);border-radius:8px;cursor:pointer;font-size:13px">
-      <input type="checkbox" class="crmA_permCheck" value="crm_delete" ${has('crm_delete')} style="width:16px;height:16px;accent-color:var(--primary)"> ${t('crm_acc_delete_perm')}
-    </label>
+  <h4 style="color:var(--primary);margin-bottom:12px"><i class="fas fa-eye"></i> ${lg?'إظهار صفحات السايدبار':'Sidebar Page Visibility'}</h4>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px">
+    ${sidebarPages.map(sp=>`<label style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border-radius:8px;cursor:pointer;font-size:12px">
+      <input type="checkbox" class="crmA_permCheck" value="${sp.perm}" ${has(sp.perm)} style="width:16px;height:16px;accent-color:var(--primary)"> <i class="fas ${sp.icon}" style="font-size:11px;color:var(--primary)"></i> ${sp.label}
+    </label>`).join('')}
+  </div>
+  <div style="text-align:center;margin-bottom:16px">
+    <button class="btn btn-outline btn-sm" onclick="document.querySelectorAll('.crmA_permCheck').forEach(c=>c.checked=true)">${lg?'تحديد الكل':'Select All'}</button>
+    <button class="btn btn-outline btn-sm" onclick="document.querySelectorAll('.crmA_permCheck').forEach(c=>c.checked=false)">${lg?'إلغاء الكل':'Deselect All'}</button>
   </div>
   <h4 style="color:var(--primary);margin-bottom:12px"><i class="fas fa-plug"></i> ${t('integ_perm')}</h4>
   <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:20px">
