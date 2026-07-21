@@ -15947,589 +15947,510 @@ function renderSettings(el) {
 }
 
 // ============================================================
-// MARKETING
+// MARKETING MODULE v2.1
 // ============================================================
-function renderMarketing(el) {
-  const marketingTeam = STORAGE.get('marketingTeam', []);
-  const marketingLeads = STORAGE.get('marketingLeads', []);
-  const marketingCampaigns = STORAGE.get('marketingCampaigns', []);
-  const marketingLogs = STORAGE.get('marketingLogs', []);
-  
-  const today = new Date();
-  const todayLeads = marketingLeads.filter(l => {
-    const d = new Date(l.createdAt);
-    return d.toDateString() === today.toDateString();
-  });
-  const activeTeam = marketingTeam.filter(m => m.status === 'active');
-  const pendingLeads = marketingLeads.filter(l => l.status === 'new' || l.status === 'contacted');
-  const convertedLeads = marketingLeads.filter(l => l.status === 'converted');
-  
-  el.innerHTML = `
-  <div class="topbar"><h1><i class="fas fa-bullhorn"></i> ${lang==='ar'?'إدارة التسويق':'Marketing Management'}</h1>
+const MKT_LEAD_STAGES=['new','contacted','qualified','proposal','won','lost'];
+const MKT_LEAD_STAGE_LABELS={new:{ar:'جديد',en:'New'},contacted:{ar:'تم التواصل',en:'Contacted'},qualified:{ar:'مؤهل',en:'Qualified'},proposal:{ar:'عرض سعر',en:'Proposal'},won:{ar:'تم التحويل',en:'Won'},lost:{ar:'ضائع',en:'Lost'}};
+const MKT_LEAD_STAGE_COLORS={new:'#3B82F6',contacted:'#F59E0B',qualified:'#8B5CF6',proposal:'#EC4899',won:'#10B981',lost:'#EF4444'};
+const MKT_PLATFORMS=[{id:'facebook',name:'Facebook',icon:'fab fa-facebook',color:'#1877F2'},{id:'instagram',name:'Instagram',icon:'fab fa-instagram',color:'#E4405F'},{id:'google',name:'Google Ads',icon:'fab fa-google',color:'#4285F4'},{id:'tiktok',name:'TikTok',icon:'fab fa-tiktok',color:'#EE1D52'},{id:'snapchat',name:'Snapchat',icon:'fab fa-snapchat-ghost',color:'#FFFC00'},{id:'linkedin',name:'LinkedIn',icon:'fab fa-linkedin',color:'#0077B5'},{id:'x',name:'X (Twitter)',icon:'fab fa-x-twitter',color:'#000'},{id:'referral',name:'إحالة / Referral',icon:'fas fa-share',color:'#10B981'},{id:'walk_in',name:'زائر مباشر / Walk-in',icon:'fas fa-walking',color:'#6366F1'},{id:'other',name:'أخرى / Other',icon:'fas fa-ellipsis-h',color:'#6B7280'}];
+const MKT_CAMP_STATUSES={active:{ar:'نشط',en:'Active',color:'#10B981'},paused:{ar:'متوقف',en:'Paused',color:'#F59E0B'},ended:{ar:'منتهي',en:'Ended',color:'#6B7280'},draft:{ar:'مسودة',en:'Draft',color:'#94A3B8'}};
+let _mktCurrentTab='dashboard';let _mktLeadSearch='';let _mktLeadStageFilter='';let _mktCmpSearch='';let _mktLeadPage=1;const MKT_PAGE_SIZE=20;
+
+function renderMarketing(el){
+  const lg=lang==='ar';
+  el.innerHTML=`<div class="topbar"><h1><i class="fas fa-bullhorn"></i> ${lg?'إدارة التسويق':'Marketing Management'}</h1>
   <div class="topbar-actions">
-    <button class="btn btn-primary btn-sm" onclick="openAddMarketingLead()"><i class="fas fa-plus"></i> ${lang==='ar'?'عميل جديد':'New Lead'}</button>
-    <button class="btn btn-outline btn-sm" onclick="openAddMarketingCampaign()"><i class="fas fa-ad"></i> ${lang==='ar'?'حملة جديدة':'New Campaign'}</button>
+    <button class="btn btn-primary btn-sm" onclick="mktOpenAddLead()"><i class="fas fa-plus"></i> ${lg?'عميل جديد':'New Lead'}</button>
+    <button class="btn btn-outline btn-sm" onclick="mktOpenAddCampaign()"><i class="fas fa-ad"></i> ${lg?'حملة جديدة':'New Campaign'}</button>
   </div></div>
-  
-  <div class="stats-grid">
-    <div class="stat-card"><div class="stat-icon blue"><i class="fas fa-users"></i></div><div class="stat-info"><h4>${activeTeam.length}</h4><p>${lang==='ar'?'فريق التسويق':'Marketing Team'}</p></div></div>
-    <div class="stat-card"><div class="stat-icon green"><i class="fas fa-user-plus"></i></div><div class="stat-info"><h4>${todayLeads.length}</h4><p>${lang==='ar'?'عملاء اليوم':'Today Leads'}</p></div></div>
-    <div class="stat-card"><div class="stat-icon yellow"><i class="fas fa-clock"></i></div><div class="stat-info"><h4>${pendingLeads.length}</h4><p>${lang==='ar'?'عملاء معلقين':'Pending Leads'}</p></div></div>
-    <div class="stat-card"><div class="stat-icon red"><i class="fas fa-check-circle"></i></div><div class="stat-info"><h4>${convertedLeads.length}</h4><p>${lang==='ar'?'تم تحويلهم':'Converted'}</p></div></div>
+  <div style="display:flex;gap:4px;border-bottom:2px solid var(--border);margin-bottom:20px;padding-bottom:0">
+    ${['dashboard','leads','campaigns','team'].map(t=>`<button class="btn ${_mktCurrentTab===t?'btn-primary':'btn-outline'} btn-sm" onclick="mktSwitchTab('${t}')"><i class="fas fa-${t==='dashboard'?'chart-pie':t==='leads'?'users':t==='campaigns'?'ad':'user-friends'}"></i> ${lg?(t==='dashboard'?'لوحة التحكم':t==='leads'?'العملاء':t==='campaigns'?'الحملات':'الفريق'):(t==='dashboard'?'Dashboard':t==='leads'?'Leads':t==='campaigns'?'Campaigns':'Team')}</button>`).join('')}
+  </div><div id="mktTabContent"></div>`;
+  mktRenderTab();
+}
+function mktSwitchTab(tab){_mktCurrentTab=tab;mktRenderTab();}
+
+function mktRenderTab(){
+  const el=document.getElementById('mktTabContent');
+  if(!el)return;
+  if(_mktCurrentTab==='dashboard')mktRenderDashboard(el);
+  else if(_mktCurrentTab==='leads')mktRenderLeads(el);
+  else if(_mktCurrentTab==='campaigns')mktRenderCampaigns(el);
+  else if(_mktCurrentTab==='team')mktRenderTeam(el);
+}
+
+// ── DASHBOARD ──
+function mktRenderDashboard(el){
+  const lg=lang==='ar';
+  const leads=STORAGE.get('marketingLeads',[]);
+  const campaigns=STORAGE.get('marketingCampaigns',[]);
+  const team=STORAGE.get('marketingTeam',[]);
+  const now=new Date();
+  const today=now.toDateString();
+  const weekAgo=new Date(now);weekAgo.setDate(weekAgo.getDate()-7);
+  const monthAgo=new Date(now);monthAgo.setMonth(monthAgo.getMonth()-1);
+  const todayLeads=leads.filter(l=>new Date(l.createdAt).toDateString()===today);
+  const weekLeads=leads.filter(l=>new Date(l.createdAt)>=weekAgo);
+  const monthLeads=leads.filter(l=>new Date(l.createdAt)>=monthAgo);
+  const converted=leads.filter(l=>l.status==='won'||l.status==='converted');
+  const lost=leads.filter(l=>l.status==='lost');
+  const activeCampaigns=campaigns.filter(c=>c.status==='active');
+  const totalBudget=activeCampaigns.reduce((s,c)=>s+(c.budget||0),0);
+  const totalSpent=activeCampaigns.reduce((s,c)=>s+(c.spent||0),0);
+  const convRate=leads.length>0?Math.round(converted.length/leads.length*100):0;
+  const costPerLead=converted.length>0?Math.round(totalSpent/converted.length):0;
+  const sourceBreak={};leads.forEach(l=>{const s=l.source||'other';sourceBreak[s]=(sourceBreak[s]||0)+1;});
+  const topSources=Object.entries(sourceBreak).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+  el.innerHTML=`
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:20px">
+    <div class="stat-card" style="border-left:4px solid var(--blue,var(--primary,#3B82F6))"><div class="stat-icon blue"><i class="fas fa-user-plus"></i></div><div class="stat-info"><h4>${leads.length}</h4><p>${lg?'إجمالي العملاء':'Total Leads'}</p></div></div>
+    <div class="stat-card" style="border-left:4px solid #10B981"><div class="stat-icon green"><i class="fas fa-calendar-day"></i></div><div class="stat-info"><h4>${todayLeads.length}</h4><p>${lg?'عملاء اليوم':'Today Leads'}</p></div></div>
+    <div class="stat-card" style="border-left:4px solid #8B5CF6"><div class="stat-icon" style="background:rgba(139,92,246,.1);color:#8B5CF6"><i class="fas fa-calendar-week"></i></div><div class="stat-info"><h4>${weekLeads.length}</h4><p>${lg?'عملاء هذا الأسبوع':'This Week'}</p></div></div>
+    <div class="stat-card" style="border-left:4px solid #EC4899"><div class="stat-icon" style="background:rgba(236,72,153,.1);color:#EC4899"><i class="fas fa-calendar-alt"></i></div><div class="stat-info"><h4>${monthLeads.length}</h4><p>${lg?'عملاء هذا الشهر':'This Month'}</p></div></div>
+    <div class="stat-card" style="border-left:4px solid #F59E0B"><div class="stat-icon yellow"><i class="fas fa-check-double"></i></div><div class="stat-info"><h4>${convRate}%</h4><p>${lg?'نسبة التحويل':'Conv. Rate'}</p></div></div>
+    <div class="stat-card" style="border-left:4px solid #EF4444"><div class="stat-icon red"><i class="fas fa-ad"></i></div><div class="stat-info"><h4>${activeCampaigns.length}</h4><p>${lg?'حملات نشطة':'Active Campaigns'}</p></div></div>
+    <div class="stat-card" style="border-left:4px solid #06B6D4"><div class="stat-icon" style="background:rgba(6,182,212,.1);color:#06B6D4"><i class="fas fa-coins"></i></div><div class="stat-info"><h4>${fmt(totalBudget)}</h4><p>${lg?'إجمالي الميزانية':'Total Budget'}</p></div></div>
+    <div class="stat-card" style="border-left:4px solid #6366F1"><div class="stat-icon" style="background:rgba(99,102,241,.1);color:#6366F1"><i class="fas fa-user-friends"></i></div><div class="stat-info"><h4>${team.filter(t=>t.status==='active').length}</h4><p>${lg?'فريق التسويق':'Team'}</p></div></div>
   </div>
-  
-  <div style="display:grid;grid-template-columns:2fr 1fr;gap:20px">
-    <div>
-      <div class="card">
-        <div class="flex-between mb-16">
-          <h3><i class="fas fa-user-friends"></i> ${lang==='ar'?'فريق التسويق':'Marketing Team'}</h3>
-          <button class="btn btn-primary btn-sm" onclick="openAddMarketingMember()"><i class="fas fa-plus"></i></button>
-        </div>
-        <div class="table-wrap" id="marketingTeamTable"></div>
-      </div>
-      
-      <div class="card">
-        <div class="flex-between mb-16">
-          <h3><i class="fas fa-headset"></i> ${lang==='ar'?'عملاء التسويق':'Marketing Leads'}</h3>
-          <input type="text" id="leadSearch" placeholder="${lang==='ar'?'بحث...':'Search...'}" oninput="filterMarketingLeads()" style="padding:6px 12px;border:1px solid var(--border);border-radius:6px;font-size:12px">
-        </div>
-        <div class="table-wrap" id="marketingLeadsTable"></div>
-      </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px">
+    <div class="card">
+      <h3 style="margin-bottom:14px"><i class="fas fa-funnel-dollar"></i> ${lg?'مراحل العملاء':'Lead Pipeline'}</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">${MKT_LEAD_STAGES.map(s=>{
+        const c=leads.filter(l=>(l.status||'new')===s).length;
+        return `<div style="flex:1;min-width:80px;text-align:center;padding:12px 8px;background:${MKT_LEAD_STAGE_COLORS[s]}15;border-radius:10px;border:2px solid ${MKT_LEAD_STAGE_COLORS[s]}30">
+          <div style="font-size:22px;font-weight:800;color:${MKT_LEAD_STAGE_COLORS[s]}">${c}</div>
+          <div style="font-size:10px;color:var(--crm-text-secondary,--text-light,#888);margin-top:2px">${MKT_LEAD_STAGE_LABELS[s][lang==='ar'?'ar':'en']}</div>
+        </div>`;
+      }).join('')}</div>
     </div>
-    
-    <div>
-      <div class="card">
-        <h3><i class="fas fa-ad"></i> ${lang==='ar'?'الحملات':'Campaigns'}</h3>
-        <div id="marketingCampaignsList" style="margin-top:12px"></div>
+    <div class="card">
+      <h3 style="margin-bottom:14px"><i class="fas fa-chart-pie"></i> ${lg?'مصادر العملاء':'Top Sources'}</h3>
+      ${topSources.length?`<div style="display:flex;flex-direction:column;gap:8px">${topSources.map(([src,cnt])=>{
+        const pct=leads.length?Math.round(cnt/leads.length*100):0;
+        const p=MKT_PLATFORMS.find(x=>x.id===src);
+        return `<div style="display:flex;align-items:center;gap:10px">
+          <i class="${p?p.icon:'fas fa-circle'}" style="color:${p?p.color:'#6B7280'};width:20px;text-align:center"></i>
+          <span style="flex:1;font-size:13px;font-weight:600">${p?p.name:src}</span>
+          <span style="font-size:12px;color:var(--text-light)">${cnt} (${pct}%)</span>
+          <div style="width:100px;height:6px;background:var(--border,#e5e7eb);border-radius:3px;overflow:hidden">
+            <div style="width:${pct}%;height:100%;background:${p?p.color:'#6B7280'};border-radius:3px"></div>
+          </div>
+        </div>`;
+      }).join('')}</div>`:`<div style="text-align:center;padding:20px;color:var(--text-light)">${lg?'لا توجد بيانات':'No data yet'}</div>`}
+    </div>
+  </div>
+  <div class="card" style="margin-top:20px">
+    <h3 style="margin-bottom:14px"><i class="fas fa-history"></i> ${lg?'آخر النشاطات':'Recent Activity'}</h3>
+    <div id="mktActivityLog"></div>
+  </div>`;
+  mktRenderActivityLog(document.getElementById('mktActivityLog'));
+}
+
+function mktRenderActivityLog(el){
+  if(!el)return;
+  const lg=lang==='ar';
+  const logs=STORAGE.get('marketingLogs',[]);
+  if(!logs.length){el.innerHTML=`<div style="text-align:center;padding:20px;color:var(--text-light)">${lg?'لا توجد نشاطات':'No activity yet'}</div>`;return;}
+  const icons={login:'🔑',lead:'👤',call:'📞',convert:'✅',campaign:'📢',edit:'✏️',delete:'🗑️',assign:'👤'};
+  el.innerHTML=logs.slice(-15).reverse().map(l=>`<div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px">
+    <span style="font-size:16px">${icons[l.type]||'📌'}</span>
+    <div style="flex:1"><strong>${l.userName||'-'}</strong> <span style="color:var(--text-light)">${l.action}</span>
+    <div style="font-size:11px;color:var(--text-light)">${new Date(l.timestamp).toLocaleString(lg?'ar-EG':'en-US')}</div></div>
+  </div>`).join('');
+}
+
+// ── LEADS TAB ──
+function mktRenderLeads(el){
+  const lg=lang==='ar';
+  const leads=STORAGE.get('marketingLeads',[]);
+  let filtered=leads;
+  if(_mktLeadSearch){const q=_mktLeadSearch.toLowerCase();filtered=filtered.filter(l=>(l.name||'').toLowerCase().includes(q)||(l.phone||'').includes(q)||(l.email||'').toLowerCase().includes(q));}
+  if(_mktLeadStageFilter){filtered=filtered.filter(l=>(l.status||'new')===_mktLeadStageFilter);}
+  const totalPages=Math.max(1,Math.ceil(filtered.length/MKT_PAGE_SIZE));
+  if(_mktLeadPage>totalPages)_mktLeadPage=totalPages;
+  const pageData=filtered.slice((_mktLeadPage-1)*MKT_PAGE_SIZE,_mktLeadPage*MKT_PAGE_SIZE);
+  const team=STORAGE.get('marketingTeam',[]);
+  const campaigns=STORAGE.get('marketingCampaigns',[]);
+
+  el.innerHTML=`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+    <input type="text" class="mkt-search-input" placeholder="${lg?'بحث بالاسم/هاتف/إيميل...':'Search name/phone/email...'}" value="${_mktLeadSearch}" oninput="_mktLeadSearch=this.value;_mktLeadPage=1;mktRenderTab()" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;flex:1;min-width:200px;font-size:13px">
+    <select onchange="_mktLeadStageFilter=this.value;_mktLeadPage=1;mktRenderTab()" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px">
+      <option value="">${lg?'كل المراحل':'All Stages'}</option>
+      ${MKT_LEAD_STAGES.map(s=>`<option value="${s}" ${_mktLeadStageFilter===s?'selected':''}>${MKT_LEAD_STAGE_LABELS[s][lang==='ar'?'ar':'en']} (${leads.filter(l=>(l.status||'new')===s).length})</option>`).join('')}
+    </select>
+    <button class="btn btn-outline btn-sm" onclick="mktExportLeads()"><i class="fas fa-file-export"></i> ${lg?'تصدير':'Export'}</button>
+    <button class="btn btn-primary btn-sm" onclick="mktOpenAddLead()"><i class="fas fa-plus"></i> ${lg?'عميل جديد':'New Lead'}</button>
+  </div>
+  <div class="card">
+    <div class="table-wrap">
+      <table><thead><tr><th>${lg?'الاسم':'Name'}</th><th>${lg?'الهاتف':'Phone'}</th><th>${lg?'المصدر':'Source'}</th><th>${lg?'الحملة':'Campaign'}</th><th>${lg?'المسوق':'Marketer'}</th><th>${lg?'المرحلة':'Stage'}</th><th>${lg?'التاريخ':'Date'}</th><th></th></tr></thead><tbody>
+      ${pageData.length?pageData.map(l=>{
+        const st=l.status||'new';const sl=MKT_LEAD_STAGE_LABELS[st]||{ar:st,en:st};const sc=MKT_LEAD_STAGE_COLORS[st]||'#6B7280';
+        const m=team.find(x=>x.id===l.marketerId);const c=campaigns.find(x=>x.id===l.campaignId);const p=MKT_PLATFORMS.find(x=>x.id===l.source);
+        return `<tr>
+          <td><strong>${l.name||'-'}</strong>${l.email?`<div style="font-size:11px;color:var(--text-light)">${l.email}</div>`:''}</td>
+          <td>${l.phone||'-'}</td>
+          <td><span style="display:inline-flex;align-items:center;gap:4px;font-size:12px;color:${p?p.color:'#6B7280'}"><i class="${p?p.icon:'fas fa-circle'}" style="font-size:10px"></i> ${p?p.name:l.source||'-'}</span></td>
+          <td style="font-size:12px">${c?c.name:'-'}</td>
+          <td style="font-size:12px">${m?m.name:'-'}</td>
+          <td><span style="background:${sc}20;color:${sc};padding:3px 10px;border-radius:12px;font-size:11px;font-weight:600">${sl[lang==='ar'?'ar':'en']}</span></td>
+          <td style="font-size:11px;color:var(--text-light)">${l.createdAt?new Date(l.createdAt).toLocaleDateString(lg?'ar-EG':'en-US'):'-'}</td>
+          <td style="white-space:nowrap">
+            <button class="btn btn-outline btn-sm" onclick="mktOpenEditLead('${l.id}')" title="${lg?'تعديل':'Edit'}"><i class="fas fa-pen"></i></button>
+            ${st!=='won'&&st!=='lost'?`<button class="btn btn-success btn-sm" onclick="mktConvertLead('${l.id}')" title="${lg?'تحويل للمبيعات':'Convert'}"><i class="fas fa-arrow-right"></i></button>`:''}
+            <button class="btn btn-danger btn-sm" onclick="mktDeleteLead('${l.id}')" title="${lg?'حذف':'Delete'}"><i class="fas fa-trash"></i></button>
+          </td>
+        </tr>`;
+      }).join(''):`<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)">${lg?'لا يوجد عملاء':'No leads found'}</td></tr>`}
+      </tbody></table>
+    </div>
+    ${filtered.length>MKT_PAGE_SIZE?`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--border)">
+      <span style="font-size:12px;color:var(--text-light)">${lg?'عرض':'Showing'} ${(_mktLeadPage-1)*MKT_PAGE_SIZE+1}-${Math.min(_mktLeadPage*MKT_PAGE_SIZE,filtered.length)} ${lg?'من':'of'} ${filtered.length}</span>
+      <div style="display:flex;gap:4px">
+        <button class="btn btn-outline btn-sm" onclick="_mktLeadPage=Math.max(1,_mktLeadPage-1);mktRenderTab()" ${_mktLeadPage<=1?'disabled':''}>${lg?'السابق':'Prev'}</button>
+        <button class="btn btn-outline btn-sm" onclick="_mktLeadPage=Math.min(${totalPages},_mktLeadPage+1);mktRenderTab()" ${_mktLeadPage>=totalPages?'disabled':''}>${lg?'التالي':'Next'}</button>
       </div>
-      
-      <div class="card" style="margin-top:20px">
-        <h3><i class="fas fa-chart-bar"></i> ${lang==='ar'?'نشاط اليوم':'Today Activity'}</h3>
-        <div id="marketingActivityLog" style="margin-top:12px;max-height:300px;overflow-y:auto"></div>
-      </div>
+    </div>`:''}
+  </div>`;
+}
+
+function mktOpenAddLead(){
+  const lg=lang==='ar';
+  const team=STORAGE.get('marketingTeam',[]);
+  const campaigns=STORAGE.get('marketingCampaigns',[]);
+  openModal(`<h3><i class="fas fa-user-plus"></i> ${lg?'عميل جديد':'New Lead'}</h3>
+    <div class="form-row"><div class="form-group"><label>${lg?'الاسم':'Name'} *</label><input type="text" id="mktLeadName" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="form-group"><label>${lg?'الهاتف':'Phone'} *</label><input type="text" id="mktLeadPhone" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div></div>
+    <div class="form-row"><div class="form-group"><label>${lg?'الإيميل':'Email'}</label><input type="email" id="mktLeadEmail" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="form-group"><label>${lg?'المصدر':'Source'}</label><select id="mktLeadSource" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%">${MKT_PLATFORMS.map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select></div></div>
+    <div class="form-row"><div class="form-group"><label>${lg?'الحملة':'Campaign'}</label><select id="mktLeadCampaign" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"><option value="">${lg?'بدون':'None'}</option>${campaigns.map(c=>`<option value="${c.id}">${c.name}</option>`).join('')}</select></div>
+    <div class="form-group"><label>${lg?'المسوق':'Marketer'}</label><select id="mktLeadMarketer" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"><option value="">${lg?'بدون':'None'}</option>${team.map(m=>`<option value="${m.id}">${m.name}</option>`).join('')}</select></div></div>
+    <div class="form-group"><label>${lg?'ملاحظات':'Notes'}</label><textarea id="mktLeadNotes" rows="3" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></textarea></div>
+    <div class="modal-actions"><button class="btn btn-primary" onclick="mktSaveLead()"><i class="fas fa-save"></i> ${lg?'حفظ':'Save'}</button><button class="btn btn-outline" onclick="closeModal()">${lg?'إلغاء':'Cancel'}</button></div>`);
+}
+function mktSaveLead(){
+  const lg=lang==='ar';
+  const name=document.getElementById('mktLeadName')?.value?.trim();
+  const phone=document.getElementById('mktLeadPhone')?.value?.trim();
+  if(!name||!phone){wsToast(lg?'الاسم والهاتف مطلوبان':'Name and phone required');return;}
+  const leads=STORAGE.get('marketingLeads',[]);
+  leads.push({id:'mlead_'+Date.now(),name,phone,email:document.getElementById('mktLeadEmail')?.value?.trim()||'',source:document.getElementById('mktLeadSource')?.value||'other',campaignId:document.getElementById('mktLeadCampaign')?.value||'',marketerId:document.getElementById('mktLeadMarketer')?.value||'',notes:document.getElementById('mktLeadNotes')?.value?.trim()||'',status:'new',createdAt:new Date().toISOString()});
+  STORAGE.set('marketingLeads',leads);
+  mktAddLog('lead',lg?'أضاف عميل '+name:'Added lead '+name);
+  closeModal();wsToast((lg?'تمت إضافة العميل ':'Lead added: ')+name);mktRenderTab();
+}
+function mktOpenEditLead(id){
+  const lg=lang==='ar';
+  const leads=STORAGE.get('marketingLeads',[]);
+  const l=leads.find(x=>x.id===id);if(!l)return;
+  const team=STORAGE.get('marketingTeam',[]);
+  const campaigns=STORAGE.get('marketingCampaigns',[]);
+  openModal(`<h3><i class="fas fa-pen"></i> ${lg?'تعديل العميل':'Edit Lead'}</h3>
+    <div class="form-row"><div class="form-group"><label>${lg?'الاسم':'Name'}</label><input type="text" id="mktELName" value="${l.name||''}" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="form-group"><label>${lg?'الهاتف':'Phone'}</label><input type="text" id="mktELPhone" value="${l.phone||''}" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div></div>
+    <div class="form-row"><div class="form-group"><label>${lg?'الإيميل':'Email'}</label><input type="email" id="mktELEmail" value="${l.email||''}" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="form-group"><label>${lg?'المرحلة':'Stage'}</label><select id="mktELStatus" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%">${MKT_LEAD_STAGES.map(s=>`<option value="${s}" ${(l.status||'new')===s?'selected':''}>${MKT_LEAD_STAGE_LABELS[s][lang==='ar'?'ar':'en']}</option>`).join('')}</select></div></div>
+    <div class="form-row"><div class="form-group"><label>${lg?'الحملة':'Campaign'}</label><select id="mktELCampaign" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"><option value="">${lg?'بدون':'None'}</option>${campaigns.map(c=>`<option value="${c.id}" ${l.campaignId===c.id?'selected':''}>${c.name}</option>`).join('')}</select></div>
+    <div class="form-group"><label>${lg?'المسوق':'Marketer'}</label><select id="mktELMarketer" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"><option value="">${lg?'بدون':'None'}</option>${team.map(m=>`<option value="${m.id}" ${l.marketerId===m.id?'selected':''}>${m.name}</option>`).join('')}</select></div></div>
+    <div class="form-group"><label>${lg?'ملاحظات':'Notes'}</label><textarea id="mktELNotes" rows="3" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%">${l.notes||''}</textarea></div>
+    <div class="modal-actions"><button class="btn btn-primary" onclick="mktUpdateLead('${id}')"><i class="fas fa-save"></i> ${lg?'حفظ':'Save'}</button><button class="btn btn-outline" onclick="closeModal()">${lg?'إلغاء':'Cancel'}</button></div>`);
+}
+function mktUpdateLead(id){
+  const lg=lang==='ar';
+  const leads=STORAGE.get('marketingLeads',[]);
+  const idx=leads.findIndex(x=>x.id===id);if(idx<0)return;
+  leads[idx].name=document.getElementById('mktELName')?.value?.trim()||leads[idx].name;
+  leads[idx].phone=document.getElementById('mktELPhone')?.value?.trim()||leads[idx].phone;
+  leads[idx].email=document.getElementById('mktELEmail')?.value?.trim()||'';
+  leads[idx].status=document.getElementById('mktELStatus')?.value||leads[idx].status;
+  leads[idx].campaignId=document.getElementById('mktELCampaign')?.value||'';
+  leads[idx].marketerId=document.getElementById('mktELMarketer')?.value||'';
+  leads[idx].notes=document.getElementById('mktELNotes')?.value?.trim()||'';
+  STORAGE.set('marketingLeads',leads);
+  mktAddLog('edit',lg?'عدّل العميل '+leads[idx].name:'Edited lead '+leads[idx].name);
+  closeModal();mktRenderTab();
+}
+function mktDeleteLead(id){
+  const lg=lang==='ar';
+  if(!confirm(lg?'هل تريد حذف هذا العميل؟':'Delete this lead?'))return;
+  const leads=STORAGE.get('marketingLeads',[]);
+  const l=leads.find(x=>x.id===id);
+  STORAGE.set('marketingLeads',leads.filter(x=>x.id!==id));
+  if(l)mktAddLog('delete',lg?'حذف العميل '+l.name:'Deleted lead '+l.name);
+  mktRenderTab();
+}
+function mktConvertLead(id){
+  const lg=lang==='ar';
+  const leads=STORAGE.get('marketingLeads',[]);
+  const l=leads.find(x=>x.id===id);if(!l)return;
+  if(!confirm(lg?'تحويل العميل "'+l.name+'" لفريق المبيعات؟':'Convert "'+l.name+'" to sales?'))return;
+  l.status='won';l.convertedAt=new Date().toISOString();STORAGE.set('marketingLeads',leads);
+  const salesLeads=STORAGE.get('salesLeads',[]);
+  salesLeads.push({id:'sale_'+Date.now(),name:l.name,phone:l.phone,email:l.email,source:'marketing',originalLeadId:l.id,marketerId:l.marketerId,status:'new',createdAt:new Date().toISOString()});
+  STORAGE.set('salesLeads',salesLeads);
+  mktAddLog('convert',lg?'حول العميل '+l.name+' للمبيعات':'Converted '+l.name+' to sales');
+  wsToast((lg?'تم تحويل ':'Converted ')+l.name);mktRenderTab();
+}
+function mktExportLeads(){
+  const lg=lang==='ar';
+  const leads=STORAGE.get('marketingLeads',[]);
+  if(!leads.length){wsToast(lg?'لا يوجد بيانات':'No data');return;}
+  const rows=[[lg?'الاسم':'Name',lg?'الهاتف':'Phone',lg?'الإيميل':'Email',lg?'المصدر':'Source',lg?'المرحلة':'Stage',lg?'التاريخ':'Date']];
+  leads.forEach(l=>{rows.push([l.name||'',l.phone||'',l.email||'',l.source||'',l.status||'new',l.createdAt?new Date(l.createdAt).toLocaleDateString():'']);});
+  const csv=rows.map(r=>r.map(c=>'"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+  const blob=new Blob(['\ufeff'+csv],{type:'text/csv;charset=utf-8;'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='marketing_leads.csv';a.click();
+  wsToast(lg?'تم التصدير':'Exported');
+}
+
+// ── CAMPAIGNS TAB ──
+function mktRenderCampaigns(el){
+  const lg=lang==='ar';
+  const campaigns=STORAGE.get('marketingCampaigns',[]);
+  const leads=STORAGE.get('marketingLeads',[]);
+  let filtered=campaigns;
+  if(_mktCmpSearch){const q=_mktCmpSearch.toLowerCase();filtered=filtered.filter(c=>(c.name||'').toLowerCase().includes(q)||(c.platform||'').toLowerCase().includes(q));}
+
+  el.innerHTML=`<div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+    <input type="text" placeholder="${lg?'بحث في الحملات...':'Search campaigns...'}" value="${_mktCmpSearch}" oninput="_mktCmpSearch=this.value;mktRenderTab()" style="padding:8px 14px;border:1px solid var(--border);border-radius:8px;flex:1;min-width:200px;font-size:13px">
+    <button class="btn btn-primary btn-sm" onclick="mktOpenAddCampaign()"><i class="fas fa-plus"></i> ${lg?'حملة جديدة':'New Campaign'}</button>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px">
+    ${filtered.length?filtered.map(c=>{
+      const cLeads=leads.filter(l=>l.campaignId===c.id);
+      const converted=cLeads.filter(l=>l.status==='won'||l.status==='converted').length;
+      const convRate=cLeads.length?Math.round(converted/cLeads.length*100):0;
+      const costPerLead=cLeads.length&&c.budget?Math.round((c.spent||0)/cLeads.length):0;
+      const cpl=cLeads.length?(c.spent||0)/cLeads.length:0;
+      const sc=MKT_CAMP_STATUSES[c.status]||MKT_CAMP_STATUSES.draft;
+      const p=MKT_PLATFORMS.find(x=>x.id===c.platform);
+      const startDate=c.startDate?new Date(c.startDate).toLocaleDateString(lg?'ar-EG':'en-US'):'-';
+      const endDate=c.endDate?new Date(c.endDate).toLocaleDateString(lg?'ar-EG':'en-US'):'-';
+      const budgetPct=c.budget?Math.min(100,Math.round((c.spent||0)/c.budget*100)):0;
+      return `<div class="card" style="padding:0;overflow:hidden">
+        <div style="padding:16px;border-bottom:1px solid var(--border);background:${sc.color}08">
+          <div style="display:flex;justify-content:space-between;align-items:start">
+            <div><h3 style="margin:0;font-size:15px">${c.name}</h3>
+              <div style="display:flex;gap:6px;margin-top:6px;align-items:center">
+                ${p?`<span style="font-size:12px;color:${p.color}"><i class="${p.icon}"></i> ${p.name}</span>`:''}
+                <span style="background:${sc.color}20;color:${sc.color};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:600">${sc[lang==='ar'?'ar':'en']}</span>
+              </div></div>
+            <div style="display:flex;gap:4px">
+              <button class="btn btn-outline btn-sm" onclick="mktOpenEditCampaign('${c.id}')"><i class="fas fa-pen"></i></button>
+              <button class="btn btn-danger btn-sm" onclick="mktDeleteCampaign('${c.id}')"><i class="fas fa-trash"></i></button>
+            </div>
+          </div>
+        </div>
+        <div style="padding:14px 16px;display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div style="text-align:center;padding:8px;background:var(--page-bg,var(--bg,#f8f9fa));border-radius:8px">
+            <div style="font-size:20px;font-weight:800;color:var(--primary,#827148)">${cLeads.length}</div>
+            <div style="font-size:11px;color:var(--text-light)">${lg?'عملاء':'Leads'}</div>
+          </div>
+          <div style="text-align:center;padding:8px;background:var(--page-bg,var(--bg,#f8f9fa));border-radius:8px">
+            <div style="font-size:20px;font-weight:800;color:#10B981">${convRate}%</div>
+            <div style="font-size:11px;color:var(--text-light)">${lg?'نسبة التحويل':'Conv. Rate'}</div>
+          </div>
+          <div style="text-align:center;padding:8px;background:var(--page-bg,var(--bg,#f8f9fa));border-radius:8px">
+            <div style="font-size:16px;font-weight:800;color:#EF4444">${fmt(c.budget||0)}</div>
+            <div style="font-size:11px;color:var(--text-light)">${lg?'الميزانية':'Budget'}</div>
+          </div>
+          <div style="text-align:center;padding:8px;background:var(--page-bg,var(--bg,#f8f9fa));border-radius:8px">
+            <div style="font-size:16px;font-weight:800;color:#F59E0B">${fmt(c.spent||0)}</div>
+            <div style="font-size:11px;color:var(--text-light)">${lg?'المصروف':'Spent'}</div>
+          </div>
+        </div>
+        ${c.budget?`<div style="padding:0 16px 14px">
+          <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px"><span>${lg?'استهلاك الميزانية':'Budget Used'}</span><span>${budgetPct}%</span></div>
+          <div style="height:6px;background:var(--border,#e5e7eb);border-radius:3px;overflow:hidden"><div style="width:${budgetPct}%;height:100%;background:${budgetPct>90?'#EF4444':budgetPct>70?'#F59E0B':'#10B981'};border-radius:3px"></div></div>
+        </div>`:''}
+        <div style="padding:8px 16px;border-top:1px solid var(--border);display:flex;justify-content:space-between;font-size:11px;color:var(--text-light)">
+          <span>${startDate}${endDate!=='-'?' → '+endDate:''}</span>
+          <span>${c.objective||''}</span>
+        </div>
+      </div>`;
+    }).join(''):`<div style="grid-column:1/-1;text-align:center;padding:40px;color:var(--text-light)">${lg?'لا توجد حملات':'No campaigns yet'}</div>`}
+  </div>`;
+}
+function mktOpenAddCampaign(){
+  const lg=lang==='ar';
+  openModal(`<h3><i class="fas fa-ad"></i> ${lg?'حملة جديدة':'New Campaign'}</h3>
+    <div class="form-group"><label>${lg?'اسم الحملة':'Campaign Name'} *</label><input type="text" id="mktCmpName" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="form-row"><div class="form-group"><label>${lg?'المنصة':'Platform'}</label><select id="mktCmpPlatform" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%">${MKT_PLATFORMS.filter(p=>['facebook','instagram','google','tiktok','snapchat','linkedin','x','other'].includes(p.id)).map(p=>`<option value="${p.id}">${p.name}</option>`).join('')}</select></div>
+    <div class="form-group"><label>${lg?'الحالة':'Status'}</label><select id="mktCmpStatus" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%">${Object.entries(MKT_CAMP_STATUSES).map(([k,v])=>`<option value="${k}">${v[lang==='ar'?'ar':'en']}</option>`).join('')}</select></div></div>
+    <div class="form-row"><div class="form-group"><label>${lg?'الميزانية (ج.م)':'Budget (EGP)'}</label><input type="number" id="mktCmpBudget" value="0" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="form-group"><label>${lg?'المصروف الفعلي':'Actual Spent'}</label><input type="number" id="mktCmpSpent" value="0" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div></div>
+    <div class="form-row"><div class="form-group"><label>${lg?'تاريخ البدء':'Start Date'}</label><input type="date" id="mktCmpStart" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="form-group"><label>${lg?'تاريخ الانتهاء':'End Date'}</label><input type="date" id="mktCmpEnd" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div></div>
+    <div class="form-group"><label>${lg?'الهدف':'Objective'}</label><input type="text" id="mktCmpObjective" placeholder="${lg?'مثال: جمع عملاء محتملين':'e.g. Lead generation'}" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="modal-actions"><button class="btn btn-primary" onclick="mktSaveCampaign()"><i class="fas fa-save"></i> ${lg?'حفظ':'Save'}</button><button class="btn btn-outline" onclick="closeModal()">${lg?'إلغاء':'Cancel'}</button></div>`);
+}
+function mktSaveCampaign(){
+  const lg=lang==='ar';
+  const name=document.getElementById('mktCmpName')?.value?.trim();
+  if(!name){wsToast(lg?'اسم الحملة مطلوب':'Campaign name required');return;}
+  const campaigns=STORAGE.get('marketingCampaigns',[]);
+  campaigns.push({id:'mcmp_'+Date.now(),name,platform:document.getElementById('mktCmpPlatform')?.value||'facebook',status:document.getElementById('mktCmpStatus')?.value||'active',budget:parseFloat(document.getElementById('mktCmpBudget')?.value)||0,spent:parseFloat(document.getElementById('mktCmpSpent')?.value)||0,startDate:document.getElementById('mktCmpStart')?.value||'',endDate:document.getElementById('mktCmpEnd')?.value||'',objective:document.getElementById('mktCmpObjective')?.value?.trim()||'',createdAt:new Date().toISOString()});
+  STORAGE.set('marketingCampaigns',campaigns);
+  mktAddLog('campaign',lg?'أنشأ حملة '+name:'Created campaign '+name);
+  closeModal();wsToast((lg?'تمت إضافة الحملة ':'Campaign created: ')+name);mktRenderTab();
+}
+function mktOpenEditCampaign(id){
+  const lg=lang==='ar';
+  const campaigns=STORAGE.get('marketingCampaigns',[]);
+  const c=campaigns.find(x=>x.id===id);if(!c)return;
+  openModal(`<h3><i class="fas fa-pen"></i> ${lg?'تعديل الحملة':'Edit Campaign'}</h3>
+    <div class="form-group"><label>${lg?'اسم الحملة':'Campaign Name'}</label><input type="text" id="mktECName" value="${c.name||''}" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="form-row"><div class="form-group"><label>${lg?'المنصة':'Platform'}</label><select id="mktECPlatform" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%">${MKT_PLATFORMS.filter(p=>['facebook','instagram','google','tiktok','snapchat','linkedin','x','other'].includes(p.id)).map(p=>`<option value="${p.id}" ${c.platform===p.id?'selected':''}>${p.name}</option>`).join('')}</select></div>
+    <div class="form-group"><label>${lg?'الحالة':'Status'}</label><select id="mktECStatus" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%">${Object.entries(MKT_CAMP_STATUSES).map(([k,v])=>`<option value="${k}" ${c.status===k?'selected':''}>${v[lang==='ar'?'ar':'en']}</option>`).join('')}</select></div></div>
+    <div class="form-row"><div class="form-group"><label>${lg?'الميزانية':'Budget'}</label><input type="number" id="mktECBudget" value="${c.budget||0}" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="form-group"><label>${lg?'المصروف':'Spent'}</label><input type="number" id="mktECSpent" value="${c.spent||0}" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div></div>
+    <div class="form-row"><div class="form-group"><label>${lg?'تاريخ البدء':'Start Date'}</label><input type="date" id="mktECStart" value="${c.startDate||''}" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="form-group"><label>${lg?'تاريخ الانتهاء':'End Date'}</label><input type="date" id="mktECEnd" value="${c.endDate||''}" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div></div>
+    <div class="form-group"><label>${lg?'الهدف':'Objective'}</label><input type="text" id="mktECObjective" value="${c.objective||''}" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="modal-actions"><button class="btn btn-primary" onclick="mktUpdateCampaign('${id}')"><i class="fas fa-save"></i> ${lg?'حفظ':'Save'}</button><button class="btn btn-outline" onclick="closeModal()">${lg?'إلغاء':'Cancel'}</button></div>`);
+}
+function mktUpdateCampaign(id){
+  const lg=lang==='ar';
+  const campaigns=STORAGE.get('marketingCampaigns',[]);
+  const idx=campaigns.findIndex(x=>x.id===id);if(idx<0)return;
+  campaigns[idx].name=document.getElementById('mktECName')?.value?.trim()||campaigns[idx].name;
+  campaigns[idx].platform=document.getElementById('mktECPlatform')?.value||campaigns[idx].platform;
+  campaigns[idx].status=document.getElementById('mktECStatus')?.value||campaigns[idx].status;
+  campaigns[idx].budget=parseFloat(document.getElementById('mktECBudget')?.value)||0;
+  campaigns[idx].spent=parseFloat(document.getElementById('mktECSpent')?.value)||0;
+  campaigns[idx].startDate=document.getElementById('mktECStart')?.value||'';
+  campaigns[idx].endDate=document.getElementById('mktECEnd')?.value||'';
+  campaigns[idx].objective=document.getElementById('mktECObjective')?.value?.trim()||'';
+  STORAGE.set('marketingCampaigns',campaigns);
+  mktAddLog('edit',lg?'عدّل الحملة '+campaigns[idx].name:'Edited campaign '+campaigns[idx].name);
+  closeModal();mktRenderTab();
+}
+function mktDeleteCampaign(id){
+  const lg=lang==='ar';
+  if(!confirm(lg?'هل تريد حذف هذه الحملة؟':'Delete this campaign?'))return;
+  const campaigns=STORAGE.get('marketingCampaigns',[]);
+  const c=campaigns.find(x=>x.id===id);
+  STORAGE.set('marketingCampaigns',campaigns.filter(x=>x.id!==id));
+  if(c)mktAddLog('delete',lg?'حذف الحملة '+c.name:'Deleted campaign '+c.name);
+  mktRenderTab();
+}
+
+// ── TEAM TAB ──
+function mktRenderTeam(el){
+  const lg=lang==='ar';
+  const team=STORAGE.get('marketingTeam',[]);
+  const leads=STORAGE.get('marketingLeads',[]);
+
+  el.innerHTML=`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h3 style="margin:0"><i class="fas fa-user-friends"></i> ${lg?'فريق التسويق':'Marketing Team'}</h3>
+    <button class="btn btn-primary btn-sm" onclick="mktOpenAddMember()"><i class="fas fa-plus"></i> ${lg?'إضافة مسوق':'Add Marketer'}</button>
+  </div>
+  <div class="card">
+    <div class="table-wrap">
+      <table><thead><tr><th>${lg?'الاسم':'Name'}</th><th>${lg?'البريد':'Email'}</th><th>${lg?'الهاتف':'Phone'}</th><th>${lg?'الحالة':'Status'}</th><th>${lg?'العملاء':'Leads'}</th><th>${lg?'محوّلين':'Converted'}</th><th>${lg?'آخر دخول':'Last Login'}</th><th></th></tr></thead><tbody>
+      ${team.length?team.map(m=>{
+        const mLeads=leads.filter(l=>l.marketerId===m.id);
+        const mConv=mLeads.filter(l=>l.status==='won'||l.status==='converted').length;
+        return `<tr>
+          <td><strong>${m.name}</strong>${m.username?`<div style="font-size:11px;color:var(--text-light)">@${m.username}</div>`:''}</td>
+          <td style="font-size:12px">${m.email||'-'}</td>
+          <td>${m.phone||'-'}</td>
+          <td><span class="badge ${m.status==='active'?'badge-green':'badge-red'}">${m.status==='active'?(lg?'نشط':'Active'):(lg?'غير نشط':'Inactive')}</span></td>
+          <td>${mLeads.length}</td>
+          <td style="color:#10B981;font-weight:600">${mConv}</td>
+          <td style="font-size:11px;color:var(--text-light)">${m.lastLogin?new Date(m.lastLogin).toLocaleString(lg?'ar-EG':'en-US'):(lg?'لم يسجل':'Never')}</td>
+          <td>
+            <button class="btn btn-outline btn-sm" onclick="mktOpenEditMember('${m.id}')"><i class="fas fa-pen"></i></button>
+            <button class="btn btn-danger btn-sm" onclick="mktDeleteMember('${m.id}')"><i class="fas fa-trash"></i></button>
+          </td>
+        </tr>`;
+      }).join(''):`<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)">${lg?'لا يوجد فريق':'No team members'}</td></tr>`}
+      </tbody></table>
     </div>
   </div>`;
-  
-  renderMarketingTeamTable();
-  renderMarketingLeadsTable();
-  renderMarketingCampaigns();
-  renderMarketingActivityLog();
+}
+function mktOpenAddMember(){
+  const lg=lang==='ar';
+  openModal(`<h3><i class="fas fa-user-plus"></i> ${lg?'إضافة مسوق':'Add Marketer'}</h3>
+    <div class="form-group"><label>${lg?'الاسم':'Name'} *</label><input type="text" id="mktMName" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="form-row"><div class="form-group"><label>${lg?'البريد':'Email'}</label><input type="email" id="mktMEmail" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="form-group"><label>${lg?'الهاتف':'Phone'}</label><input type="text" id="mktMPhone" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div></div>
+    <div class="form-row"><div class="form-group"><label>${lg?'اسم المستخدم':'Username'} *</label><input type="text" id="mktMUsername" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="form-group"><label>${lg?'كلمة المرور':'Password'} *</label><input type="password" id="mktMPassword" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div></div>
+    <div class="modal-actions"><button class="btn btn-primary" onclick="mktSaveMember()"><i class="fas fa-save"></i> ${lg?'حفظ':'Save'}</button><button class="btn btn-outline" onclick="closeModal()">${lg?'إلغاء':'Cancel'}</button></div>`);
+}
+function mktSaveMember(){
+  const lg=lang==='ar';
+  const name=document.getElementById('mktMName')?.value?.trim();
+  const username=document.getElementById('mktMUsername')?.value?.trim();
+  const password=document.getElementById('mktMPassword')?.value;
+  if(!name||!username||!password){wsToast(lg?'الاسم واسم المستخدم وكلمة المرور مطلوبة':'Name, username, password required');return;}
+  const users=STORAGE.get('users',defaultUsers);
+  if(users.find(u=>u.username===username)){wsToast(lg?'اسم المستخدم موجود مسبقاً':'Username already exists');return;}
+  users.push({username,password,fullName:name,email:document.getElementById('mktMEmail')?.value?.trim()||'',role:'marketing',permissions:['dashboard_view','marketing_view','marketing_leads','marketing_campaigns','crm_view','crm_add','crm_edit','search_view']});
+  STORAGE.set('users',users);
+  const team=STORAGE.get('marketingTeam',[]);
+  team.push({id:'mkt_'+Date.now(),name,email:document.getElementById('mktMEmail')?.value?.trim()||'',phone:document.getElementById('mktMPhone')?.value?.trim()||'',username,status:'active',createdAt:new Date().toISOString(),lastLogin:null});
+  STORAGE.set('marketingTeam',team);
+  mktAddLog('lead',lg?'أضاف المسوق '+name:'Added marketer '+name);
+  closeModal();wsToast((lg?'تمت إضافة ':'Added ')+name);mktRenderTab();
+}
+function mktOpenEditMember(id){
+  const lg=lang==='ar';
+  const team=STORAGE.get('marketingTeam',[]);
+  const m=team.find(x=>x.id===id);if(!m)return;
+  openModal(`<h3><i class="fas fa-pen"></i> ${lg?'تعديل المسوق':'Edit Marketer'}</h3>
+    <div class="form-group"><label>${lg?'الاسم':'Name'}</label><input type="text" id="mktEMName" value="${m.name||''}" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="form-row"><div class="form-group"><label>${lg?'البريد':'Email'}</label><input type="email" id="mktEMEmail" value="${m.email||''}" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div>
+    <div class="form-group"><label>${lg?'الهاتف':'Phone'}</label><input type="text" id="mktEMPhone" value="${m.phone||''}" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"></div></div>
+    <div class="form-group"><label>${lg?'الحالة':'Status'}</label><select id="mktEMStatus" style="padding:8px;border:1px solid var(--crm-card-border,var(--border));border-radius:6px;width:100%"><option value="active" ${m.status==='active'?'selected':''}>${lg?'نشط':'Active'}</option><option value="inactive" ${m.status==='inactive'?'selected':''}>${lg?'غير نشط':'Inactive'}</option></select></div>
+    <div class="modal-actions"><button class="btn btn-primary" onclick="mktUpdateMember('${id}')"><i class="fas fa-save"></i> ${lg?'حفظ':'Save'}</button><button class="btn btn-outline" onclick="closeModal()">${lg?'إلغاء':'Cancel'}</button></div>`);
+}
+function mktUpdateMember(id){
+  const lg=lang==='ar';
+  const team=STORAGE.get('marketingTeam',[]);
+  const idx=team.findIndex(x=>x.id===id);if(idx<0)return;
+  team[idx].name=document.getElementById('mktEMName')?.value?.trim()||team[idx].name;
+  team[idx].email=document.getElementById('mktEMEmail')?.value?.trim()||'';
+  team[idx].phone=document.getElementById('mktEMPhone')?.value?.trim()||'';
+  team[idx].status=document.getElementById('mktEMStatus')?.value||team[idx].status;
+  STORAGE.set('marketingTeam',team);
+  closeModal();mktRenderTab();
+}
+function mktDeleteMember(id){
+  const lg=lang==='ar';
+  if(!confirm(lg?'هل تريد حذف هذا المسوق؟':'Delete this marketer?'))return;
+  const team=STORAGE.get('marketingTeam',[]);
+  STORAGE.set('marketingTeam',team.filter(x=>x.id!==id));
+  mktRenderTab();
 }
 
-function renderMarketingTeamTable() {
-  const team = STORAGE.get('marketingTeam', []);
-  const el = document.getElementById('marketingTeamTable');
-  if(!el) return;
-  
-  if(team.length === 0) {
-    el.innerHTML = '<div class="empty-state"><p>لا يوجد فريق مسجل</p></div>';
-    return;
-  }
-  
-  let h = '<table><thead><tr><th>الاسم</th><th>البريد</th><th>الهاتف</th><th>الحالة</th><th>العملاء</th><th>آخر دخول</th><th></th></tr></thead><tbody>';
-  team.forEach(m => {
-    const leadCount = STORAGE.get('marketingLeads', []).filter(l => l.marketerId === m.id).length;
-    h += `<tr>
-      <td><strong>${m.name}</strong></td>
-      <td style="font-size:12px">${m.email || '-'}</td>
-      <td>${m.phone || '-'}</td>
-      <td><span class="badge ${m.status === 'active' ? 'badge-green' : 'badge-red'}">${m.status === 'active' ? 'نشط' : 'غير نشط'}</span></td>
-      <td>${leadCount}</td>
-      <td style="font-size:12px">${m.lastLogin ? new Date(m.lastLogin).toLocaleString('ar-EG') : 'لم يسجل دخول'}</td>
-      <td>
-        <button class="btn btn-outline btn-sm" onclick="editMarketingMember('${m.id}')"><i class="fas fa-pen"></i></button>
-        <button class="btn btn-danger btn-sm" onclick="deleteMarketingMember('${m.id}')"><i class="fas fa-trash"></i></button>
-      </td>
-    </tr>`;
-  });
-  h += '</tbody></table>';
-  el.innerHTML = h;
+// ── HELPERS ──
+function mktAddLog(type,action){
+  const logs=STORAGE.get('marketingLogs',[]);
+  logs.push({type,userName:currentUser?.fullName||'System',action,timestamp:new Date().toISOString()});
+  STORAGE.set('marketingLogs',logs);
 }
-
-function renderMarketingLeadsTable(filter) {
-  const leads = STORAGE.get('marketingLeads', []);
-  const team = STORAGE.get('marketingTeam', []);
-  const el = document.getElementById('marketingLeadsTable');
-  if(!el) return;
-  
-  let filtered = leads;
-  if(filter) {
-    const ft = filter.toLowerCase();
-    filtered = leads.filter(l => (l.name || '').toLowerCase().includes(ft) || (l.phone || '').includes(ft) || (l.source || '').toLowerCase().includes(ft));
-  }
-  
-  if(filtered.length === 0) {
-    el.innerHTML = '<div class="empty-state"><p>لا يوجد عملاء</p></div>';
-    return;
-  }
-  
-  let h = '<table><thead><tr><th>الاسم</th><th>الهاتف</th><th>المصدر</th><th>المسوق</th><th>الحالة</th><th>التاريخ</th><th></th></tr></thead><tbody>';
-  filtered.slice(-20).reverse().forEach(l => {
-    const marketer = team.find(m => m.id === l.marketerId);
-    const statusColors = { new: 'badge-blue', contacted: 'badge-yellow', interested: 'badge-green', converted: 'badge-green', lost: 'badge-red' };
-    const statusLabels = { new: 'جديد', contacted: 'تم التواصل', interested: 'مهتم', converted: 'تم التحويل', lost: 'ضائع' };
-    h += `<tr>
-      <td><strong>${l.name}</strong></td>
-      <td>${l.phone || '-'}</td>
-      <td><span class="badge badge-blue">${l.source || 'فيسبوك'}</span></td>
-      <td>${marketer ? marketer.name : '-'}</td>
-      <td><span class="badge ${statusColors[l.status] || 'badge-blue'}">${statusLabels[l.status] || l.status}</span></td>
-      <td style="font-size:12px">${new Date(l.createdAt).toLocaleDateString('ar-EG')}</td>
-      <td>
-        <button class="btn btn-success btn-sm" onclick="convertLeadToSale('${l.id}')" title="تحويل للمبيعات"><i class="fas fa-arrow-left"></i></button>
-        <button class="btn btn-outline btn-sm" onclick="editMarketingLead('${l.id}')"><i class="fas fa-pen"></i></button>
-        <button class="btn btn-danger btn-sm" onclick="deleteMarketingLead('${l.id}')"><i class="fas fa-trash"></i></button>
-      </td>
-    </tr>`;
-  });
-  h += '</tbody></table>';
-  el.innerHTML = h;
+function trackMarketingLogin(username){
+  const team=STORAGE.get('marketingTeam',[]);
+  const m=team.find(x=>x.username===username);
+  if(m){m.lastLogin=new Date().toISOString();STORAGE.set('marketingTeam',team);mktAddLog('login',m.name+' سجل الدخول');}
 }
-
-function filterMarketingLeads() {
-  const q = document.getElementById('leadSearch').value;
-  renderMarketingLeadsTable(q);
+function renderSalesLeads(){
+  const leads=STORAGE.get('salesLeads',[]);
+  const el=document.getElementById('mainContent');
+  const lg=lang==='ar';
+  el.innerHTML=`<div class="topbar"><h1><i class="fas fa-handshake"></i> ${lg?'عملاء التسويق (للمبيعات)':'Marketing Leads (Sales)'}</h1></div>
+  <div class="card"><div class="table-wrap"><table><thead><tr><th>${lg?'الاسم':'Name'}</th><th>${lg?'الهاتف':'Phone'}</th><th>${lg?'المصدر':'Source'}</th><th>${lg?'الحالة':'Status'}</th><th>${lg?'التاريخ':'Date'}</th><th></th></tr></thead><tbody>
+  ${leads.length?leads.map(l=>`<tr><td><strong>${l.name}</strong></td><td>${l.phone}</td><td><span class="badge badge-blue">${l.source||'-'}</span></td><td><span class="badge ${l.status==='new'?'badge-yellow':'badge-green'}">${l.status==='new'?(lg?'جديد':'New'):(lg?'تم التواصل':'Contacted')}</span></td><td style="font-size:12px">${l.createdAt?new Date(l.createdAt).toLocaleDateString():'-'}</td><td><button class="btn btn-success btn-sm" onclick="contactSalesLead('${l.id}')">${lg?'تواصل':'Contact'}</button></td></tr>`).join(''):`<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-light)">${lg?'لا يوجد عملاء':'No leads'}</td></tr>`}
+  </tbody></table></div></div>`;
 }
-
-function renderMarketingCampaigns() {
-  const campaigns = STORAGE.get('marketingCampaigns', []);
-  const el = document.getElementById('marketingCampaignsList');
-  if(!el) return;
-  
-  if(campaigns.length === 0) {
-    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-light)">لا توجد حملات</div>';
-    return;
-  }
-  
-  let h = '';
-  campaigns.slice(-5).reverse().forEach(c => {
-    const leads = STORAGE.get('marketingLeads', []).filter(l => l.campaignId === c.id);
-    h += `<div style="padding:10px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:center">
-        <strong>${c.name}</strong>
-        <span class="badge ${c.status === 'active' ? 'badge-green' : 'badge-red'}">${c.status === 'active' ? 'نشطة' : 'مغلقة'}</span>
-      </div>
-      <div style="font-size:12px;color:var(--text-light);margin-top:4px">
-        ${c.platform || 'فيسبوك'} - ${leads.length} عميل
-      </div>
-      <div style="font-size:11px;color:var(--text-light);margin-top:2px">
-        الميزانية: ${(c.budget || 0).toLocaleString('ar-EG')} ج.م
-      </div>
-    </div>`;
-  });
-  el.innerHTML = h;
-}
-
-function renderMarketingActivityLog() {
-  const logs = STORAGE.get('marketingLogs', []);
-  const el = document.getElementById('marketingActivityLog');
-  if(!el) return;
-  
-  if(logs.length === 0) {
-    el.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-light)">لا توجد نشاطات</div>';
-    return;
-  }
-  
-  let h = '';
-  logs.slice(-10).reverse().forEach(log => {
-    const icons = { login: '🔑', lead: '👤', call: '📞', convert: '✅', campaign: '📢' };
-    h += `<div style="padding:8px;border-bottom:1px solid var(--border);font-size:12px">
-      <span>${icons[log.type] || '📌'}</span>
-      <strong>${log.userName || 'مستخدم'}</strong>
-      <span style="color:var(--text-light)">${log.action}</span>
-      <div style="font-size:11px;color:var(--text-light)">${new Date(log.timestamp).toLocaleString('ar-EG')}</div>
-    </div>`;
-  });
-  el.innerHTML = h;
-}
-
-// Marketing Modals
-function openAddMarketingMember() {
-  document.getElementById('modalContainer').innerHTML = `
-    <h3><i class="fas fa-user-plus"></i> إضافة مسوق</h3>
-    <div class="form-group"><label>الاسم الكامل</label><input type="text" id="mktName" placeholder="الاسم"></div>
-    <div class="form-group"><label>البريد الإلكتروني</label><input type="email" id="mktEmail" placeholder="email@example.com"></div>
-    <div class="form-group"><label>الهاتف</label><input type="text" id="mktPhone" placeholder="01XXXXXXXXX"></div>
-    <div class="form-group"><label>اسم المستخدم للدخول</label><input type="text" id="mktUsername" placeholder="username"></div>
-    <div class="form-group"><label>كلمة المرور</label><input type="password" id="mktPassword" placeholder="••••••••"></div>
-    <div class="modal-actions">
-      <button class="btn btn-primary" onclick="saveMarketingMember()"><i class="fas fa-save"></i> حفظ</button>
-      <button class="btn btn-outline" onclick="closeModal()">إلغاء</button>
-    </div>`;
-  document.getElementById('modalOverlay').classList.add('active');
-}
-
-function saveMarketingMember() {
-  const name = document.getElementById('mktName').value.trim();
-  const email = document.getElementById('mktEmail').value.trim();
-  const phone = document.getElementById('mktPhone').value.trim();
-  const username = document.getElementById('mktUsername').value.trim();
-  const password = document.getElementById('mktPassword').value;
-  
-  if(!name || !username || !password) {
-    alert('الاسم واسم المستخدم وكلمة المرور مطلوبة');
-    return;
-  }
-  
-  const team = STORAGE.get('marketingTeam', []);
-  const users = STORAGE.get('users', defaultUsers);
-  
-  // التحقق من عدم تكرار اسم المستخدم
-  if(users.find(u => u.username === username)) {
-    alert('اسم المستخدم موجود بالفعل');
-    return;
-  }
-  
-  // إضافة المستخدم في قائمة المستخدمين بصلاحيات كاملة
-  users.push({
-    username: username,
-    password: password,
-    fullName: name,
-    email: email,
-    role: 'marketing',
-    permissions: ['dashboard_view', 'marketing_view', 'marketing_leads', 'marketing_campaigns', 'crm_view', 'crm_add', 'crm_edit', 'search_view']
-  });
-  STORAGE.set('users', users);
-  
-  // إضافة في فريق التسويق
-  team.push({
-    id: 'mkt_' + Date.now(),
-    name: name,
-    email: email,
-    phone: phone,
-    username: username,
-    status: 'active',
-    createdAt: new Date().toISOString(),
-    lastLogin: null
-  });
-  STORAGE.set('marketingTeam', team);
-  
-  closeModal();
-  alert('✅ تم إضافة المسوق بنجاح\n\nيمكنه الآن تسجيل الدخول بـ:\nاسم المستخدم: ' + username);
-  renderMarketing(document.getElementById('mainContent'));
-}
-
-function openAddMarketingLead() {
-  const team = STORAGE.get('marketingTeam', []);
-  const campaigns = STORAGE.get('marketingCampaigns', []);
-  
-  document.getElementById('modalContainer').innerHTML = `
-    <h3><i class="fas fa-user-plus"></i> إضافة عميل تسويق</h3>
-    <div class="form-group"><label>اسم العميل</label><input type="text" id="leadName" placeholder="الاسم"></div>
-    <div class="form-group"><label>الهاتف</label><input type="text" id="leadPhone" placeholder="01XXXXXXXXX"></div>
-    <div class="form-group"><label>البريد (اختياري)</label><input type="email" id="leadEmail" placeholder="email@example.com"></div>
-    <div class="form-group"><label>المصدر</label>
-      <select id="leadSource">
-        <option value="facebook">فيسبوك</option>
-        <option value="instagram">إنستجرام</option>
-        <option value="google">جوجل</option>
-        <option value="referral">إحالة</option>
-        <option value="other">أخرى</option>
-      </select>
-    </div>
-    <div class="form-group"><label>الحملة</label>
-      <select id="leadCampaign">
-        <option value="">بدون حملة</option>
-        ${campaigns.map(c => `<option value="${c.id}">${c.name}</option>`).join('')}
-      </select>
-    </div>
-    <div class="form-group"><label>المسوق المسؤول</label>
-      <select id="leadMarketer">
-        ${team.map(m => `<option value="${m.id}">${m.name}</option>`).join('')}
-      </select>
-    </div>
-    <div class="form-group"><label>ملاحظات</label><textarea id="leadNotes" rows="3" placeholder="ملاحظات عن العميل..."></textarea></div>
-    <div class="modal-actions">
-      <button class="btn btn-primary" onclick="saveMarketingLead()"><i class="fas fa-save"></i> حفظ</button>
-      <button class="btn btn-outline" onclick="closeModal()">إلغاء</button>
-    </div>`;
-  document.getElementById('modalOverlay').classList.add('active');
-}
-
-function saveMarketingLead() {
-  const name = document.getElementById('leadName').value.trim();
-  const phone = document.getElementById('leadPhone').value.trim();
-  const email = document.getElementById('leadEmail').value.trim();
-  const source = document.getElementById('leadSource').value;
-  const campaignId = document.getElementById('leadCampaign').value;
-  const marketerId = document.getElementById('leadMarketer').value;
-  const notes = document.getElementById('leadNotes').value.trim();
-  
-  if(!name || !phone) {
-    alert('الاسم والهاتف مطلوبين');
-    return;
-  }
-  
-  const leads = STORAGE.get('marketingLeads', []);
-  leads.push({
-    id: 'lead_' + Date.now(),
-    name, phone, email, source, campaignId, marketerId, notes,
-    status: 'new',
-    createdAt: new Date().toISOString(),
-    assignedTo: null,
-    assignedToSales: null
-  });
-  STORAGE.set('marketingLeads', leads);
-  
-  // تسجيل النشاط
-  const logs = STORAGE.get('marketingLogs', []);
-  logs.push({
-    type: 'lead',
-    userName: currentUser?.fullName || 'مستخدم',
-    action: `أضاف عميل ${name}`,
-    timestamp: new Date().toISOString()
-  });
-  STORAGE.set('marketingLogs', logs);
-  
-  closeModal();
-  renderMarketing(document.getElementById('mainContent'));
-}
-
-function openAddMarketingCampaign() {
-  document.getElementById('modalContainer').innerHTML = `
-    <h3><i class="fas fa-ad"></i> إضافة حملة تسويقية</h3>
-    <div class="form-group"><label>اسم الحملة</label><input type="text" id="cmpName" placeholder="اسم الحملة"></div>
-    <div class="form-group"><label>المنصة</label>
-      <select id="cmpPlatform">
-        <option value="facebook">فيسبوك</option>
-        <option value="instagram">إنستجرام</option>
-        <option value="google">جوجل</option>
-        <option value="tiktok">تيك توك</option>
-        <option value="other">أخرى</option>
-      </select>
-    </div>
-    <div class="form-group"><label>الميزانية (ج.م)</label><input type="number" id="cmpBudget" placeholder="0"></div>
-    <div class="form-group"><label>الهدف</label><input type="text" id="cmpObjective" placeholder="مثال: جمع عملاء محتملين"></div>
-    <div class="form-group"><label>رابط الإعلان (اختياري)</label><input type="text" id="cmpUrl" placeholder="https://..."></div>
-    <div class="modal-actions">
-      <button class="btn btn-primary" onclick="saveMarketingCampaign()"><i class="fas fa-save"></i> حفظ</button>
-      <button class="btn btn-outline" onclick="closeModal()">إلغاء</button>
-    </div>`;
-  document.getElementById('modalOverlay').classList.add('active');
-}
-
-function saveMarketingCampaign() {
-  const name = document.getElementById('cmpName').value.trim();
-  const platform = document.getElementById('cmpPlatform').value;
-  const budget = parseFloat(document.getElementById('cmpBudget').value) || 0;
-  const objective = document.getElementById('cmpObjective').value.trim();
-  const url = document.getElementById('cmpUrl').value.trim();
-  
-  if(!name) {
-    alert('اسم الحملة مطلوب');
-    return;
-  }
-  
-  const campaigns = STORAGE.get('marketingCampaigns', []);
-  campaigns.push({
-    id: 'cmp_' + Date.now(),
-    name, platform, budget, objective, url,
-    status: 'active',
-    createdAt: new Date().toISOString()
-  });
-  STORAGE.set('marketingCampaigns', campaigns);
-  
-  closeModal();
-  renderMarketing(document.getElementById('mainContent'));
-}
-
-function convertLeadToSale(leadId) {
-  const leads = STORAGE.get('marketingLeads', []);
-  const lead = leads.find(l => l.id === leadId);
-  if(!lead) return;
-  
-  if(!confirm(`هل تريد تحويل العميل "${lead.name}" لفريق المبيعات؟`)) return;
-  
-  // تحديث حالة العميل
-  lead.status = 'converted';
-  lead.convertedAt = new Date().toISOString();
-  STORAGE.set('marketingLeads', leads);
-  
-  // إضافة في العملاء المحتملين للمبيعات
-  const salesLeads = STORAGE.get('salesLeads', []);
-  salesLeads.push({
-    id: 'sale_' + Date.now(),
-    name: lead.name,
-    phone: lead.phone,
-    email: lead.email,
-    source: 'marketing',
-    originalLeadId: lead.id,
-    marketerId: lead.marketerId,
-    status: 'new',
-    createdAt: new Date().toISOString()
-  });
-  STORAGE.set('salesLeads', salesLeads);
-  
-  // تسجيل النشاط
-  const logs = STORAGE.get('marketingLogs', []);
-  logs.push({
-    type: 'convert',
-    userName: currentUser?.fullName || 'مستخدم',
-    action: `حول العميل ${lead.name} لفريق المبيعات`,
-    timestamp: new Date().toISOString()
-  });
-  STORAGE.set('marketingLogs', logs);
-  
-  alert('✅ تم تحويل العميل لفريق المبيعات بنجاح');
-  renderMarketing(document.getElementById('mainContent'));
-}
-
-function editMarketingMember(id) {
-  const team = STORAGE.get('marketingTeam', []);
-  const member = team.find(m => m.id === id);
-  if(!member) return;
-  
-  document.getElementById('modalContainer').innerHTML = `
-    <h3><i class="fas fa-pen"></i> تعديل المسوق</h3>
-    <div class="form-group"><label>الاسم</label><input type="text" id="editMktName" value="${member.name}"></div>
-    <div class="form-group"><label>البريد</label><input type="email" id="editMktEmail" value="${member.email || ''}"></div>
-    <div class="form-group"><label>الهاتف</label><input type="text" id="editMktPhone" value="${member.phone || ''}"></div>
-    <div class="form-group"><label>الحالة</label>
-      <select id="editMktStatus">
-        <option value="active" ${member.status === 'active' ? 'selected' : ''}>نشط</option>
-        <option value="inactive" ${member.status === 'inactive' ? 'selected' : ''}>غير نشط</option>
-      </select>
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-primary" onclick="updateMarketingMember('${id}')"><i class="fas fa-save"></i> حفظ</button>
-      <button class="btn btn-outline" onclick="closeModal()">إلغاء</button>
-    </div>`;
-  document.getElementById('modalOverlay').classList.add('active');
-}
-
-function updateMarketingMember(id) {
-  const team = STORAGE.get('marketingTeam', []);
-  const idx = team.findIndex(m => m.id === id);
-  if(idx === -1) return;
-  
-  team[idx].name = document.getElementById('editMktName').value.trim();
-  team[idx].email = document.getElementById('editMktEmail').value.trim();
-  team[idx].phone = document.getElementById('editMktPhone').value.trim();
-  team[idx].status = document.getElementById('editMktStatus').value;
-  
-  STORAGE.set('marketingTeam', team);
-  closeModal();
-  renderMarketing(document.getElementById('mainContent'));
-}
-
-function deleteMarketingMember(id) {
-  if(!confirm('هل تريد حذف هذا المسوق؟')) return;
-  const team = STORAGE.get('marketingTeam', []);
-  STORAGE.set('marketingTeam', team.filter(m => m.id !== id));
-  renderMarketing(document.getElementById('mainContent'));
-}
-
-function editMarketingLead(id) {
-  const leads = STORAGE.get('marketingLeads', []);
-  const lead = leads.find(l => l.id === id);
-  if(!lead) return;
-  
-  document.getElementById('modalContainer').innerHTML = `
-    <h3><i class="fas fa-pen"></i> تعديل العميل</h3>
-    <div class="form-group"><label>الاسم</label><input type="text" id="editLeadName" value="${lead.name}"></div>
-    <div class="form-group"><label>الهاتف</label><input type="text" id="editLeadPhone" value="${lead.phone || ''}"></div>
-    <div class="form-group"><label>الحالة</label>
-      <select id="editLeadStatus">
-        <option value="new" ${lead.status === 'new' ? 'selected' : ''}>جديد</option>
-        <option value="contacted" ${lead.status === 'contacted' ? 'selected' : ''}>تم التواصل</option>
-        <option value="interested" ${lead.status === 'interested' ? 'selected' : ''}>مهتم</option>
-        <option value="converted" ${lead.status === 'converted' ? 'selected' : ''}>تم التحويل</option>
-        <option value="lost" ${lead.status === 'lost' ? 'selected' : ''}>ضائع</option>
-      </select>
-    </div>
-    <div class="form-group"><label>ملاحظات</label><textarea id="editLeadNotes" rows="3">${lead.notes || ''}</textarea></div>
-    <div class="modal-actions">
-      <button class="btn btn-primary" onclick="updateMarketingLead('${id}')"><i class="fas fa-save"></i> حفظ</button>
-      <button class="btn btn-outline" onclick="closeModal()">إلغاء</button>
-    </div>`;
-  document.getElementById('modalOverlay').classList.add('active');
-}
-
-function updateMarketingLead(id) {
-  const leads = STORAGE.get('marketingLeads', []);
-  const idx = leads.findIndex(l => l.id === id);
-  if(idx === -1) return;
-  
-  leads[idx].name = document.getElementById('editLeadName').value.trim();
-  leads[idx].phone = document.getElementById('editLeadPhone').value.trim();
-  leads[idx].status = document.getElementById('editLeadStatus').value;
-  leads[idx].notes = document.getElementById('editLeadNotes').value.trim();
-  
-  STORAGE.set('marketingLeads', leads);
-  closeModal();
-  renderMarketing(document.getElementById('mainContent'));
-}
-
-function deleteMarketingLead(id) {
-  if(!confirm('هل تريد حذف هذا العميل؟')) return;
-  const leads = STORAGE.get('marketingLeads', []);
-  STORAGE.set('marketingLeads', leads.filter(l => l.id !== id));
-  renderMarketing(document.getElementById('mainContent'));
-}
-
-// Marketing Login Tracking
-function trackMarketingLogin(username) {
-  const team = STORAGE.get('marketingTeam', []);
-  const member = team.find(m => m.username === username);
-  if(member) {
-    member.lastLogin = new Date().toISOString();
-    STORAGE.set('marketingTeam', team);
-    
-    const logs = STORAGE.get('marketingLogs', []);
-    logs.push({
-      type: 'login',
-      userName: member.name,
-      action: 'سجل الدخول',
-      timestamp: new Date().toISOString()
-    });
-    STORAGE.set('marketingLogs', logs);
-  }
-}
-
-// Render Sales Leads (from Marketing)
-function renderSalesLeads() {
-  const leads = STORAGE.get('salesLeads', []);
-  const el = document.getElementById('mainContent');
-  
-  let h = '<div class="topbar"><h1><i class="fas fa-handshake"></i> عملاء التسويق (للمبيعات)</h1></div>';
-  h += '<div class="card"><div class="table-wrap" id="salesLeadsTable"></div></div>';
-  el.innerHTML = h;
-  
-  const tableEl = document.getElementById('salesLeadsTable');
-  if(leads.length === 0) {
-    tableEl.innerHTML = '<div class="empty-state"><p>لا يوجد عملاء من التسويق</p></div>';
-    return;
-  }
-  
-  let t = '<table><thead><tr><th>الاسم</th><th>الهاتف</th><th>المصدر</th><th>الحالة</th><th>التاريخ</th><th></th></tr></thead><tbody>';
-  leads.forEach(l => {
-    t += `<tr>
-      <td><strong>${l.name}</strong></td>
-      <td>${l.phone}</td>
-      <td><span class="badge badge-blue">${l.source || 'تسويق'}</span></td>
-      <td><span class="badge ${l.status === 'new' ? 'badge-yellow' : 'badge-green'}">${l.status === 'new' ? 'جديد' : 'تم التواصل'}</span></td>
-      <td style="font-size:12px">${new Date(l.createdAt).toLocaleDateString('ar-EG')}</td>
-      <td>
-        <button class="btn btn-success btn-sm" onclick="contactSalesLead('${l.id}')">تواصل</button>
-      </td>
-    </tr>`;
-  });
-  t += '</tbody></table>';
-  tableEl.innerHTML = t;
-}
-
-function contactSalesLead(id) {
-  const leads = STORAGE.get('salesLeads', []);
-  const idx = leads.findIndex(l => l.id === id);
-  if(idx === -1) return;
-  
-  leads[idx].status = 'contacted';
-  leads[idx].contactedBy = currentUser?.fullName;
-  leads[idx].contactedAt = new Date().toISOString();
-  STORAGE.set('salesLeads', leads);
-  
-  alert('✅ تم تسجيل التواصل مع العميل');
-  renderSalesLeads();
+function contactSalesLead(id){
+  const leads=STORAGE.get('salesLeads',[]);
+  const idx=leads.findIndex(x=>x.id===id);if(idx<0)return;
+  leads[idx].status='contacted';leads[idx].contactedBy=currentUser?.fullName;leads[idx].contactedAt=new Date().toISOString();
+  STORAGE.set('salesLeads',leads);renderSalesLeads();
 }
 
 function renderUsersTable(users, cu, filter) {
