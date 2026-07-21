@@ -2942,6 +2942,9 @@ function initData() {
   if(!STORAGE.get('vacations')) STORAGE.set('vacations', []);
   if(!STORAGE.get('vacationTypes')) STORAGE.set('vacationTypes', [{id:'annual',ar:'إجازة سنوية',en:'Annual Leave',days:21},{id:'sick',ar:'إجازة مرضية',en:'Sick Leave',days:15},{id:'personal',ar:'إجازة شخصية',en:'Personal Leave',days:7},{id:'maternity',ar:'إجازة أمومة',en:'Maternity Leave',days:90},{id:'hajj',ar:'إجازة حج',en:'Hajj Leave',days:30},{id:'bereavement',ar:'إجازة وفاة',en:'Bereavement Leave',days:5}]);
   if(!STORAGE.get('attendanceLog')) STORAGE.set('attendanceLog', []);
+  if(!STORAGE.get('op_units')) STORAGE.set('op_units', []);
+  if(!STORAGE.get('op_reservations')) STORAGE.set('op_reservations', []);
+  if(!STORAGE.get('op_contracts')) STORAGE.set('op_contracts', []);
   if(!STORAGE.get('jobRequests')) {
     STORAGE.set('jobRequests', []);
   }
@@ -3190,43 +3193,456 @@ function toggleLang() { lang = lang==='ar'?'en':'ar'; STORAGE.set('lang',lang); 
 // ============================================================
 // SALES
 // ============================================================
+let _opsTab = 'dashboard';
+
+const OPS_TABS = ['dashboard','units','reservations','contracts','sales'];
+const OPS_TAB_LABELS = {dashboard:{ar:'لوحة التحكم',en:'Dashboard',icon:'fa-tachometer-alt'},units:{ar:'الوحدات',en:'Units',icon:'fa-building'},reservations:{ar:'الحجوزات',en:'Reservations',icon:'fa-calendar-check'},contracts:{ar:'العقود',en:'Contracts',icon:'fa-file-contract'},sales:{ar:'المبيعات',en:'Sales',icon:'fa-file-invoice-dollar'}};
+
 function renderSales(el) {
-  const sales = STORAGE.get('sales',[]);
-  const unitTypes = [...new Set(sales.map(s=>s.unitType).filter(Boolean))];
-  const projects = [...new Set(sales.map(s=>s.project).filter(Boolean))];
-  const employees = STORAGE.get('employees',[]);
-  const from = document.getElementById('filterDateFrom')?.value || '';
-  const to = document.getElementById('filterDateTo')?.value || '';
-
+  let tabsHtml = '<div class="tab-bar" style="flex-wrap:wrap;margin-bottom:16px">';
+  OPS_TABS.forEach(tab => {
+    const lbl = OPS_TAB_LABELS[tab];
+    tabsHtml += `<div class="tab ${_opsTab===tab?'active':''}" onclick="showOpsTab('${tab}')"><i class="fas ${lbl.icon}"></i> ${lang==='ar'?lbl.ar:lbl.en}</div>`;
+  });
+  tabsHtml += '</div>';
   el.innerHTML = `
-  <div class="topbar"><h1>${t('nav_sales')}</h1>
-  <div class="topbar-actions">
-    <span style="font-size:13px;color:var(--text-light)" id="salesCount"></span>
-    ${canEdit()?'<button class="btn btn-primary" onclick="openSaleForm()"><i class="fas fa-plus"></i> '+t('addSale_title')+'</button>':''}
-  </div></div>
+  <div class="topbar"><h1>${t('nav_sales')}</h1></div>
+  ${tabsHtml}
+  <div id="opsTabContent"></div>`;
+  renderOpsTabContent();
+}
 
-  <div class="card" style="margin-bottom:16px">
-    <div class="search-box" style="margin-bottom:0">
-      <input type="text" id="filterSearch" placeholder="${t('search_hint')}" oninput="filterSalesList()" style="width:100%">
-      <i class="fas fa-search"></i>
-    </div>
-  </div>
+function showOpsTab(tab) { _opsTab = tab; renderSales(document.getElementById('mainContent')); }
 
-  <div class="filters" style="gap:10px">
-    <div class="form-group"><label>${t('sale_salesPerson')}</label><select id="filterSalesPerson" onchange="filterSalesList()"><option value="">${t('filter_all')}</option>${employees.filter(e=>e.status==='active').map(e=>`<option value="${e.id}">${e.name}</option>`).join('')}</select></div>
-    <div class="form-group"><label>${t('sale_project')}</label><select id="filterProject" onchange="filterSalesList()"><option value="">${t('filter_all')}</option>${projects.map(p=>`<option value="${p}">${p}</option>`).join('')}</select></div>
-    <div class="form-group"><label>${t('sale_unitType')}</label><select id="filterUnitType" onchange="filterSalesList()"><option value="">${t('filter_all')}</option>${unitTypes.map(u=>`<option value="${u}">${u}</option>`).join('')}</select></div>
-    <div class="form-group"><label>${t('sale_bookingType')}</label><select id="filterBookingType" onchange="filterSalesList()"><option value="">${t('filter_all')}</option><option value="booking">${t('sale_booking')}</option><option value="contract">${t('sale_contract')}</option></select></div>
-    <div class="form-group"><label>${t('sale_saleType')}</label><select id="filterSaleType" onchange="filterSalesList()"><option value="">${t('filter_all')}</option><option value="primary">${t('sale_primary')}</option><option value="resale">${t('sale_resale')}</option></select></div>
-    <div class="form-group"><label>${t('sale_date')} ${t('report_from')}</label><input type="date" id="filterDateFrom" value="${from}" onchange="filterSalesList()"></div>
-    <div class="form-group"><label>${t('sale_date')} ${t('report_to')}</label><input type="date" id="filterDateTo" value="${to}" onchange="filterSalesList()"></div>
-    <div class="form-group"><label>${t('sale_price')} ${t('report_from')}</label><input type="number" id="filterPriceFrom" placeholder="0" oninput="filterSalesList()"></div>
-    <div class="form-group"><label>${t('sale_price')} ${t('report_to')}</label><input type="number" id="filterPriceTo" placeholder="∞" oninput="filterSalesList()"></div>
-    <div class="form-group" style="display:flex;align-items:end"><button class="btn btn-outline btn-sm" onclick="clearSalesFilters()"><i class="fas fa-times"></i> ${lang==='ar'?'مسح الفلاتر':'Clear Filters'}</button></div>
-  </div>
-  <div class="card"><div class="table-wrap" id="salesTable"></div></div>`;
+function renderOpsTabContent() {
+  const c = document.getElementById('opsTabContent');
+  if(!c) return;
+  if(_opsTab === 'dashboard') renderOpsDashboard(c);
+  else if(_opsTab === 'units') renderOpsUnits(c);
+  else if(_opsTab === 'reservations') renderOpsReservations(c);
+  else if(_opsTab === 'contracts') renderOpsContracts(c);
+  else if(_opsTab === 'sales') renderOpsSales(c);
+}
 
-  renderSalesTable(sales);
+// ============================================================
+// OPERATIONS - DASHBOARD
+// ============================================================
+function renderOpsDashboard(el) {
+  const units = STORAGE.get('op_units',[]);
+  const reservations = STORAGE.get('op_reservations',[]);
+  const contracts = STORAGE.get('op_contracts',[]);
+  const sales = STORAGE.get('sales',[]);
+  const available = units.filter(u => u.status === 'available').length;
+  const reserved = units.filter(u => u.status === 'reserved').length;
+  const sold = units.filter(u => u.status === 'sold').length;
+  const pendingRes = reservations.filter(r => r.status === 'pending').length;
+  const activeContracts = contracts.filter(c => c.status === 'active').length;
+
+  let h = `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">`;
+  h += `<div style="flex:1;min-width:150px;background:#f8f6f0;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('units')"><div style="font-size:32px;font-weight:800;color:var(--primary)">${units.length}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'إجمالي الوحدات':'Total Units'}</div></div>`;
+  h += `<div style="flex:1;min-width:150px;background:#e8f5e9;padding:16px;border-radius:10px;text-align:center"><div style="font-size:32px;font-weight:800;color:#4CAF50">${available}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'متاحة':'Available'}</div></div>`;
+  h += `<div style="flex:1;min-width:150px;background:#fff3e0;padding:16px;border-radius:10px;text-align:center"><div style="font-size:32px;font-weight:800;color:#FF9800">${reserved}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'محجوزة':'Reserved'}</div></div>`;
+  h += `<div style="flex:1;min-width:150px;background:#fce4ec;padding:16px;border-radius:10px;text-align:center"><div style="font-size:32px;font-weight:800;color:#C75B4A">${sold}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'مباعة':'Sold'}</div></div>`;
+  h += `</div>`;
+  h += `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">`;
+  h += `<div style="flex:1;min-width:150px;background:#fff8e1;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('reservations')"><div style="font-size:32px;font-weight:800;color:#F9A825">${pendingRes}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'حجوزات قيد الانتظار':'Pending Reservations'}</div></div>`;
+  h += `<div style="flex:1;min-width:150px;background:#e3f2fd;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('contracts')"><div style="font-size:32px;font-weight:800;color:#1976D2">${activeContracts}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'عقود نشطة':'Active Contracts'}</div></div>`;
+  h += `<div style="flex:1;min-width:150px;background:#f3e5f5;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('sales')"><div style="font-size:32px;font-weight:800;color:#7B1FA2">${sales.length}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'إجمالي المبيعات':'Total Sales'}</div></div>`;
+  h += `</div>`;
+  el.innerHTML = h;
+}
+
+// ============================================================
+// OPERATIONS - UNITS MANAGEMENT
+// ============================================================
+function renderOpsUnits(el) {
+  const units = STORAGE.get('op_units',[]);
+  const statuses = {available:{ar:'متاحة',en:'Available',color:'#4CAF50'},reserved:{ar:'محجوزة',en:'Reserved',color:'#FF9800'},sold:{ar:'مباعة',en:'Sold',color:'#C75B4A'},maintenance:{ar:'صيانة',en:'Maintenance',color:'#9E9E9E'}};
+  let h = `<div class="card"><div class="flex-between mb-16"><h3><i class="fas fa-building"></i> ${lang==='ar'?'إدارة الوحدات':'Unit Management'} (${units.length})</h3>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">`;
+  if(canEdit()) h += `<button class="btn btn-primary btn-sm" onclick="openOpUnitForm()"><i class="fas fa-plus"></i> ${lang==='ar'?'إضافة وحدة':'Add Unit'}</button>`;
+  h += `<button class="btn btn-outline btn-sm" onclick="downloadOpUnitsExcel()"><i class="fas fa-download"></i> ${lang==='ar'?'تصدير':'Export'}</button>`;
+  h += `</div></div>`;
+
+  h += `<div class="filters" style="margin-bottom:12px"><div class="form-group"><label>${lang==='ar'?'بحث':'Search'}</label><input type="text" id="opsUnitSearch" placeholder="${lang==='ar'?'اسم الوحدة...':'Unit name...'}" oninput="filterOpsUnits()"></div>`;
+  h += `<div class="form-group"><label>${lang==='ar'?'الحالة':'Status'}</label><select id="opsUnitStatus" onchange="filterOpsUnits()"><option value="">${lang==='ar'?'الكل':'All'}</option>`;
+  Object.entries(statuses).forEach(([k,v]) => { h += `<option value="${k}">${lang==='ar'?v.ar:v.en}</option>`; });
+  h += `</select></div></div>`;
+  h += `<div id="opsUnitsTable"></div></div>`;
+  el.innerHTML = h;
+  filterOpsUnits();
+}
+
+function filterOpsUnits() {
+  const units = STORAGE.get('op_units',[]);
+  const search = (document.getElementById('opsUnitSearch')?.value||'').toLowerCase();
+  const status = document.getElementById('opsUnitStatus')?.value || '';
+  let filtered = units;
+  if(search) filtered = filtered.filter(u => (u.name||'').toLowerCase().includes(search) || (u.project||'').toLowerCase().includes(search) || (u.unitNum||'').toLowerCase().includes(search));
+  if(status) filtered = filtered.filter(u => u.status === status);
+
+  const statuses = {available:{ar:'متاحة',en:'Available',color:'#4CAF50'},reserved:{ar:'محجوزة',en:'Reserved',color:'#FF9800'},sold:{ar:'مباعة',en:'Sold',color:'#C75B4A'},maintenance:{ar:'صيانة',en:'Maintenance',color:'#9E9E9E'}};
+  let h = '';
+  if(filtered.length === 0) { h = '<div class="empty-state"><p>'+(lang==='ar'?'لا توجد وحدات':'No units found')+'</p></div>'; }
+  else {
+    h = `<div class="table-wrap"><table><thead><tr><th>${lang==='ar'?'الاسم':'Name'}</th><th>${lang==='ar'?'النوع':'Type'}</th><th>${lang==='ar'?'المشروع':'Project'}</th><th>${lang==='ar'?'الدور':'Floor'}</th><th>${lang==='ar'?'المساحة':'Area'}</th><th>${lang==='ar'?'السعر':'Price'}</th><th>${lang==='ar'?'الحالة':'Status'}</th><th>${lang==='ar'?'إجراءات':'Actions'}</th></tr></thead><tbody>`;
+    filtered.forEach(u => {
+      const st = statuses[u.status] || {ar:u.status,en:u.status,color:'#999'};
+      h += `<tr><td><strong>${u.name||'-'}</strong><br><small style="color:var(--text-light)">${u.unitNum||''}</small></td><td>${u.type||'-'}</td><td>${u.project||'-'}</td><td>${u.floor||'-'}</td><td>${u.area?u.area+' m²':'-'}</td><td>${u.price?fmt(u.price):'-'}</td><td><span class="badge" style="background:${st.color}22;color:${st.color};border:1px solid ${st.color}44">${lang==='ar'?st.ar:st.en}</span></td><td>`;
+      if(canEdit()) {
+        h += `<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="openOpUnitForm('${u.id}')"><i class="fas fa-edit"></i></button>`;
+        h += `<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteOpUnit('${u.id}')"><i class="fas fa-trash"></i></button>`;
+      }
+      h += `</td></tr>`;
+    });
+    h += '</tbody></table></div>';
+  }
+  document.getElementById('opsUnitsTable').innerHTML = h;
+}
+
+function openOpUnitForm(unitId) {
+  const unit = unitId ? STORAGE.get('op_units',[]).find(u => u.id === unitId) : null;
+  const franchises = STORAGE.get('franchises',[]);
+  const branches = STORAGE.get('branches',[]);
+  let fOpts = `<option value="">${t('acc_noFranchise')}</option>`;
+  franchises.forEach(f => { fOpts += `<option value="${f.id}" ${unit&&unit.franchiseId===f.id?'selected':''}>${lang==='ar'?f.name_ar:f.name_en}</option>`; });
+  let bOpts = `<option value="">-</option>`;
+  branches.forEach(b => { bOpts += `<option value="${b.id}" ${unit&&unit.branchId===b.id?'selected':''}>${lang==='ar'?b.name_ar:b.name_en}</option>`; });
+  const typeOpts = UNIT_TYPES.map((t,i) => `<option value="${lang==='ar'?t:UNIT_TYPES_EN[i]}" ${unit&&unit.type===t?'selected':''}>${lang==='ar'?t:UNIT_TYPES_EN[i]}</option>`).join('');
+
+  document.getElementById('modalContainer').innerHTML=`<h3>${unit?(lang==='ar'?'تعديل وحدة':'Edit Unit'):(lang==='ar'?'إضافة وحدة':'Add Unit')}</h3>
+  <div class="form-row"><div class="form-group"><label>${lang==='ar'?'اسم الوحدة':'Unit Name'}</label><input type="text" id="opu_name" value="${unit?unit.name:''}" placeholder="${lang==='ar'?'مثال: فيلا 12':'e.g. Villa 12'}"></div>
+  <div class="form-group"><label>${lang==='ar'?'رقم الوحدة':'Unit Number'}</label><input type="text" id="opu_unitNum" value="${unit?unit.unitNum:''}"></div></div>
+  <div class="form-row"><div class="form-group"><label>${lang==='ar'?'النوع':'Type'}</label><select id="opu_type">${typeOpts}</select></div>
+  <div class="form-group"><label>${lang==='ar'?'المساحة (م²)':'Area (m²)'}</label><input type="number" id="opu_area" value="${unit?unit.area:''}" min="0"></div></div>
+  <div class="form-row"><div class="form-group"><label>${lang==='ar'?'السعر':'Price'}</label><input type="number" id="opu_price" value="${unit?unit.price:''}" min="0"></div>
+  <div class="form-group"><label>${lang==='ar'?'الدور':'Floor'}</label><input type="text" id="opu_floor" value="${unit?unit.floor:''}" placeholder="${lang==='ar'?'مثال: 3':'e.g. 3'}"></div></div>
+  <div class="form-row"><div class="form-group"><label>${lang==='ar'?'المشروع':'Project'}</label><input type="text" id="opu_project" value="${unit?unit.project:''}"></div>
+  <div class="form-group"><label>${lang==='ar'?'الحالة':'Status'}</label><select id="opu_status"><option value="available" ${unit&&unit.status==='available'?'selected':''}>${lang==='ar'?'متاحة':'Available'}</option><option value="reserved" ${unit&&unit.status==='reserved'?'selected':''}>${lang==='ar'?'محجوزة':'Reserved'}</option><option value="sold" ${unit&&unit.status==='sold'?'selected':''}>${lang==='ar'?'مباعة':'Sold'}</option><option value="maintenance" ${unit&&unit.status==='maintenance'?'selected':''}>${lang==='ar'?'صيانة':'Maintenance'}</option></select></div></div>
+  <div class="form-row"><div class="form-group"><label>${t('acc_journalFranchise')}</label><select id="opu_franchise">${fOpts}</select></div>
+  <div class="form-group"><label>${t('acc_journalBranch')}</label><select id="opu_branch">${bOpts}</select></div></div>
+  <div class="form-row"><div class="form-group" style="flex:1"><label>${lang==='ar'?'ملاحظات':'Notes'}</label><input type="text" id="opu_notes" value="${unit?unit.notes||'':''}"></div></div>
+  <div class="modal-actions"><button class="btn btn-primary" onclick="saveOpUnit('${unitId||''}')"><i class="fas fa-save"></i> ${t('save')}</button><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function saveOpUnit(unitId) {
+  const name = document.getElementById('opu_name').value.trim();
+  const unitNum = document.getElementById('opu_unitNum').value.trim();
+  const type = document.getElementById('opu_type').value;
+  const area = parseFloat(document.getElementById('opu_area').value)||0;
+  const price = parseFloat(document.getElementById('opu_price').value)||0;
+  const floor = document.getElementById('opu_floor').value.trim();
+  const project = document.getElementById('opu_project').value.trim();
+  const status = document.getElementById('opu_status').value;
+  const franchiseId = document.getElementById('opu_franchise')?.value||'';
+  const branchId = document.getElementById('opu_branch')?.value||'';
+  const notes = document.getElementById('opu_notes').value.trim();
+
+  if(!name) { wsToast(lang==='ar'?'أدخل اسم الوحدة':'Enter unit name'); return; }
+
+  const units = STORAGE.get('op_units',[]);
+  if(unitId) {
+    const idx = units.findIndex(u => u.id === unitId);
+    if(idx >= 0) units[idx] = {...units[idx], name, unitNum, type, area, price, floor, project, status, franchiseId, branchId, notes, updatedAt: new Date().toISOString()};
+  } else {
+    units.push({id:uid(), name, unitNum, type, area, price, floor, project, status, franchiseId, branchId, notes, createdAt: new Date().toISOString()});
+  }
+  STORAGE.set('op_units', units);
+  closeModal();
+  wsToast(lang==='ar'?'تم الحفظ':'Saved');
+  renderOpsUnits(document.getElementById('opsTabContent'));
+}
+
+function deleteOpUnit(id) {
+  if(!confirm(lang==='ar'?'هل أنت متأكد؟':'Are you sure?')) return;
+  let units = STORAGE.get('op_units',[]);
+  units = units.filter(u => u.id !== id);
+  STORAGE.set('op_units', units);
+  renderOpsUnits(document.getElementById('opsTabContent'));
+}
+
+function downloadOpUnitsExcel() {
+  const units = STORAGE.get('op_units',[]);
+  if(!units.length) { wsToast(lang==='ar'?'لا توجد بيانات':'No data'); return; }
+  const headers = [lang==='ar'?'الاسم':'Name',lang==='ar'?'الرقم':'Number',lang==='ar'?'النوع':'Type',lang==='ar'?'المشروع':'Project',lang==='ar'?'الدور':'Floor',lang==='ar'?'المساحة':'Area',lang==='ar'?'السعر':'Price',lang==='ar'?'الحالة':'Status'];
+  const rows = units.map(u => [u.name,u.unitNum,u.type,u.project,u.floor,u.area,u.price,u.status]);
+  let csv = '\uFEFF' + headers.join(',') + '\n' + rows.map(r => r.map(c => '"'+(c||'')+'"').join(',')).join('\n');
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'units.csv'; a.click();
+}
+
+// ============================================================
+// OPERATIONS - RESERVATIONS
+// ============================================================
+function renderOpsReservations(el) {
+  const reservations = STORAGE.get('op_reservations',[]);
+  const units = STORAGE.get('op_units',[]);
+  let h = `<div class="card"><div class="flex-between mb-16"><h3><i class="fas fa-calendar-check"></i> ${lang==='ar'?'الحجوزات':'Reservations'} (${reservations.length})</h3>`;
+  if(canEdit()) h += `<button class="btn btn-primary btn-sm" onclick="openOpReservationForm()"><i class="fas fa-plus"></i> ${lang==='ar'?'حجز جديد':'New Reservation'}</button>`;
+  h += `</div>`;
+  h += `<div id="opsReservationsTable"></div></div>`;
+  el.innerHTML = h;
+  renderOpsReservationsList();
+}
+
+function renderOpsReservationsList() {
+  const reservations = STORAGE.get('op_reservations',[]);
+  const units = STORAGE.get('op_units',[]);
+  const statuses = {pending:{ar:'قيد الانتظار',en:'Pending',color:'#FF9800'},confirmed:{ar:'مؤكد',en:'Confirmed',color:'#4CAF50'},cancelled:{ar:'ملغي',en:'Cancelled',color:'#C75B4A'},converted:{ar:'تم التحويل لعقد',en:'Converted',color:'#1976D2'}};
+  let h = '';
+  if(reservations.length === 0) { h = '<div class="empty-state"><p>'+(lang==='ar'?'لا توجد حجوزات':'No reservations')+'</p></div>'; }
+  else {
+    h = `<div class="table-wrap"><table><thead><tr><th>${lang==='ar'?'العميل':'Client'}</th><th>${lang==='ar'?'الوحدة':'Unit'}</th><th>${lang==='ar'?'التاريخ':'Date'}</th><th>${lang==='ar'?'الانتهاء':'Expiry'}</th><th>${lang==='ar'?'المبلغ':'Amount'}</th><th>${lang==='ar'?'الحالة':'Status'}</th><th>${lang==='ar'?'إجراءات':'Actions'}</th></tr></thead><tbody>`;
+    reservations.slice().reverse().forEach(r => {
+      const unit = units.find(u => u.id === r.unitId);
+      const st = statuses[r.status] || {ar:r.status,en:r.status,color:'#999'};
+      h += `<tr><td><strong>${r.clientName||'-'}</strong><br><small>${r.clientPhone||''}</small></td><td>${unit?unit.name:(r.unitName||'-')}</td><td>${fmtDate(r.date)}</td><td>${fmtDate(r.expiry)}</td><td>${r.amount?fmt(r.amount):'-'}</td><td><span class="badge" style="background:${st.color}22;color:${st.color};border:1px solid ${st.color}44">${lang==='ar'?st.ar:st.en}</span></td><td>`;
+      if(canEdit()) {
+        if(r.status === 'pending') {
+          h += `<button class="btn btn-sm" style="padding:2px 8px;background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;margin-right:4px" onclick="confirmReservation('${r.id}')"><i class="fas fa-check"></i></button>`;
+          h += `<button class="btn btn-sm" style="padding:2px 8px;background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;margin-right:4px" onclick="convertReservationToContract('${r.id}')"><i class="fas fa-exchange-alt"></i></button>`;
+          h += `<button class="btn btn-sm" style="padding:2px 8px;background:#fce4ec;color:#c62828;border:1px solid #ef9a9a" onclick="cancelReservation('${r.id}')"><i class="fas fa-times"></i></button>`;
+        }
+      }
+      h += `</td></tr>`;
+    });
+    h += '</tbody></table></div>';
+  }
+  document.getElementById('opsReservationsTable').innerHTML = h;
+}
+
+function openOpReservationForm() {
+  const units = STORAGE.get('op_units',[]);
+  const available = units.filter(u => u.status === 'available');
+  const opts = available.map(u => `<option value="${u.id}">${u.name} (${u.unitNum||''}) - ${u.project||''}</option>`).join('');
+
+  document.getElementById('modalContainer').innerHTML=`<h3>${lang==='ar'?'حجز جديد':'New Reservation'}</h3>
+  <div class="form-row"><div class="form-group"><label>${lang==='ar'?'العميل':'Client'}</label><input type="text" id="opr_client" placeholder="${lang==='ar'?'اسم العميل':'Client name'}"></div>
+  <div class="form-group"><label>${lang==='ar'?'التليفون':'Phone'}</label><input type="text" id="opr_phone"></div></div>
+  <div class="form-row"><div class="form-group"><label>${lang==='ar'?'الوحدة':'Unit'}</label><select id="opr_unit"><option value="">${lang==='ar'?'اختر وحدة':'Select unit'}</option>${opts}</select></div>
+  <div class="form-group"><label>${lang==='ar'?'المبلغ':'Amount'}</label><input type="number" id="opr_amount" min="0"></div></div>
+  <div class="form-row"><div class="form-group"><label>${lang==='ar'?'تاريخ الحجز':'Date'}</label><input type="date" id="opr_date" value="${today()}"></div>
+  <div class="form-group"><label>${lang==='ar'?'انتهاء الحجز':'Expiry'}</label><input type="date" id="opr_expiry"></div></div>
+  <div class="form-row"><div class="form-group" style="flex:1"><label>${lang==='ar'?'ملاحظات':'Notes'}</label><input type="text" id="opr_notes"></div></div>
+  <div class="modal-actions"><button class="btn btn-primary" onclick="saveOpReservation()"><i class="fas fa-save"></i> ${t('save')}</button><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function saveOpReservation() {
+  const clientName = document.getElementById('opr_client').value.trim();
+  const clientPhone = document.getElementById('opr_phone').value.trim();
+  const unitId = document.getElementById('opr_unit').value;
+  const amount = parseFloat(document.getElementById('opr_amount').value)||0;
+  const date = document.getElementById('opr_date').value;
+  const expiry = document.getElementById('opr_expiry').value;
+  const notes = document.getElementById('opr_notes').value.trim();
+
+  if(!clientName || !unitId) { wsToast(lang==='ar'?'أكمل الحقول المطلوبة':'Fill required fields'); return; }
+
+  const units = STORAGE.get('op_units',[]);
+  const unit = units.find(u => u.id === unitId);
+  if(unit) {
+    unit.status = 'reserved';
+    STORAGE.set('op_units', units);
+  }
+
+  const reservations = STORAGE.get('op_reservations',[]);
+  reservations.push({id:uid(), clientName, clientPhone, unitId, unitName:unit?unit.name:'', amount, date, expiry, notes, status:'pending', createdAt:new Date().toISOString()});
+  STORAGE.set('op_reservations', reservations);
+  closeModal();
+  wsToast(lang==='ar'?'تم الحجز':'Reservation created');
+  renderOpsReservations(document.getElementById('opsTabContent'));
+}
+
+function confirmReservation(id) {
+  const reservations = STORAGE.get('op_reservations',[]);
+  const r = reservations.find(x => x.id === id);
+  if(r) { r.status = 'confirmed'; r.confirmedAt = new Date().toISOString(); }
+  STORAGE.set('op_reservations', reservations);
+  wsToast(lang==='ar'?'تم التأكيد':'Confirmed');
+  renderOpsReservationsList();
+}
+
+function cancelReservation(id) {
+  if(!confirm(lang==='ar'?'إلغاء الحجز؟':'Cancel reservation?')) return;
+  const reservations = STORAGE.get('op_reservations',[]);
+  const r = reservations.find(x => x.id === id);
+  if(r) {
+    r.status = 'cancelled';
+    const units = STORAGE.get('op_units',[]);
+    const unit = units.find(u => u.id === r.unitId);
+    if(unit && unit.status === 'reserved') unit.status = 'available';
+    STORAGE.set('op_units', units);
+  }
+  STORAGE.set('op_reservations', reservations);
+  wsToast(lang==='ar'?'تم الإلغاء':'Cancelled');
+  renderOpsReservationsList();
+}
+
+function convertReservationToContract(id) {
+  const reservations = STORAGE.get('op_reservations',[]);
+  const r = reservations.find(x => x.id === id);
+  if(!r) return;
+  r.status = 'converted';
+
+  const contracts = STORAGE.get('op_contracts',[]);
+  const units = STORAGE.get('op_units',[]);
+  const unit = units.find(u => u.id === r.unitId);
+  if(unit) unit.status = 'sold';
+  STORAGE.set('op_units', units);
+
+  contracts.push({id:uid(), clientName:r.clientName, clientPhone:r.clientPhone, unitId:r.unitId, unitName:r.unitName||'', totalAmount:r.amount, paidAmount:0, date:today(), expiry:'', status:'active', notes:' Converted from reservation ' + id, createdAt:new Date().toISOString()});
+  STORAGE.set('op_contracts', contracts);
+  STORAGE.set('op_reservations', reservations);
+  wsToast(lang==='ar'?'تم التحويل لعقد':'Converted to contract');
+  renderOpsReservations(document.getElementById('opsTabContent'));
+}
+
+// ============================================================
+// OPERATIONS - CONTRACTS
+// ============================================================
+function renderOpsContracts(el) {
+  const contracts = STORAGE.get('op_contracts',[]);
+  let h = `<div class="card"><div class="flex-between mb-16"><h3><i class="fas fa-file-contract"></i> ${lang==='ar'?'العقود':'Contracts'} (${contracts.length})</h3>`;
+  if(canEdit()) h += `<button class="btn btn-primary btn-sm" onclick="openOpContractForm()"><i class="fas fa-plus"></i> ${lang==='ar'?'عقد جديد':'New Contract'}</button>`;
+  h += `</div>`;
+  h += `<div id="opsContractsTable"></div></div>`;
+  el.innerHTML = h;
+  renderOpsContractsList();
+}
+
+function renderOpsContractsList() {
+  const contracts = STORAGE.get('op_contracts',[]);
+  const units = STORAGE.get('op_units',[]);
+  const statuses = {active:{ar:'نشط',en:'Active',color:'#4CAF50'},completed:{ar:'مكتمل',en:'Completed',color:'#1976D2'},cancelled:{ar:'ملغي',en:'Cancelled',color:'#C75B4A'}};
+  let h = '';
+  if(contracts.length === 0) { h = '<div class="empty-state"><p>'+(lang==='ar'?'لا توجد عقود':'No contracts')+'</p></div>'; }
+  else {
+    h = `<div class="table-wrap"><table><thead><tr><th>${lang==='ar'?'العميل':'Client'}</th><th>${lang==='ar'?'الوحدة':'Unit'}</th><th>${lang==='ar'?'التاريخ':'Date'}</th><th>${lang==='ar'?'المبلغ الكلي':'Total'}</th><th>${lang==='ar'?'المدفوع':'Paid'}</th><th>${lang==='ar'?'المتبقي':'Remaining'}</th><th>${lang==='ar'?'الحالة':'Status'}</th><th>${lang==='ar'?'إجراءات':'Actions'}</th></tr></thead><tbody>`;
+    contracts.slice().reverse().forEach(c => {
+      const unit = units.find(u => u.id === c.unitId);
+      const remaining = (c.totalAmount||0) - (c.paidAmount||0);
+      const st = statuses[c.status] || {ar:c.status,en:c.status,color:'#999'};
+      h += `<tr><td><strong>${c.clientName||'-'}</strong><br><small>${c.clientPhone||''}</small></td><td>${unit?unit.name:(c.unitName||'-')}</td><td>${fmtDate(c.date)}</td><td>${fmt(c.totalAmount)}</td><td>${fmt(c.paidAmount)}</td><td style="color:${remaining>0?'#C75B4A':'#4CAF50'}">${fmt(remaining)}</td><td><span class="badge" style="background:${st.color}22;color:${st.color};border:1px solid ${st.color}44">${lang==='ar'?st.ar:st.en}</span></td><td>`;
+      if(canEdit()) {
+        h += `<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="openOpContractForm('${c.id}')"><i class="fas fa-edit"></i></button>`;
+        if(c.status === 'active') h += `<button class="btn btn-sm" style="padding:2px 8px;background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;margin-right:4px" onclick="addContractPayment('${c.id}')"><i class="fas fa-dollar-sign"></i></button>`;
+      }
+      h += `</td></tr>`;
+    });
+    h += '</tbody></table></div>';
+  }
+  document.getElementById('opsContractsTable').innerHTML = h;
+}
+
+function openOpContractForm(contractId) {
+  const contract = contractId ? STORAGE.get('op_contracts',[]).find(c => c.id === contractId) : null;
+  const units = STORAGE.get('op_units',[]);
+
+  document.getElementById('modalContainer').innerHTML=`<h3>${contract?(lang==='ar'?'تعديل عقد':'Edit Contract'):(lang==='ar'?'عقد جديد':'New Contract')}</h3>
+  <div class="form-row"><div class="form-group"><label>${lang==='ar'?'العميل':'Client'}</label><input type="text" id="opc_client" value="${contract?contract.clientName:''}"></div>
+  <div class="form-group"><label>${lang==='ar'?'التليفون':'Phone'}</label><input type="text" id="opc_phone" value="${contract?contract.clientPhone||'':''}"></div></div>
+  <div class="form-row"><div class="form-group"><label>${lang==='ar'?'الوحدة':'Unit'}</label><select id="opc_unit"><option value="">${lang==='ar'?'اختر':'Select'}</option>${units.map(u=>`<option value="${u.id}" ${contract&&contract.unitId===u.id?'selected':''}>${u.name} (${u.unitNum||''})</option>`).join('')}</select></div>
+  <div class="form-group"><label>${lang==='ar'?'المبلغ الكلي':'Total Amount'}</label><input type="number" id="opc_total" value="${contract?contract.totalAmount:''}" min="0"></div></div>
+  <div class="form-row"><div class="form-group"><label>${lang==='ar'?'المدفوع':'Paid Amount'}</label><input type="number" id="opc_paid" value="${contract?contract.paidAmount:0}" min="0"></div>
+  <div class="form-group"><label>${lang==='ar'?'الحالة':'Status'}</label><select id="opc_status"><option value="active" ${contract&&contract.status==='active'?'selected':''}>${lang==='ar'?'نشط':'Active'}</option><option value="completed" ${contract&&contract.status==='completed'?'selected':''}>${lang==='ar'?'مكتمل':'Completed'}</option><option value="cancelled" ${contract&&contract.status==='cancelled'?'selected':''}>${lang==='ar'?'ملغي':'Cancelled'}</option></select></div></div>
+  <div class="form-row"><div class="form-group" style="flex:1"><label>${lang==='ar'?'ملاحظات':'Notes'}</label><input type="text" id="opc_notes" value="${contract?contract.notes||'':''}"></div></div>
+  <div class="modal-actions"><button class="btn btn-primary" onclick="saveOpContract('${contractId||''}')"><i class="fas fa-save"></i> ${t('save')}</button><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function saveOpContract(contractId) {
+  const clientName = document.getElementById('opc_client').value.trim();
+  const clientPhone = document.getElementById('opc_phone').value.trim();
+  const unitId = document.getElementById('opc_unit').value;
+  const totalAmount = parseFloat(document.getElementById('opc_total').value)||0;
+  const paidAmount = parseFloat(document.getElementById('opc_paid').value)||0;
+  const status = document.getElementById('opc_status').value;
+  const notes = document.getElementById('opc_notes').value.trim();
+
+  if(!clientName) { wsToast(lang==='ar'?'أدخل اسم العميل':'Enter client name'); return; }
+
+  const contracts = STORAGE.get('op_contracts',[]);
+  if(contractId) {
+    const idx = contracts.findIndex(c => c.id === contractId);
+    if(idx >= 0) contracts[idx] = {...contracts[idx], clientName, clientPhone, unitId, totalAmount, paidAmount, status, notes, updatedAt:new Date().toISOString()};
+  } else {
+    const units = STORAGE.get('op_units',[]);
+    const unit = units.find(u => u.id === unitId);
+    if(unit) unit.status = 'sold';
+    STORAGE.set('op_units', units);
+    contracts.push({id:uid(), clientName, clientPhone, unitId, unitName:unit?unit.name:'', totalAmount, paidAmount, date:today(), status, notes, createdAt:new Date().toISOString()});
+  }
+  STORAGE.set('op_contracts', contracts);
+  closeModal();
+  wsToast(lang==='ar'?'تم الحفظ':'Saved');
+  renderOpsContracts(document.getElementById('opsTabContent'));
+}
+
+function addContractPayment(id) {
+  const contracts = STORAGE.get('op_contracts',[]);
+  const c = contracts.find(x => x.id === id);
+  if(!c) return;
+  const remaining = (c.totalAmount||0) - (c.paidAmount||0);
+  document.getElementById('modalContainer').innerHTML=`<h3>${lang==='ar'?'إضافة دفعة':'Add Payment'}</h3>
+  <p style="margin-bottom:12px">${lang==='ar'?'المتبقي: ':'Remaining: '}<strong>${fmt(remaining)}</strong></p>
+  <div class="form-group"><label>${lang==='ar'?'المبلغ':'Amount'}</label><input type="number" id="cp_amount" min="0" max="${remaining}"></div>
+  <div class="modal-actions"><button class="btn btn-primary" onclick="saveContractPayment('${id}')"><i class="fas fa-save"></i> ${t('save')}</button><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function saveContractPayment(id) {
+  const amt = parseFloat(document.getElementById('cp_amount').value)||0;
+  if(amt <= 0) { wsToast(lang==='ar'?'أدخل مبلغ صحيح':'Enter valid amount'); return; }
+  const contracts = STORAGE.get('op_contracts',[]);
+  const c = contracts.find(x => x.id === id);
+  if(!c) return;
+  c.paidAmount = (c.paidAmount||0) + amt;
+  if(c.paidAmount >= c.totalAmount) c.status = 'completed';
+  STORAGE.set('op_contracts', contracts);
+  closeModal();
+  wsToast(lang==='ar'?'تم تسجيل الدفعة':'Payment recorded');
+  renderOpsContractsList();
+}
+
+// ============================================================
+// OPERATIONS - SALES (Existing, wrapped in tab)
+// ============================================================
+function renderOpsSales(el) {
+  const sales = STORAGE.get('sales',[]);
+  const employees = STORAGE.get('employees',[]);
+  el.innerHTML = `
+  <div class="card"><div class="flex-between mb-16"><h3><i class="fas fa-file-invoice-dollar"></i> ${lang==='ar'?'المبيعات':'Sales'} (${sales.length})</h3>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">`;
+  if(canEdit()) el.querySelector('.card').innerHTML += `<button class="btn btn-primary btn-sm" onclick="openSaleForm()"><i class="fas fa-plus"></i> ${t('addSale_title')}</button>`;
+  el.innerHTML += `</div></div>
+  <div class="card"><div class="search-box" style="margin-bottom:0"><input type="text" id="opsSaleSearch" placeholder="${t('search_hint')}" oninput="filterOpsSales()"><i class="fas fa-search"></i></div></div>
+  <div class="card"><div class="table-wrap" id="opsSalesTable"></div></div>`;
+  filterOpsSales();
+}
+
+function filterOpsSales() {
+  let sales = STORAGE.get('sales',[]);
+  const search = (document.getElementById('opsSaleSearch')?.value||'').toLowerCase();
+  if(search) sales = sales.filter(s => (s.client||'').toLowerCase().includes(search) || (s.code||'').toLowerCase().includes(search) || (s.project||'').toLowerCase().includes(search));
+  const employees = STORAGE.get('employees',[]);
+  let h = '';
+  if(sales.length === 0) { h = '<div class="empty-state"><p>'+(lang==='ar'?'لا توجد مبيعات':'No sales')+'</p></div>'; }
+  else {
+    h = `<div class="table-wrap"><table><thead><tr><th>${lang==='ar'?'الكود':'Code'}</th><th>${lang==='ar'?'التاريخ':'Date'}</th><th>${lang==='ar'?'العميل':'Client'}</th><th>${lang==='ar'?'المشروع':'Project'}</th><th>${lang==='ar'?'النوع':'Type'}</th><th>${lang==='ar'?'السعر':'Price'}</th><th>${lang==='ar'?'العمولة':'Comm.'}</th><th>${lang==='ar'?'إجراءات':'Actions'}</th></tr></thead><tbody>`;
+    sales.slice().reverse().forEach(s => {
+      const sp = employees.find(e => e.id === s.salesPersonId);
+      h += `<tr><td>${s.code||'-'}</td><td>${fmtDate(s.date)}</td><td>${s.client||'-'}</td><td>${s.project||'-'}</td><td>${s.unitType||'-'}</td><td>${fmt(s.unitPrice)}</td><td>${fmt(s.unitPrice*s.commissionRate/100)}</td><td>`;
+      if(canEdit()) {
+        h += `<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="openSaleForm('${s.id}')"><i class="fas fa-edit"></i></button>`;
+        h += `<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteSale('${s.id}')"><i class="fas fa-trash"></i></button>`;
+      }
+      h += `</td></tr>`;
+    });
+    h += '</tbody></table></div>';
+  }
+  document.getElementById('opsSalesTable').innerHTML = h;
 }
 
 function filterSalesList() {
