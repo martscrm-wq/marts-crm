@@ -389,13 +389,13 @@ jobs:
       - name: Check for TestSprite tests
         id: check-tests
         run: |
-          if [ -d "testsprite_tests" ] && [ "$(ls -A testsprite_tests 2>/dev/null)" ]; then
+          if [ -d "testsprite_tests" ] && [ "$(find testsprite_tests -name '*.spec.*' -o -name '*.test.*' -o -name 'test_*.py' -o -name '*.spec.js' -o -name '*.spec.ts' 2>/dev/null)" ]; then
             echo "has_tests=true" >> $GITHUB_OUTPUT
-            echo "Found testsprite_tests/ directory"
-            ls testsprite_tests/
+            echo "Found test files:"
+            find testsprite_tests -name '*.spec.*' -o -name '*.test.*' -o -name 'test_*.py'
           else
             echo "has_tests=false" >> $GITHUB_OUTPUT
-            echo "No testsprite_tests/ found - skipping"
+            echo "No real test files found in testsprite_tests/ - skipping"
           fi
 
       - name: Run TestSprite against production
