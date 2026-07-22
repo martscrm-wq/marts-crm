@@ -8536,6 +8536,7 @@ function renderTreasury() {
     ${canAccounting()?'<button class="btn btn-success btn-sm" onclick="uploadAccExcel(\'treasury\')"><i class="fas fa-file-upload"></i> '+t('acc_uploadExcel')+'</button>':''}
     <button class="btn btn-outline btn-sm" onclick="downloadAccExcel(\'treasury\')"><i class="fas fa-download"></i> ${t('acc_downloadExcel')}</button>
     ${canAccounting()?'<button class="btn btn-danger btn-sm" onclick="deleteAllTreasury()"><i class="fas fa-trash"></i> '+(lang==='ar'?'حذف الكل':'Delete All')+'</button>':''}
+    <button class="btn btn-danger btn-sm" id="bulkDeleteTreasuryBtn" style="display:none" onclick="bulkDeleteTreasury()"><i class="fas fa-trash"></i> ${lang==='ar'?'حذف المحدد':'Delete Selected'}</button>
   </div></div>
   <div class="filters" style="margin-bottom:16px">
     <div class="form-group"><label>${t('acc_filterFrom')}</label><input type="date" id="treasuryFrom" onchange="filterTreasury()"></div>
@@ -8562,17 +8563,56 @@ function filterTreasury(page) {
   else {
     const franchises = STORAGE.get('franchises',[]);
     const branches = STORAGE.get('branches',[]);
-    h='<div class="table-wrap"><table><thead><tr><th>'+t('acc_date')+'</th><th>'+t('acc_type')+'</th><th>'+t('acc_amount')+'</th><th>'+t('acc_journalFranchise')+'</th><th>'+t('acc_journalBranch')+'</th><th>'+t('acc_description')+'</th><th>'+(lang==='ar'?'إجراءات':'Actions')+'</th></tr></thead><tbody>';
+    h='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="selectAllTreasury" onchange="toggleSelectAllTreasury(this)" style="accent-color:var(--primary)"></th><th>'+t('acc_date')+'</th><th>'+t('acc_type')+'</th><th>'+t('acc_amount')+'</th><th>'+t('acc_journalFranchise')+'</th><th>'+t('acc_journalBranch')+'</th><th>'+t('acc_description')+'</th><th>'+(lang==='ar'?'إجراءات':'Actions')+'</th></tr></thead><tbody>';
     paged.forEach(e=>{
       const f = franchises.find(fr=>fr.id===e.franchiseId);
       const b = branches.find(br=>br.id===e.branchId);
       const _lk = e.locked;
-      h+=`<tr><td>${fmtDate(e.date)}</td><td><span class="badge ${e.type==='income'?'badge-green':'badge-red'}">${e.type==='income'?t('acc_income'):t('acc_expenseType')}</span></td><td>${fmt(e.amount)}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):(e.franchiseId?t('acc_noFranchise'):'-')}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):(e.branchId?'-':'-')}</td><td>${e.desc}${_lk?' <i class="fas fa-lock" style="color:#f39c12;font-size:11px" title="'+(lang==='ar'?'مقفل':'Locked')+'"></i>':''}</td><td>${canAccounting()?(_lk?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'treasury\',\''+e.id+'\')"><i class="fas fa-lock"></i></button>':'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editTreasuryEntry(\''+e.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12;margin-right:4px" onclick="toggleLockEntry(\'treasury\',\''+e.id+'\')"><i class="fas fa-lock-open"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteTreasuryEntry(\''+e.id+'\')"><i class="fas fa-trash"></i></button>'):''}</td></tr>`;
+      h+=`<tr><td style="text-align:center"><input type="checkbox" class="treasury-select-cb" data-id="${e.id}" onchange="updateBulkTreasuryBtn()" style="accent-color:var(--primary)" ${_lk?'disabled':''}></td><td>${fmtDate(e.date)}</td><td><span class="badge ${e.type==='income'?'badge-green':'badge-red'}">${e.type==='income'?t('acc_income'):t('acc_expenseType')}</span></td><td>${fmt(e.amount)}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):(e.franchiseId?t('acc_noFranchise'):'-')}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):(e.branchId?'-':'-')}</td><td>${e.desc}${_lk?' <i class="fas fa-lock" style="color:#f39c12;font-size:11px" title="'+(lang==='ar'?'مقفل':'Locked')+'"></i>':''}</td><td>${canAccounting()?(_lk?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'treasury\',\''+e.id+'\')"><i class="fas fa-lock"></i></button>':'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editTreasuryEntry(\''+e.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12;margin-right:4px" onclick="toggleLockEntry(\'treasury\',\''+e.id+'\')"><i class="fas fa-lock-open"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteTreasuryEntry(\''+e.id+'\')"><i class="fas fa-trash"></i></button>'):''}</td></tr>`;
     });
     h+='</tbody></table></div>';
     h += AccPagination.render('treasury', total, page, 25, 'filterTreasury');
   }
   document.getElementById('treasuryTable').innerHTML=h;
+  updateBulkTreasuryBtn();
+}
+
+function toggleSelectAllTreasury(cb) {
+  document.querySelectorAll('.treasury-select-cb:not(:disabled)').forEach(c => c.checked = cb.checked);
+  updateBulkTreasuryBtn();
+}
+
+function updateBulkTreasuryBtn() {
+  const cbs = document.querySelectorAll('.treasury-select-cb');
+  const checked = document.querySelectorAll('.treasury-select-cb:checked');
+  const bulkBtn = document.getElementById('bulkDeleteTreasuryBtn');
+  if(bulkBtn) {
+    if(checked.length > 0) {
+      bulkBtn.style.display = '';
+      bulkBtn.innerHTML = '<i class="fas fa-trash"></i> ' + (lang==='ar'?'حذف المحدد ('+checked.length+')':'Delete Selected ('+checked.length+')');
+    } else {
+      bulkBtn.style.display = 'none';
+    }
+  }
+  const selAll = document.getElementById('selectAllTreasury');
+  if(selAll) selAll.checked = cbs.length > 0 && checked.length === cbs.length;
+}
+
+function bulkDeleteTreasury() {
+  const checked = document.querySelectorAll('.treasury-select-cb:checked');
+  if(checked.length === 0) return;
+  const msg = lang==='ar'?'هل أنت متأكد من حذف '+checked.length+' قيد(ود)؟':'Are you sure you want to delete '+checked.length+' entr(ies)?';
+  if(!confirm(msg)) return;
+  let entries = STORAGE.get('treasury',[]);
+  const ids = Array.from(checked).map(cb => cb.dataset.id);
+  const lockedIds = ids.filter(id => { const e = entries.find(x=>x.id===id); return e && e.locked; });
+  const toDelete = ids.filter(id => { const e = entries.find(x=>x.id===id); return e && !e.locked; });
+  if(lockedIds.length > 0) alert(lang==='ar'?'تم تخطي '+lockedIds.length+' قيد مقفل':'Skipped '+lockedIds.length+' locked entries');
+  if(toDelete.length === 0) return;
+  ActivityLog.log('bulk_delete', 'treasury', { count: toDelete.length, ids: toDelete });
+  entries = entries.filter(e => !toDelete.includes(e.id));
+  STORAGE.set('treasury', entries);
+  filterTreasury();
 }
 
 function openTreasuryModal() {
