@@ -1832,7 +1832,7 @@ try {
   } else { if (_resolveFbAuth) _resolveFbAuth(); }
 } catch(e) { console.warn('Firebase init failed:', e); if (_resolveFbAuth) _resolveFbAuth(); }
 
-const SYSTEM_VERSION = '2.3.0';
+const SYSTEM_VERSION = '2.4.0';
 let _latestUpdate = null;
 let _swRegistration = null;
 
@@ -1924,21 +1924,42 @@ function dismissUpdate() {
 
 async function applyUpdate() {
   const lg = lang === 'ar';
-  _showUpdateToast(lg ? 'جاري تطبيق التحديث...' : 'Applying update...', 10);
+  _showUpdateToast(lg ? 'جاري حفظ البيانات...' : 'Syncing data before update...', 10);
   try {
+    // Step 1: Sync all data to Firestore before clearing caches
+    const keys = ['treasury','salaries','journalEntries','partners','users','empRoles','resaleTeam','chartOfAccounts','laborLaws','socialInsuranceLaws','internalRegulations','penaltyTable','kpiRules','employees','sales','crm_clients','crm_activities','expenses','vacations','attendance','attendanceLog','employeeAdvances','employeePenalties','employeeEvaluations','op_units','op_reservations','op_contracts','franchises','branches','integrations','notifications','jobRequests','activityLogs'];
+    if (_fbReady && _fbDb && _isOnline) {
+      _showUpdateToast(lg ? 'جاري رفع البيانات للسحابة...' : 'Uploading data to cloud...', 25);
+      const syncPromises = keys.map(k => {
+        const v = STORAGE.get(k);
+        if (v !== undefined && v !== null) {
+          return _fbDb.doc('app_data/' + k).set({ value: v, timestamp: Date.now(), updatedBy: 'update_sync' }, { merge: true }).catch(() => {});
+        }
+      });
+      await Promise.all(syncPromises);
+      // Also sync pending items
+      await FirebaseSync.flushPending().catch(() => {});
+    }
+
+    _showUpdateToast(lg ? 'جاري تطبيق التحديث...' : 'Applying update...', 60);
+
+    // Step 2: Notify waiting SW
     if (_swRegistration && _swRegistration.waiting) {
       _swRegistration.waiting.postMessage({ type: 'APPLY_UPDATE' });
     }
     if (navigator.serviceWorker && navigator.serviceWorker.controller) {
       navigator.serviceWorker.controller.postMessage({ type: 'APPLY_UPDATE' });
     }
+
+    // Step 3: Clear old caches
     await caches.keys().then(names => Promise.all(names.map(n => caches.delete(n))));
+
     _showUpdateToast(lg ? 'اكتمل التحديث! جاري إعادة التحميل...' : 'Update complete! Reloading...', 100);
-    setTimeout(() => location.reload(true), 300);
+    setTimeout(() => location.reload(true), 500);
   } catch(e) {
     console.error('[Update] Apply failed:', e);
     _showUpdateToast(lg ? 'اكتمل التحديث!' : 'Update complete!', 100);
-    setTimeout(() => location.reload(true), 300);
+    setTimeout(() => location.reload(true), 500);
   }
 }
 
