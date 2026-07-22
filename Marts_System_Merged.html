@@ -1814,6 +1814,8 @@ const FIREBASE_CONFIG = {
 
 let _fbApp = null, _fbDb = null, _fbReady = false;
 let _fbStorage = null, _fbAuth = null;
+let _resolveFbAuth = null;
+const _fbAuthReady = new Promise(r => { _resolveFbAuth = r; });
 try {
   _fbApp = firebase.initializeApp(FIREBASE_CONFIG);
   _fbDb = firebase.firestore();
@@ -1821,7 +1823,13 @@ try {
   _fbAuth = firebase.auth();
   _fbDb.enablePersistence({ synchronizeTabs: true }).catch(() => {});
   _fbReady = true;
-} catch(e) { console.warn('Firebase init failed:', e); }
+  if (_fbAuth) {
+    _fbAuth.signInAnonymously().then(() => {
+      console.log('[Firebase] Anonymous auth successful');
+      if (_resolveFbAuth) _resolveFbAuth();
+    }).catch(e => { console.warn('[Firebase] Anonymous auth failed:', e); if (_resolveFbAuth) _resolveFbAuth(); });
+  } else { if (_resolveFbAuth) _resolveFbAuth(); }
+} catch(e) { console.warn('Firebase init failed:', e); if (_resolveFbAuth) _resolveFbAuth(); }
 
 const SYSTEM_VERSION = '2.3.0';
 let _latestUpdate = null;
@@ -3095,16 +3103,18 @@ function showApp() {
   _updateOnlineStatus();
   setTimeout(() => checkForUpdates(), 3000);
   if (_fbReady) {
-    FirebaseSync.loadAll().then(() => {
-      initData();
-      _syncImportedDataToFirebase();
-      _showPageForUser();
-      FirebaseSync.flushPending();
-    }).catch(() => {
-      initData();
-      _syncImportedDataToFirebase();
-      _showPageForUser();
-      FirebaseSync.flushPending();
+    _fbAuthReady.then(() => {
+      FirebaseSync.loadAll().then(() => {
+        initData();
+        _syncImportedDataToFirebase();
+        _showPageForUser();
+        FirebaseSync.flushPending();
+      }).catch(() => {
+        initData();
+        _syncImportedDataToFirebase();
+        _showPageForUser();
+        FirebaseSync.flushPending();
+      });
     });
   } else {
     initData();
