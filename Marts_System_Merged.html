@@ -1420,6 +1420,8 @@ const NAV_ITEMS = [
   {id:'crm',icon:'fa-address-book',en:'CRM',ar:'إدارة العملاء',perm:'crm_view'},
   {id:'crmAccounts',icon:'fa-user-shield',en:'CRM Accounts',ar:'حسابات CRM',perm:'crm_manage_accounts'},
   {id:'crmSettings',icon:'fa-address-card',en:'CRM Settings',ar:'إعدادات CRM',perm:'crm_view'},
+  {id:'adAccounts',icon:'fa-plug',en:'Ad Accounts',ar:'ربط المنصات',perm:'integ_view'}
+];
 
 const AD_PLATFORMS = [
   {id:'meta',name:'Meta (Facebook & Instagram)',icon:'fab fa-meta',color:'#1877F2',apiBase:'https://graph.facebook.com/v19.0',fields:['full_name','phone_number','email','city','campaign_name','ad_set_name','ad_name','created_time']},
@@ -3265,8 +3267,11 @@ function renderPage(page) {
   const pages = {
     dashboard: renderDashboard, sales: renderSales, employees: renderEmployees,
     orgChart: renderOrgChart, commissions: renderCommissions, accounting: renderAccounting,
-    reports: renderReports, search: renderSearch, crm: renderCRM, crmAccounts: renderCrmAccounts, integrations: renderIntegrations, settings: renderSettings, crmSettings: renderCrmSettings, marketing: renderMarketing, activityLogs: renderActivityLogs
+    reports: renderReports, search: renderSearch, crm: renderCRM, crmAccounts: renderCrmAccounts, crmSettings: renderCrmSettings, marketing: renderMarketing, activityLogs: renderActivityLogs
   };
+  if(page==='adAccounts') {
+    document.getElementById('adAccountsBtn') && document.getElementById('adAccountsBtn').click();
+  }
   if(pages[page]) pages[page](main);
 }
 
