@@ -8409,6 +8409,7 @@ function renderAccounting(el) {
   el.innerHTML = `
   <div class="topbar"><h1>${t('nav_accounting')}</h1>
   <div class="topbar-actions">
+    ${isOwner()?`<button class="btn btn-danger btn-sm" onclick="zeroAllAccounts()"><i class="fas fa-eraser"></i> ${lang==='ar'?'تصفير الحسابات':'Zero All Accounts'}</button>`:''}
     <button class="btn btn-success btn-sm" onclick="downloadAllAccExcel()"><i class="fas fa-file-excel"></i> ${t('acc_exportAll')}</button>
   </div></div>
   <div class="tab-bar" id="accMainTabBar" style="flex-wrap:wrap">
@@ -8518,6 +8519,25 @@ function toggleAccountPassword(elId, password) {
     el.dataset.visible = '1';
     if (icon) { icon.classList.remove('fa-eye'); icon.classList.add('fa-eye-slash'); }
   }
+}
+
+// --- ZERO ALL ACCOUNTS ---
+function zeroAllAccounts() {
+  const lg = lang === 'ar';
+  const msg1 = lg ? 'هل أنت متأكد من تصفير جميع حسابات الشركة؟\n\nسيتم حذف جميع البيانات المالية: الخزينة، الرواتب، الشركاء، المصروفات، القيود اليومية.' : 'Are you sure you want to zero all company accounts?\n\nAll financial data will be deleted: Treasury, Salaries, Partners, Expenses, Journal Entries.';
+  if (!confirm(msg1)) return;
+  const msg2 = lg ? 'تأكيد أخير: اكتب "تصفير" للتأكيد:' : 'Final confirmation — type "ZERO" to confirm:';
+  const answer = prompt(msg2);
+  if (answer === null) return;
+  if ((lg && answer !== 'تصفير') || (!lg && answer !== 'ZERO')) {
+    alert(lg ? 'تم الإلغاء — كلمة التأكيد غير صحيحة' : 'Cancelled — incorrect confirmation word');
+    return;
+  }
+  const keys = ['treasury', 'salaries', 'partners', 'expenses', 'journalEntries'];
+  keys.forEach(k => STORAGE.set(k, []));
+  ActivityLog.log('danger', 'zero_accounts', { keys: keys.join(', '), user: currentUser ? currentUser.username : 'unknown' });
+  alert(lg ? 'تم تصفير جميع الحسابات بنجاح' : 'All accounts have been zeroed successfully');
+  renderAccounting(document.getElementById('mainContent'));
 }
 
 // --- ACCOUNTING LOCK/UNLOCK ---
