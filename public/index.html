@@ -8549,6 +8549,7 @@ function renderTreasury() {
 
 function filterTreasury(page) {
   page = page || AccPagination.getPage('treasury', 25);
+  const ps = AccPagination.getPerPage('treasury', 25);
   let entries = STORAGE.get('treasury',[]);
   if(accFilterFranchise) entries = entries.filter(e => e.franchiseId === accFilterFranchise);
   if(accFilterBranch) entries = entries.filter(e => e.branchId === accFilterBranch);
@@ -8557,7 +8558,7 @@ function filterTreasury(page) {
   if(from) entries = entries.filter(e=>e.date>=from);
   if(to) entries = entries.filter(e=>e.date<=to);
   const total = entries.length;
-  const paged = AccPagination.paginate(entries, page, 25);
+  const paged = AccPagination.paginate(entries, page, ps);
   let h = '';
   if(total===0) { h='<div class="empty-state"><p>'+t('noData')+'</p></div>'; }
   else {
@@ -8571,7 +8572,7 @@ function filterTreasury(page) {
       h+=`<tr><td style="text-align:center"><input type="checkbox" class="treasury-select-cb" data-id="${e.id}" onchange="updateBulkTreasuryBtn()" style="accent-color:var(--primary)" ${_lk?'disabled':''}></td><td>${fmtDate(e.date)}</td><td><span class="badge ${e.type==='income'?'badge-green':'badge-red'}">${e.type==='income'?t('acc_income'):t('acc_expenseType')}</span></td><td>${fmt(e.amount)}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):(e.franchiseId?t('acc_noFranchise'):'-')}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):(e.branchId?'-':'-')}</td><td>${e.desc}${_lk?' <i class="fas fa-lock" style="color:#f39c12;font-size:11px" title="'+(lang==='ar'?'مقفل':'Locked')+'"></i>':''}</td><td>${canAccounting()?(_lk?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'treasury\',\''+e.id+'\')"><i class="fas fa-lock"></i></button>':'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editTreasuryEntry(\''+e.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12;margin-right:4px" onclick="toggleLockEntry(\'treasury\',\''+e.id+'\')"><i class="fas fa-lock-open"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteTreasuryEntry(\''+e.id+'\')"><i class="fas fa-trash"></i></button>'):''}</td></tr>`;
     });
     h+='</tbody></table></div>';
-    h += AccPagination.render('treasury', total, page, 25, 'filterTreasury');
+    h += AccPagination.render('treasury', total, page, ps, 'filterTreasury');
   }
   document.getElementById('treasuryTable').innerHTML=h;
   updateBulkTreasuryBtn();
@@ -8880,6 +8881,7 @@ function renderSalaries() {
 
 function filterSalaries(page) {
   page = page || AccPagination.getPage('salaries', 25);
+  const ps = AccPagination.getPerPage('salaries', 25);
   let payments = STORAGE.get('salaries',[]);
   const employees = STORAGE.get('employees',[]);
   const from = document.getElementById('salaryFrom')?.value;
@@ -8889,7 +8891,7 @@ function filterSalaries(page) {
   if(accFilterFranchise) payments = payments.filter(p=>p.franchiseId===accFilterFranchise);
   if(accFilterBranch) payments = payments.filter(p=>p.branchId===accFilterBranch);
   const total = payments.length;
-  const paged = AccPagination.paginate(payments, page, 25);
+  const paged = AccPagination.paginate(payments, page, ps);
   let h = '';
   if(total===0) { h='<div class="empty-state"><p>'+t('noData')+'</p></div>'; }
   else {
@@ -8898,7 +8900,7 @@ function filterSalaries(page) {
     h='<div class="table-wrap"><table><thead><tr><th>'+t('acc_employee')+'</th><th>'+t('acc_amount')+'</th><th>'+t('acc_date')+'</th><th>'+t('acc_notes')+'</th><th>'+t('acc_journalFranchise')+'</th><th>'+t('acc_journalBranch')+'</th><th>'+(lang==='ar'?'إجراءات':'Actions')+'</th></tr></thead><tbody>';
     paged.forEach(p=>{const emp=employees.find(e=>e.id===p.empId);const f=franchises.find(fr=>fr.id===p.franchiseId);const b=branches.find(br=>br.id===p.branchId);const _lk=p.locked;h+=`<tr><td>${emp?emp.name:'-'}</td><td>${fmt(p.amount)}</td><td>${fmtDate(p.date)}</td><td>${p.notes||''}${_lk?' <i class="fas fa-lock" style="color:#f39c12;font-size:11px" title="'+(lang==='ar'?'مقفل':'Locked')+'"></i>':''}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):'-'}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</td><td>${canAccounting()?(_lk?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'salaries\',\''+p.id+'\')"><i class="fas fa-lock"></i></button>':'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editSalary(\''+p.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12;margin-right:4px" onclick="toggleLockEntry(\'salaries\',\''+p.id+'\')"><i class="fas fa-lock-open"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteSalary(\''+p.id+'\')"><i class="fas fa-trash"></i></button>'):''}</td></tr>`;});
     h+='</tbody></table></div>';
-    h += AccPagination.render('salaries', total, page, 25, 'filterSalaries');
+    h += AccPagination.render('salaries', total, page, ps, 'filterSalaries');
   }
   document.getElementById('salaryTable').innerHTML=h;
 }
@@ -8967,6 +8969,7 @@ function renderPartners() {
 
 function filterPartners(page) {
   page = page || AccPagination.getPage('partners', 25);
+  const ps = AccPagination.getPerPage('partners', 25);
   let payments = STORAGE.get('partners',[]);
   const from = document.getElementById('partnerFrom')?.value;
   const to = document.getElementById('partnerTo')?.value;
@@ -8975,7 +8978,7 @@ function filterPartners(page) {
   if(accFilterFranchise) payments = payments.filter(p=>p.franchiseId===accFilterFranchise);
   if(accFilterBranch) payments = payments.filter(p=>p.branchId===accFilterBranch);
   const total = payments.length;
-  const paged = AccPagination.paginate(payments, page, 25);
+  const paged = AccPagination.paginate(payments, page, ps);
   let h = '';
   if(total===0) { h='<div class="empty-state"><p>'+t('noData')+'</p></div>'; }
   else {
@@ -8984,7 +8987,7 @@ function filterPartners(page) {
     h='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="selectAllPartners" onchange="toggleSelectAllPartners(this)" style="accent-color:var(--primary)"></th><th>'+t('acc_partnerName')+'</th><th>'+t('acc_amount')+'</th><th>'+t('acc_date')+'</th><th>'+t('acc_notes')+'</th><th>'+t('acc_journalFranchise')+'</th><th>'+t('acc_journalBranch')+'</th><th>'+(lang==='ar'?'إجراءات':'Actions')+'</th></tr></thead><tbody>';
     paged.forEach(p=>{const f=franchises.find(fr=>fr.id===p.franchiseId);const b=branches.find(br=>br.id===p.branchId);const _lk=p.locked;h+=`<tr><td style="text-align:center"><input type="checkbox" class="partner-select-cb" data-id="${p.id}" onchange="updateBulkPartnerBtn()" style="accent-color:var(--primary)" ${_lk?'disabled':''}></td><td>${p.name}</td><td>${fmt(p.amount)}</td><td>${fmtDate(p.date)}</td><td>${p.notes||''}${_lk?' <i class="fas fa-lock" style="color:#f39c12;font-size:11px" title="'+(lang==='ar'?'مقفل':'Locked')+'"></i>':''}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):'-'}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</td><td>${canAccounting()?(_lk?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'partners\',\''+p.id+'\')"><i class="fas fa-lock"></i></button>':'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editPartner(\''+p.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12;margin-right:4px" onclick="toggleLockEntry(\'partners\',\''+p.id+'\')"><i class="fas fa-lock-open"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deletePartnerEntry(\''+p.id+'\')"><i class="fas fa-trash"></i></button>'):''}</td></tr>`;});
     h+='</tbody></table></div>';
-    h += AccPagination.render('partners', total, page, 25, 'filterPartners');
+    h += AccPagination.render('partners', total, page, ps, 'filterPartners');
   }
   document.getElementById('partnerTable').innerHTML=h;
   updateBulkPartnerBtn();
@@ -9087,6 +9090,7 @@ function renderExpenses() {
 
 function filterExpenses(page) {
   page = page || AccPagination.getPage('expenses', 25);
+  const ps = AccPagination.getPerPage('expenses', 25);
   let expenses = STORAGE.get('expenses',[]);
   if(accFilterFranchise) expenses = expenses.filter(e => e.franchiseId === accFilterFranchise);
   if(accFilterBranch) expenses = expenses.filter(e => e.branchId === accFilterBranch);
@@ -9095,7 +9099,7 @@ function filterExpenses(page) {
   if(from) expenses = expenses.filter(e=>e.date>=from);
   if(to) expenses = expenses.filter(e=>e.date<=to);
   const total = expenses.length;
-  const paged = AccPagination.paginate(expenses, page, 25);
+  const paged = AccPagination.paginate(expenses, page, ps);
   let h = '';
   if(total===0) { h='<div class="empty-state"><p>'+t('noData')+'</p></div>'; }
   else {
@@ -9109,7 +9113,7 @@ function filterExpenses(page) {
       h+=`<tr><td>${e.category}</td><td>${fmt(e.amount)}</td><td>${fmtDate(e.date)}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):'-'}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</td><td>${e.desc}${_lk?' <i class="fas fa-lock" style="color:#f39c12;font-size:11px" title="'+(lang==='ar'?'مقفل':'Locked')+'"></i>':''}</td><td>${canAccounting()?(_lk?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'expenses\',\''+e.id+'\')"><i class="fas fa-lock"></i></button>':'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editExpense(\''+e.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12;margin-right:4px" onclick="toggleLockEntry(\'expenses\',\''+e.id+'\')"><i class="fas fa-lock-open"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteExpense(\''+e.id+'\')"><i class="fas fa-trash"></i></button>'):''}</td></tr>`;
     });
     h+='</tbody></table></div>';
-    h += AccPagination.render('expenses', total, page, 25, 'filterExpenses');
+    h += AccPagination.render('expenses', total, page, ps, 'filterExpenses');
   }
   document.getElementById('expenseTable').innerHTML=h;
 }
@@ -17541,7 +17545,7 @@ const MKT_LEAD_STAGE_LABELS={new:{ar:'جديد',en:'New'},contacted:{ar:'تم ا
 const MKT_LEAD_STAGE_COLORS={new:'#3B82F6',contacted:'#F59E0B',qualified:'#8B5CF6',proposal:'#EC4899',won:'#10B981',lost:'#EF4444'};
 const MKT_PLATFORMS=[{id:'facebook',name:'Facebook',icon:'fab fa-facebook',color:'#1877F2'},{id:'instagram',name:'Instagram',icon:'fab fa-instagram',color:'#E4405F'},{id:'google',name:'Google Ads',icon:'fab fa-google',color:'#4285F4'},{id:'tiktok',name:'TikTok',icon:'fab fa-tiktok',color:'#EE1D52'},{id:'snapchat',name:'Snapchat',icon:'fab fa-snapchat-ghost',color:'#FFFC00'},{id:'linkedin',name:'LinkedIn',icon:'fab fa-linkedin',color:'#0077B5'},{id:'x',name:'X (Twitter)',icon:'fab fa-x-twitter',color:'#000'},{id:'referral',name:'إحالة / Referral',icon:'fas fa-share',color:'#10B981'},{id:'walk_in',name:'زائر مباشر / Walk-in',icon:'fas fa-walking',color:'#6366F1'},{id:'other',name:'أخرى / Other',icon:'fas fa-ellipsis-h',color:'#6B7280'}];
 const MKT_CAMP_STATUSES={active:{ar:'نشط',en:'Active',color:'#10B981'},paused:{ar:'متوقف',en:'Paused',color:'#F59E0B'},ended:{ar:'منتهي',en:'Ended',color:'#6B7280'},draft:{ar:'مسودة',en:'Draft',color:'#94A3B8'}};
-let _mktCurrentTab='dashboard';let _mktLeadSearch='';let _mktLeadStageFilter='';let _mktCmpSearch='';let _mktLeadPage=1;const MKT_PAGE_SIZE=20;
+let _mktCurrentTab='dashboard';let _mktLeadSearch='';let _mktLeadStageFilter='';let _mktCmpSearch='';let _mktLeadPage=1;let _mktLeadPageSize=20;
 
 function renderMarketing(el){
   const lg=lang==='ar';
@@ -17654,9 +17658,9 @@ function mktRenderLeads(el){
   let filtered=leads;
   if(_mktLeadSearch){const q=_mktLeadSearch.toLowerCase();filtered=filtered.filter(l=>(l.name||'').toLowerCase().includes(q)||(l.phone||'').includes(q)||(l.email||'').toLowerCase().includes(q));}
   if(_mktLeadStageFilter){filtered=filtered.filter(l=>(l.status||'new')===_mktLeadStageFilter);}
-  const totalPages=Math.max(1,Math.ceil(filtered.length/MKT_PAGE_SIZE));
+  const totalPages=Math.max(1,Math.ceil(filtered.length/_mktLeadPageSize));
   if(_mktLeadPage>totalPages)_mktLeadPage=totalPages;
-  const pageData=filtered.slice((_mktLeadPage-1)*MKT_PAGE_SIZE,_mktLeadPage*MKT_PAGE_SIZE);
+  const pageData=filtered.slice((_mktLeadPage-1)*_mktLeadPageSize,_mktLeadPage*_mktLeadPageSize);
   const team=STORAGE.get('marketingTeam',[]);
   const campaigns=STORAGE.get('marketingCampaigns',[]);
 
@@ -17692,8 +17696,17 @@ function mktRenderLeads(el){
       }).join(''):`<tr><td colspan="8" style="text-align:center;padding:30px;color:var(--text-light)">${lg?'لا يوجد عملاء':'No leads found'}</td></tr>`}
       </tbody></table>
     </div>
-    ${filtered.length>MKT_PAGE_SIZE?`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--border)">
-      <span style="font-size:12px;color:var(--text-light)">${lg?'عرض':'Showing'} ${(_mktLeadPage-1)*MKT_PAGE_SIZE+1}-${Math.min(_mktLeadPage*MKT_PAGE_SIZE,filtered.length)} ${lg?'من':'of'} ${filtered.length}</span>
+    ${filtered.length>_mktLeadPageSize?`<div style="display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-top:1px solid var(--border)">
+      <div style="display:flex;align-items:center;gap:8px">
+        <span style="font-size:12px;color:var(--text-light)">${lg?'عرض':'Showing'} ${(_mktLeadPage-1)*_mktLeadPageSize+1}-${Math.min(_mktLeadPage*_mktLeadPageSize,filtered.length)} ${lg?'من':'of'} ${filtered.length}</span>
+        <select onchange="_mktLeadPageSize=parseInt(this.value);_mktLeadPage=1;mktRenderTab()" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:#fff;cursor:pointer">
+          <option value="20" ${_mktLeadPageSize===20?'selected':''}>20</option>
+          <option value="50" ${_mktLeadPageSize===50?'selected':''}>50</option>
+          <option value="100" ${_mktLeadPageSize===100?'selected':''}>100</option>
+          <option value="250" ${_mktLeadPageSize===250?'selected':''}>250</option>
+          <option value="500" ${_mktLeadPageSize===500?'selected':''}>500</option>
+        </select>
+      </div>
       <div style="display:flex;gap:4px">
         <button class="btn btn-outline btn-sm" onclick="_mktLeadPage=Math.max(1,_mktLeadPage-1);mktRenderTab()" ${_mktLeadPage<=1?'disabled':''}>${lg?'السابق':'Prev'}</button>
         <button class="btn btn-outline btn-sm" onclick="_mktLeadPage=Math.min(${totalPages},_mktLeadPage+1);mktRenderTab()" ${_mktLeadPage>=totalPages?'disabled':''}>${lg?'التالي':'Next'}</button>
@@ -18624,7 +18637,7 @@ function renderCrmDealsView(el){
           </tbody>
         </table>
         <div class="deals-pagination">
-          <div class="deals-pagination-left"><select style="padding:4px 6px;border:1px solid var(--crm-card-border);border-radius:4px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)"><option>10</option><option>25</option><option>50</option></select> ${lang==='ar'?'عرض':'Show'} 10</div>
+          <div class="deals-pagination-left"><select style="padding:4px 6px;border:1px solid var(--crm-card-border);border-radius:4px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)"><option>10</option><option>25</option><option>50</option><option>100</option><option>250</option><option>500</option></select> ${lang==='ar'?'عرض':'Show'} 10</div>
           <div class="deals-pagination-right">
             <button class="deals-page-btn active" onclick="dealsGoPage(1,this)">1</button>
             <button class="deals-page-btn" onclick="dealsGoPage(2,this)">2</button>
@@ -22347,12 +22360,15 @@ try {
 // ============================================================
 const AccPagination = {
   _state: {},
+  _sizes: [25, 50, 100, 250, 500],
 
   render(key, totalItems, currentPage, perPage, onPageChange) {
-    const totalPages = Math.ceil(totalItems / perPage);
-    if (totalPages <= 1) return '';
+    const savedSize = this._state[key]?.perPage;
+    const ps = savedSize || perPage;
+    const totalPages = Math.ceil(totalItems / ps);
+    if (totalPages <= 1 && ps >= totalItems) return this._renderSizeSelector(key, totalItems, ps, onPageChange);
     const cp = Math.min(Math.max(1, currentPage), totalPages);
-    this._state[key] = { page: cp, perPage, total: totalItems };
+    this._state[key] = { page: cp, perPage: ps, total: totalItems };
     const lg = lang === 'ar';
     const maxVisible = 7;
     let pages = [];
@@ -22367,10 +22383,14 @@ const AccPagination = {
     }
     const prev = cp > 1 ? cp - 1 : null;
     const next = cp < totalPages ? cp + 1 : null;
-    const start = (cp - 1) * perPage + 1;
-    const end = Math.min(cp * perPage, totalItems);
+    const start = (cp - 1) * ps + 1;
+    const end = Math.min(cp * ps, totalItems);
     let h = `<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-top:12px;padding:8px 0;font-size:12px">`;
+    h += `<div style="display:flex;align-items:center;gap:8px">`;
     h += `<span style="color:var(--text-light)">${lg ? 'عرض' : 'Showing'} ${start}-${end} ${lg ? 'من' : 'of'} ${totalItems}</span>`;
+    h += `<select onchange="AccPagination.changeSize('${key}',this.value,${totalItems},'${onPageChange}')" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:#fff;cursor:pointer">`;
+    this._sizes.forEach(s => { h += `<option value="${s}" ${s===ps?'selected':''}>${s}</option>`; });
+    h += `</select></div>`;
     h += `<div style="display:flex;align-items:center;gap:4px">`;
     if (prev) h += `<button onclick="${onPageChange}(${prev})" style="padding:4px 10px;border:1px solid var(--border);border-radius:4px;background:#fff;cursor:pointer;font-size:12px"><i class="fas fa-chevron-${lg?'right':'left'}"></i></button>`;
     pages.forEach(p => {
@@ -22386,9 +22406,32 @@ const AccPagination = {
     return h;
   },
 
+  _renderSizeSelector(key, totalItems, perPage, onPageChange) {
+    const lg = lang === 'ar';
+    let h = `<div style="display:flex;align-items:center;gap:8px;margin-top:12px;padding:8px 0;font-size:12px">`;
+    h += `<span style="color:var(--text-light)">${lg ? 'عرض' : 'Showing'} 1-${totalItems} ${lg ? 'من' : 'of'} ${totalItems}</span>`;
+    h += `<select onchange="AccPagination.changeSize('${key}',this.value,${totalItems},'${onPageChange}')" style="padding:3px 6px;border:1px solid var(--border);border-radius:4px;font-size:11px;background:#fff;cursor:pointer">`;
+    this._sizes.forEach(s => { h += `<option value="${s}" ${s===perPage?'selected':''}>${s}</option>`; });
+    h += `</select></div>`;
+    return h;
+  },
+
+  changeSize(key, newPerPage, totalItems, onPageChange) {
+    const ps = parseInt(newPerPage);
+    if (!this._state[key]) this._state[key] = {};
+    this._state[key].perPage = ps;
+    this._state[key].page = 1;
+    if (typeof window[onPageChange] === 'function') window[onPageChange](1);
+  },
+
   getPage(key, perPage) {
     const s = this._state[key];
     return s ? s.page : 1;
+  },
+
+  getPerPage(key, defaultSize) {
+    const s = this._state[key];
+    return s ? s.perPage : defaultSize;
   },
 
   paginate(items, page, perPage) {
