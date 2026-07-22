@@ -4879,7 +4879,7 @@ function importEmpExcel(event) {
 function deleteAllEmployees() {
   const count = STORAGE.get('employees', []).length;
   if(count === 0) { alert(lang==='ar'?'لا يوجد موظفين':'No employees to delete'); return; }
-  ActivityLog.log('bulk_delete', 'employees', { count }); }
+  ActivityLog.log('bulk_delete', 'employees', { count });
   const confirmMsg = lang==='ar'
     ? 'هل أنت متأكد من حذف جميع الموظفين (' + count + ' موظف)؟\n\nهذا الإجراء لا يمكن التراجع عنه!'
     : 'Are you sure you want to delete ALL employees (' + count + ')?\n\nThis action cannot be undone!';
@@ -18220,7 +18220,7 @@ function deleteUser(idx) {
   if(!confirm(t('confirm_delete'))) return;
   let users = STORAGE.get('users',defaultUsers);
   if(users[idx]&&users[idx].username==='owner') { alert(t('settings_cannotDeleteOwner')); return; }
-  ActivityLog.log('delete', 'user', { username: users[idx] ? users[idx].username : 'unknown' }); }
+  ActivityLog.log('delete', 'user', { username: users[idx] ? users[idx].username : 'unknown' });
   users.splice(idx,1); STORAGE.set('users',users);
   renderSettings(document.getElementById('mainContent'));
 }
