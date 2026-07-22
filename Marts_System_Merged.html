@@ -1421,7 +1421,8 @@ const NAV_ITEMS = [
   {id:'crmAccounts',icon:'fa-user-shield',en:'CRM Accounts',ar:'حسابات CRM',perm:'crm_manage_accounts'},
   {id:'integrations',icon:'fa-plug',en:'Integrations',ar:'ربط المنصات',perm:'integ_view'},
   {id:'settings',icon:'fa-cog',en:'Settings',ar:'الإعدادات',perm:'settings_view'},
-  {id:'crmSettings',icon:'fa-address-card',en:'CRM Settings',ar:'إعدادات CRM',perm:'crm_view'}
+  {id:'crmSettings',icon:'fa-address-card',en:'CRM Settings',ar:'إعدادات CRM',perm:'crm_view'},
+  {id:'activityLogs',icon:'fa-history',en:'Activity Log',ar:'سجل النشاط',perm:'settings_view'}
 ];
 
 const AD_PLATFORMS = [
@@ -2069,10 +2070,83 @@ const STORAGE = {
     try { return JSON.parse(v); } catch(e) { return v; }
   },
   set(k, v) {
+    const _old = safeStorage.get(k);
     safeStorage.set(k, JSON.stringify(v));
     if (FirebaseSync._initialized && k !== 'lang' && k !== 'currentUser') {
       FirebaseSync.save(k, v);
     }
+    if (k !== 'lang' && k !== 'currentUser' && k !== '_pendingSync' && !k.startsWith('_ts_') && !k.startsWith('_pendingSync') && k !== 'activityLogs' && _old !== JSON.stringify(v)) {
+      ActivityLog.log('data_update', k, { keys: v && typeof v === 'object' ? (Array.isArray(v) ? v.length + ' items' : Object.keys(v).join(',')) : typeof v });
+    }
+  }
+};
+
+// ============================================================
+// ACTIVITY LOG SYSTEM
+// ============================================================
+const ActivityLog = {
+  _MAX_LOCAL: 500,
+
+  log(action, target, details) {
+    const entry = {
+      id: Date.now() + '_' + Math.random().toString(36).substr(2,6),
+      timestamp: Date.now(),
+      user: (typeof currentUser !== 'undefined' && currentUser) ? currentUser.username : 'system',
+      action: action,
+      target: target,
+      details: details || {},
+      ip: '',
+      ua: navigator.userAgent ? navigator.userAgent.substring(0,100) : ''
+    };
+    const logs = STORAGE.get('activityLogs', []);
+    logs.unshift(entry);
+    if (logs.length > this._MAX_LOCAL) logs.length = this._MAX_LOCAL;
+    safeStorage.set('activityLogs', JSON.stringify(logs));
+    this._pushToFirestore(entry);
+  },
+
+  _pushToFirestore(entry) {
+    if (!_fbReady || !_fbDb || !_isOnline) return;
+    try {
+      _fbDb.collection('activity_logs').doc(entry.id).set(entry).catch(e => {
+        console.warn('[ActivityLog] Firestore push failed:', e.message);
+      });
+    } catch(e) {}
+  },
+
+  get(filter) {
+    let logs = STORAGE.get('activityLogs', []);
+    if (filter) {
+      if (filter.user) logs = logs.filter(l => l.user === filter.user);
+      if (filter.action) logs = logs.filter(l => l.action === filter.action);
+      if (filter.target) logs = logs.filter(l => l.target && l.target.includes(filter.target));
+      if (filter.from) logs = logs.filter(l => l.timestamp >= filter.from);
+      if (filter.to) logs = logs.filter(l => l.timestamp <= filter.to);
+    }
+    return logs;
+  },
+
+  clear() {
+    safeStorage.set('activityLogs', '[]');
+  },
+
+  loadFromCloud() {
+    if (!_fbReady || !_fbDb) return Promise.resolve();
+    return _fbDb.collection('activity_logs').orderBy('timestamp', 'desc').limit(200).get().then(snap => {
+      const cloudLogs = [];
+      snap.forEach(doc => cloudLogs.push(doc.data()));
+      const localLogs = STORAGE.get('activityLogs', []);
+      const merged = [...cloudLogs, ...localLogs];
+      const seen = new Set();
+      const unique = merged.filter(l => {
+        if (seen.has(l.id)) return false;
+        seen.add(l.id);
+        return true;
+      });
+      unique.sort((a, b) => b.timestamp - a.timestamp);
+      if (unique.length > this._MAX_LOCAL) unique.length = this._MAX_LOCAL;
+      safeStorage.set('activityLogs', JSON.stringify(unique));
+    }).catch(() => {});
   }
 };
 
@@ -3047,6 +3121,7 @@ async function doLogin() {
     }
     const found = users.find(x => x.username === u && x.password === p);
     if(!found) {
+      ActivityLog.log('auth_login_failed', 'user', { username: u });
       document.getElementById('loginError').textContent = lang==='ar'?'اسم المستخدم أو كلمة المرور غير صحيحة':'Invalid credentials';
       return;
     }
@@ -3056,6 +3131,7 @@ async function doLogin() {
     currentUser = {username:found.username,role:found.role,fullName:found.fullName,permissions:found.permissions};
     STORAGE.set('currentUser', currentUser);
     document.getElementById('loginError').textContent = '';
+    ActivityLog.log('auth_login', 'user', { username: found.username, role: found.role });
     if(_fbAuth && found.email) {
       try {
         const email = found.email;
@@ -3069,6 +3145,7 @@ async function doLogin() {
   }
 }
 function doLogout() {
+  ActivityLog.log('auth_logout', 'user', { username: currentUser ? currentUser.username : 'unknown' });
   currentUser = null;
   safeStorage.remove('currentUser');
   if(_fbAuth) { _fbAuth.signOut().catch(()=>{}); }
@@ -3158,10 +3235,12 @@ function closeMobileSidebar() {
 function showPage(page) {
   const navItem = NAV_ITEMS.find(n=>n.id===page);
   if(navItem && !hasPermission(navItem.perm)) return;
+  const prev = currentPage;
   currentPage = page;
   document.querySelectorAll('.nav-item').forEach(n => n.classList.toggle('active', n.dataset.page===page));
   renderPage(page);
   if(window.innerWidth<=768) closeMobileSidebar();
+  if(prev !== page) ActivityLog.log('nav_page', page, { from: prev });
 }
 
 function renderPage(page) {
@@ -3169,7 +3248,7 @@ function renderPage(page) {
   const pages = {
     dashboard: renderDashboard, sales: renderSales, employees: renderEmployees,
     orgChart: renderOrgChart, commissions: renderCommissions, accounting: renderAccounting,
-    reports: renderReports, search: renderSearch, crm: renderCRM, crmAccounts: renderCrmAccounts, integrations: renderIntegrations, settings: renderSettings, crmSettings: renderCrmSettings, marketing: renderMarketing
+    reports: renderReports, search: renderSearch, crm: renderCRM, crmAccounts: renderCrmAccounts, integrations: renderIntegrations, settings: renderSettings, crmSettings: renderCrmSettings, marketing: renderMarketing, activityLogs: renderActivityLogs
   };
   if(pages[page]) pages[page](main);
 }
@@ -4191,6 +4270,7 @@ function saveSale(saleId) {
 
 function deleteSale(id) {
   if(!confirm(t('confirm_delete'))) return;
+  ActivityLog.log('delete', 'sales', { id });
   STORAGE.set('sales', STORAGE.get('sales',[]).filter(s=>s.id!==id));
   renderPage('sales');
 }
@@ -4654,6 +4734,7 @@ function deleteEmpFile(empId, fileIndex) {
 
 function deleteEmp(id) {
   if(!confirm(t('confirm_delete'))) return;
+  ActivityLog.log('delete', 'employees', { id });
   STORAGE.set('employees',STORAGE.get('employees',[]).filter(e=>e.id!==id));
   if(document.getElementById('hrTabContent')) renderHrTabContent();
   else renderPage('employees');
@@ -4777,6 +4858,7 @@ function importEmpExcel(event) {
 function deleteAllEmployees() {
   const count = STORAGE.get('employees', []).length;
   if(count === 0) { alert(lang==='ar'?'لا يوجد موظفين':'No employees to delete'); return; }
+  ActivityLog.log('bulk_delete', 'employees', { count }); }
   const confirmMsg = lang==='ar'
     ? 'هل أنت متأكد من حذف جميع الموظفين (' + count + ' موظف)؟\n\nهذا الإجراء لا يمكن التراجع عنه!'
     : 'Are you sure you want to delete ALL employees (' + count + ')?\n\nThis action cannot be undone!';
@@ -5073,6 +5155,7 @@ function approveVacation(id) {
   const v = vacations.find(x => x.id === id);
   if(!v) return;
   v.status = 'approved';
+  ActivityLog.log('approve', 'vacation', { id, employeeId: v.empId });
   v.approvedBy = currentUser ? currentUser.username : 'system';
   v.approvedAt = new Date().toISOString();
   STORAGE.set('vacations', vacations);
@@ -5570,6 +5653,7 @@ function renderPayrollSalaries(el) {
 
 function approvePayroll() {
   if(!confirm(lang==='ar'?'هل تريد اعتماد الرواتب وتسجيل القيود اليومية؟':'Approve payroll and post journal entries?')) return;
+  ActivityLog.log('approve', 'payroll', {});
   const employees = STORAGE.get('employees', []).filter(e => e.status === 'active');
   const penalties = STORAGE.get('employeePenalties', []);
   const currentMonth = today().slice(0, 7);
@@ -18069,6 +18153,7 @@ function saveUser() {
   const username = document.getElementById('u_user').value.trim();
   const password = document.getElementById('u_pass').value;
   if(!username||!password) return;
+  ActivityLog.log('create', 'user', { username });
   const users = STORAGE.get('users',defaultUsers);
   if(users.find(u=>u.username===username)) return;
   const role = document.getElementById('u_role').value;
@@ -18093,11 +18178,13 @@ function deleteUser(idx) {
   if(!confirm(t('confirm_delete'))) return;
   let users = STORAGE.get('users',defaultUsers);
   if(users[idx]&&users[idx].username==='owner') { alert(t('settings_cannotDeleteOwner')); return; }
+  ActivityLog.log('delete', 'user', { username: users[idx] ? users[idx].username : 'unknown' }); }
   users.splice(idx,1); STORAGE.set('users',users);
   renderSettings(document.getElementById('mainContent'));
 }
 
 function exportAllData() {
+  ActivityLog.log('export', 'all_data', {});
   const data = {};
   ['users','employees','sales','treasury','salaries','partners','expenses','lang'].forEach(k=>{data[k]=STORAGE.get(k);});
   const blob = new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
@@ -18106,6 +18193,7 @@ function exportAllData() {
 
 function importData(event) {
   const file = event.target.files[0]; if(!file) return;
+  ActivityLog.log('import', 'all_data', { file: file.name, size: file.size });
   const reader = new FileReader();
   reader.onload = function(e) {
     try {
@@ -18119,6 +18207,7 @@ function importData(event) {
 
 function clearAllData() {
   if(!confirm(t('confirm_delete'))) return;
+  ActivityLog.log('danger', 'clear_all_data', { user: currentUser ? currentUser.username : 'unknown' });
   const lg = STORAGE.get('lang','ar');
   safeStorage.clear(); STORAGE.set('lang',lg);
   initData(); buildSidebar(); renderPage(currentPage);
@@ -19491,6 +19580,7 @@ function showRepTab(tab, btn){
 // RESET
 // ============================================================
 function resetAllData() {
+  ActivityLog.log('danger', 'reset_all_data', { user: currentUser ? currentUser.username : 'unknown' });
   try { localStorage.clear(); } catch(e) {}
   try { sessionStorage.clear(); } catch(e) {}
   mem = {};
@@ -19514,6 +19604,144 @@ try {
 }
 document.getElementById('loginPass').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
 document.getElementById('loginUser').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
+
+// ============================================================
+// ACTIVITY LOG UI
+// ============================================================
+function renderActivityLogs(el) {
+  const lg = lang === 'ar';
+  let logs = ActivityLog.get();
+
+  const actionLabels = {
+    auth_login: lg ? 'تسجيل دخول' : 'Login',
+    auth_logout: lg ? 'تسجيل خروج' : 'Logout',
+    auth_login_failed: lg ? 'فشل تسجيل دخول' : 'Login Failed',
+    nav_page: lg ? 'تنقل' : 'Navigation',
+    data_update: lg ? 'تحديث بيانات' : 'Data Update',
+    create: lg ? 'إنشاء' : 'Create',
+    delete: lg ? 'حذف' : 'Delete',
+    bulk_delete: lg ? 'حذف جماعي' : 'Bulk Delete',
+    approve: lg ? 'اعتماد' : 'Approve',
+    export: lg ? 'تصدير' : 'Export',
+    import: lg ? 'استيراد' : 'Import',
+    danger: lg ? 'إجراء خطير' : 'Danger Action',
+    settings_change: lg ? 'تغيير إعدادات' : 'Settings Change'
+  };
+  const actionColors = {
+    auth_login: '#10B981', auth_logout: '#6B7280', auth_login_failed: '#EF4444',
+    nav_page: '#3B82F6', data_update: '#8B5CF6', create: '#10B981',
+    delete: '#EF4444', bulk_delete: '#DC2626', approve: '#059669',
+    export: '#F59E0B', import: '#F59E0B', danger: '#DC2626', settings_change: '#6366F1'
+  };
+
+  const uniqueUsers = [...new Set(logs.map(l => l.user))];
+  const uniqueActions = [...new Set(logs.map(l => l.action))];
+
+  let userOpts = uniqueUsers.map(u => `<option value="${u}">${u}</option>`).join('');
+  let actionOpts = uniqueActions.map(a => `<option value="${a}">${actionLabels[a]||a}</option>`).join('');
+
+  const h = `
+  <div class="topbar"><h1><i class="fas fa-history"></i> ${lg?'سجل النشاط':'Activity Log'}</h1>
+  <div class="topbar-actions">
+    <button class="btn btn-sm btn-outline" onclick="exportActivityLogs()"><i class="fas fa-download"></i> ${lg?'تصدير':'Export'}</button>
+    <button class="btn btn-sm btn-danger" onclick="clearActivityLogsConfirm()"><i class="fas fa-trash"></i> ${lg?'مسح':'Clear'}</button>
+  </div></div>
+
+  <div class="card" style="margin-bottom:16px">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:end">
+      <div style="flex:1;min-width:150px">
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">${lg?'المستخدم':'User'}</label>
+        <select id="alUserFilter" class="form-input" onchange="filterActivityLogs()">
+          <option value="">${lg?'الكل':'All'}</option>
+          ${userOpts}
+        </select>
+      </div>
+      <div style="flex:1;min-width:150px">
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">${lg?'الإجراء':'Action'}</label>
+        <select id="alActionFilter" class="form-input" onchange="filterActivityLogs()">
+          <option value="">${lg?'الكل':'All'}</option>
+          ${actionOpts}
+        </select>
+      </div>
+      <div style="flex:1;min-width:150px">
+        <label style="font-size:12px;font-weight:700;display:block;margin-bottom:4px">${lg?'بحث':'Search'}</label>
+        <input type="text" id="alSearchFilter" class="form-input" placeholder="${lg?'بحث في الهدف...':'Search target...'}" oninput="filterActivityLogs()">
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="table-wrap">
+      <table style="width:100%;border-collapse:collapse">
+        <thead>
+          <tr>
+            <th style="text-align:left;padding:10px 12px;border-bottom:2px solid var(--border);font-size:12px">${lg?'التاريخ':'Time'}</th>
+            <th style="text-align:left;padding:10px 12px;border-bottom:2px solid var(--border);font-size:12px">${lg?'المستخدم':'User'}</th>
+            <th style="text-align:left;padding:10px 12px;border-bottom:2px solid var(--border);font-size:12px">${lg?'الإجراء':'Action'}</th>
+            <th style="text-align:left;padding:10px 12px;border-bottom:2px solid var(--border);font-size:12px">${lg?'الهدف':'Target'}</th>
+            <th style="text-align:left;padding:10px 12px;border-bottom:2px solid var(--border);font-size:12px">${lg?'التفاصيل':'Details'}</th>
+          </tr>
+        </thead>
+        <tbody id="alTableBody">
+          ${logs.slice(0, 100).map(l => `
+          <tr>
+            <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px;white-space:nowrap">${new Date(l.timestamp).toLocaleString(lg?'ar':'en')}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px"><span class="badge" style="background:var(--primary);color:#fff;padding:2px 8px;border-radius:12px">${l.user}</span></td>
+            <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px"><span style="color:${actionColors[l.action]||'#666'};font-weight:700">${actionLabels[l.action]||l.action}</span></td>
+            <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600">${l.target||'-'}</td>
+            <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;color:#888;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.details ? JSON.stringify(l.details) : '-'}</td>
+          </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+    <div style="padding:12px;text-align:center;color:#888;font-size:13px">${lg?'عرض':'Showing'} ${Math.min(logs.length, 100)} / ${logs.length} ${lg?'سجل':'logs'}</div>
+  </div>`;
+
+  el.innerHTML = h;
+}
+
+function filterActivityLogs() {
+  const user = document.getElementById('alUserFilter')?.value || '';
+  const action = document.getElementById('alActionFilter')?.value || '';
+  const search = (document.getElementById('alSearchFilter')?.value || '').toLowerCase();
+  let logs = ActivityLog.get();
+  if (user) logs = logs.filter(l => l.user === user);
+  if (action) logs = logs.filter(l => l.action === action);
+  if (search) logs = logs.filter(l => (l.target||'').toLowerCase().includes(search) || JSON.stringify(l.details||{}).toLowerCase().includes(search));
+
+  const lg = lang === 'ar';
+  const actionLabels = { auth_login: lg?'تسجيل دخول':'Login', auth_logout: lg?'تسجيل خروج':'Logout', auth_login_failed: lg?'فشل دخول':'Login Failed', nav_page: lg?'تنقل':'Nav', data_update: lg?'تحديث':'Update', create: lg?'إنشاء':'Create', delete: lg?'حذف':'Delete', bulk_delete: lg?'حذف جماعي':'Bulk Delete', approve: lg?'اعتماد':'Approve', export: lg?'تصدير':'Export', import: lg?'استيراد':'Import', danger: lg?'خطير':'Danger' };
+  const actionColors = { auth_login:'#10B981', auth_logout:'#6B7280', auth_login_failed:'#EF4444', nav_page:'#3B82F6', data_update:'#8B5CF6', create:'#10B981', delete:'#EF4444', bulk_delete:'#DC2626', approve:'#059669', export:'#F59E0B', import:'#F59E0B', danger:'#DC2626' };
+
+  const tbody = document.getElementById('alTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = logs.slice(0, 100).map(l => `
+    <tr>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px;white-space:nowrap">${new Date(l.timestamp).toLocaleString(lg?'ar':'en')}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px"><span class="badge" style="background:var(--primary);color:#fff;padding:2px 8px;border-radius:12px">${l.user}</span></td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px"><span style="color:${actionColors[l.action]||'#666'};font-weight:700">${actionLabels[l.action]||l.action}</span></td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:12px;font-weight:600">${l.target||'-'}</td>
+      <td style="padding:8px 12px;border-bottom:1px solid var(--border);font-size:11px;color:#888;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.details ? JSON.stringify(l.details) : '-'}</td>
+    </tr>
+  `).join('');
+}
+
+function exportActivityLogs() {
+  const logs = ActivityLog.get();
+  const csv = 'Timestamp,User,Action,Target,Details\n' + logs.map(l => `"${new Date(l.timestamp).toISOString()}","${l.user}","${l.action}","${l.target||''}","${JSON.stringify(l.details||{}).replace(/"/g,'""')}"`).join('\n');
+  const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'activity_log_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click(); URL.revokeObjectURL(url);
+}
+
+function clearActivityLogsConfirm() {
+  const msg = lang === 'ar' ? 'هل أنت متأكد من مسح جميع سجلات النشاط؟' : 'Are you sure you want to clear all activity logs?';
+  if (!confirm(msg)) return;
+  ActivityLog.clear();
+  renderActivityLogs(document.getElementById('mainContent'));
+}
 
 // ============================================================
 // AI ASSISTANT (Ollama)
