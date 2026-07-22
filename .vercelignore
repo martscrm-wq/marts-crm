@@ -1,0 +1,28 @@
+sa-key.json
+node_modules/
+.firebase/
+functions/
+scripts/
+backup/
+files/
+files.zip
+crm-app/
+transcity/
+testsprite_tests/
+Doc Info/
+AI OpenCode Prompts/
+Attend/
+Marts Accounts/
+Config/
+test_fn_no_opts.js
+server.js
+server.py
+update_version.js
+generate-icons.html
+check.js
+.github/
+.firebase/
+firestore.rules
+firestore.indexes.json
+firebase.json
+.firebaserc
