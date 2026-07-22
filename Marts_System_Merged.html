@@ -8504,6 +8504,22 @@ function refreshCurrentAccTab() {
   else if(activeTab === 'risk') renderRiskManagement();
 }
 
+// --- TOGGLE PASSWORD VISIBILITY ---
+function toggleAccountPassword(elId, password) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  const icon = el.nextElementSibling ? el.nextElementSibling.querySelector('i') : null;
+  if (el.dataset.visible === '1') {
+    el.textContent = '••••••';
+    el.dataset.visible = '0';
+    if (icon) { icon.classList.remove('fa-eye-slash'); icon.classList.add('fa-eye'); }
+  } else {
+    el.textContent = password;
+    el.dataset.visible = '1';
+    if (icon) { icon.classList.remove('fa-eye'); icon.classList.add('fa-eye-slash'); }
+  }
+}
+
 // --- ACCOUNTING LOCK/UNLOCK ---
 function toggleLockEntry(storageKey, id, idField) {
   const idKey = idField || 'id';
@@ -15778,10 +15794,10 @@ function renderCrmAccountsTable(filter){
   });
   const filtered = ft ? crmUsers.filter(u=>(u.username||'').toLowerCase().includes(ft)||(u.fullName||'').toLowerCase().includes(ft)||(u.email||'').toLowerCase().includes(ft)) : crmUsers;
 
-  let h = '<table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="selectAllCrmAcc" onchange="toggleSelectAllCrmAcc(this)" style="accent-color:var(--primary)"></th><th>'+t('crm_acc_username')+'</th><th>'+t('crm_acc_name')+'</th><th>'+t('crm_acc_email')+'</th><th>'+t('crm_acc_role')+'</th><th>'+t('crm_acc_perms')+'</th><th>'+t('crm_acc_actions')+'</th></tr></thead><tbody>';
+  let h = '<table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="selectAllCrmAcc" onchange="toggleSelectAllCrmAcc(this)" style="accent-color:var(--primary)"></th><th>'+t('crm_acc_username')+'</th><th>'+t('crm_acc_name')+'</th><th>'+t('crm_acc_email')+'</th><th>'+t('crm_acc_password')+'</th><th>'+t('crm_acc_role')+'</th><th>'+t('crm_acc_perms')+'</th><th>'+t('crm_acc_actions')+'</th></tr></thead><tbody>';
 
   if(filtered.length===0){
-    h += '<tr><td colspan="7" style="text-align:center;color:var(--text-light);padding:32px">'+t('crm_acc_noAccounts')+'</td></tr>';
+    h += '<tr><td colspan="8" style="text-align:center;color:var(--text-light);padding:32px">'+t('crm_acc_noAccounts')+'</td></tr>';
   }
 
   filtered.forEach((u)=>{
@@ -15801,6 +15817,7 @@ function renderCrmAccountsTable(filter){
       <td><strong>${u.username}</strong> <span class="badge badge-green" style="font-size:10px">CRM</span></td>
       <td>${u.fullName||''}</td>
       <td style="font-size:12px;color:var(--text-light)">${email}</td>
+      <td style="font-size:12px"><span id="crmAccP_${origIdx}" style="font-family:monospace">••••••</span> <button class="btn btn-outline btn-sm" style="padding:2px 6px;font-size:10px" onclick="toggleAccountPassword('crmAccP_${origIdx}','${u.password||''}')"><i class="fas fa-eye"></i></button></td>
       <td><span class="badge badge-blue">${t(u.role)}</span></td>
       <td>${permBadges.join(' ')}</td>
       <td style="display:flex;gap:6px">
@@ -18059,7 +18076,7 @@ function renderUsersTable(users, cu, filter) {
   const canManageAny = filtered.some(u => canManageUser(u.username));
   let h='<table><thead><tr>';
   if(canManageAny) h+='<th style="width:40px;text-align:center"><input type="checkbox" id="selectAllUsers" onchange="toggleSelectAllUsers(this)" style="accent-color:var(--primary)"></th>';
-  h+='<th>'+t('settings_username')+'</th><th>'+t('settings_fullName')+'</th><th>Email</th><th>'+t('settings_role')+'</th><th>'+t('settings_permissions')+'</th><th></th></tr></thead><tbody>';
+  h+='<th>'+t('settings_username')+'</th><th>'+t('settings_fullName')+'</th><th>Email</th><th>'+t('settings_password')+'</th><th>'+t('settings_role')+'</th><th>'+t('settings_permissions')+'</th><th></th></tr></thead><tbody>';
   filtered.forEach((u)=>{
     const origIdx = users.indexOf(u);
     const isMe = cu && u.username === cu.username;
@@ -18070,6 +18087,7 @@ function renderUsersTable(users, cu, filter) {
       <td>${u.username} ${isMe?'<span class="badge badge-blue" style="font-size:10px">'+t('settings_currentUser')+'</span>':''} ${u.accountType==='crm'?'<span class="badge badge-green" style="font-size:10px">CRM</span>':u.accountType==='system'?'<span class="badge badge-purple" style="font-size:10px">'+(lang==='ar'?'نظام':'System')+'</span>':''}</td>
       <td>${u.fullName||''}</td>
       <td style="font-size:12px;color:var(--text-light)">${userEmail}</td>
+      <td style="font-size:12px"><span id="userP_${origIdx}" style="font-family:monospace">••••••</span> <button class="btn btn-outline btn-sm" style="padding:2px 6px;font-size:10px" onclick="toggleAccountPassword('userP_${origIdx}','${u.password||''}')"><i class="fas fa-eye"></i></button></td>
       <td><span class="badge badge-blue">${t(u.role)}</span></td>
       <td><span class="badge ${permCount===PERMISSIONS_LIST.length?'badge-green':permCount>0?'badge-yellow':'badge-red'}" style="cursor:pointer" onclick="openPermissionsModal(${origIdx})">${permCount} / ${PERMISSIONS_LIST.length}</span></td>
       <td style="display:flex;gap:6px">
