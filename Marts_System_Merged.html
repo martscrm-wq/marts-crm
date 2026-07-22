@@ -8296,7 +8296,7 @@ function renderAccounting(el) {
   <div class="topbar-actions">
     <button class="btn btn-success btn-sm" onclick="downloadAllAccExcel()"><i class="fas fa-file-excel"></i> ${t('acc_exportAll')}</button>
   </div></div>
-  <div class="tab-bar" style="flex-wrap:wrap">
+  <div class="tab-bar" id="accMainTabBar" style="flex-wrap:wrap">
     <div class="tab active" onclick="showAccTab('unified')"><i class="fas fa-filter"></i> ${t('acc_unified')}</div>
     <div class="tab" onclick="showAccTab('treasury')">${t('acc_treasury')}</div>
     <div class="tab" onclick="showAccTab('salaries')">${t('acc_salaries')}</div>
@@ -8321,7 +8321,7 @@ function renderAccounting(el) {
   <div id="accTab_cashFlow" style="display:none"></div>
   <div id="accTab_expenseAnalysis" style="display:none"></div><div id="accTab_revenueAnalysis" style="display:none"></div>
   <div id="accTab_risk" style="display:none"></div>`;
-  renderUnified(); renderTreasury(); renderSalaries(); renderPartners(); renderExpenses(); renderCoa(); renderJournal(); renderFranchises(); renderFinancials(); renderAnalysis(); renderCashFlow(); renderExpenseAnalysis(); renderRevenueAnalysis(); renderRiskManagement();
+  [renderUnified, renderTreasury, renderSalaries, renderPartners, renderExpenses, renderCoa, renderJournal, renderFranchises, renderFinancials, renderAnalysis, renderCashFlow, renderExpenseAnalysis, renderRevenueAnalysis, renderRiskManagement].forEach(fn=>{try{fn();}catch(e){console.error('Accounting render error:',fn.name,e);}});
 }
 
 function showAccTab(tab) {
@@ -8329,7 +8329,7 @@ function showAccTab(tab) {
     const el = document.getElementById('accTab_'+t);
     if(el) el.style.display = t===tab?'block':'none';
   });
-  document.querySelectorAll('.tab-bar .tab').forEach((el,i)=>el.classList.toggle('active',ACC_TABS[i]===tab));
+  document.querySelectorAll('#accMainTabBar .tab').forEach((el,i)=>el.classList.toggle('active',ACC_TABS[i]===tab));
 }
 
 // Global franchise/branch filter state
@@ -8373,13 +8373,20 @@ function refreshCurrentAccTab() {
     const el = document.getElementById('accTab_'+t);
     return el && el.style.display !== 'none';
   }) || 'treasury';
-  if(activeTab === 'treasury') renderTreasury();
+  if(activeTab === 'unified') renderUnified();
+  else if(activeTab === 'treasury') renderTreasury();
   else if(activeTab === 'salaries') renderSalaries();
+  else if(activeTab === 'partners') renderPartners();
   else if(activeTab === 'expenses') renderExpenses();
   else if(activeTab === 'coa') renderCoa();
   else if(activeTab === 'journal') renderJournal();
+  else if(activeTab === 'franchises') renderFranchises();
   else if(activeTab === 'financials') renderFinancials();
   else if(activeTab === 'analysis') renderAnalysis();
+  else if(activeTab === 'cashFlow') renderCashFlow();
+  else if(activeTab === 'expenseAnalysis') renderExpenseAnalysis();
+  else if(activeTab === 'revenueAnalysis') renderRevenueAnalysis();
+  else if(activeTab === 'risk') renderRiskManagement();
 }
 
 // --- TREASURY ---
