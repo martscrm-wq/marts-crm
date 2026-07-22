@@ -15768,8 +15768,9 @@ function renderCrmAccountsTable(filter){
   const allUsers = STORAGE.get('users',defaultUsers);
   const crmPerms = ['crm_view','crm_add','crm_edit','crm_delete','crm_manage_accounts'];
   const crmUsers = allUsers.filter(u=>{
+    if(u.accountType === 'system') return false;
     const p = u.permissions||[];
-    return crmPerms.some(cp=>p.includes(cp));
+    return crmPerms.some(cp=>p.includes(cp)) || !u.accountType;
   });
   const filtered = ft ? crmUsers.filter(u=>(u.username||'').toLowerCase().includes(ft)||(u.fullName||'').toLowerCase().includes(ft)||(u.email||'').toLowerCase().includes(ft)) : crmUsers;
 
@@ -15793,7 +15794,7 @@ function renderCrmAccountsTable(filter){
 
     h += `<tr>
       <td style="text-align:center"><input type="checkbox" class="crmAcc-select-cb" data-idx="${origIdx}" data-protected="${isProtected}" onchange="updateBulkCrmAccBtn()" style="accent-color:var(--primary)" ${isProtected?'disabled':''}></td>
-      <td><strong>${u.username}</strong></td>
+      <td><strong>${u.username}</strong> <span class="badge badge-green" style="font-size:10px">CRM</span></td>
       <td>${u.fullName||''}</td>
       <td style="font-size:12px;color:var(--text-light)">${email}</td>
       <td><span class="badge badge-blue">${t(u.role)}</span></td>
@@ -15945,7 +15946,7 @@ function saveCrmAccount(){
   const perms = [];
   document.querySelectorAll('.crmA_perm:checked').forEach(cb=>perms.push(cb.value));
 
-  users.push({username, password, role, fullName, email, permissions: perms});
+  users.push({username, password, role, fullName, email, permissions: perms, accountType: 'crm'});
   STORAGE.set('users', users);
   closeModal();
   renderCrmAccounts(document.getElementById('mainContent'));
@@ -18053,7 +18054,7 @@ function renderUsersTable(users, cu, filter) {
     const userEmail = u.email || u.username+'@marts-eg.com';
     h+=`<tr>
       ${canManageAny?'<td style="text-align:center"><input type="checkbox" class="user-select-cb" data-idx="'+origIdx+'" onchange="updateBulkDeleteBtn()" style="accent-color:var(--primary)" '+(isMe?'disabled':'')+'></td>':''}
-      <td>${u.username} ${isMe?'<span class="badge badge-blue" style="font-size:10px">'+t('settings_currentUser')+'</span>':''}</td>
+      <td>${u.username} ${isMe?'<span class="badge badge-blue" style="font-size:10px">'+t('settings_currentUser')+'</span>':''} ${u.accountType==='crm'?'<span class="badge badge-green" style="font-size:10px">CRM</span>':u.accountType==='system'?'<span class="badge badge-purple" style="font-size:10px">'+(lang==='ar'?'نظام':'System')+'</span>':''}</td>
       <td>${u.fullName||''}</td>
       <td style="font-size:12px;color:var(--text-light)">${userEmail}</td>
       <td><span class="badge badge-blue">${t(u.role)}</span></td>
@@ -18382,7 +18383,7 @@ function saveUser() {
   else if(role==='marketer') defaultPerms = DEFAULT_PERMS_MARKETER;
   else if(role==='operations') defaultPerms = DEFAULT_PERMS_OPERATIONS;
   else if(role==='accounting') defaultPerms = DEFAULT_PERMS_ACCOUNTING;
-  users.push({username,password,role,fullName:document.getElementById('u_fullName').value.trim(),email,permissions:defaultPerms});
+  users.push({username,password,role,fullName:document.getElementById('u_fullName').value.trim(),email,permissions:defaultPerms,accountType:'system'});
   STORAGE.set('users',users); closeModal(); renderSettings(document.getElementById('mainContent'));
 }
 
