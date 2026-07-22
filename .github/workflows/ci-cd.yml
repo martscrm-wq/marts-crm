@@ -488,31 +488,34 @@ jobs:
         run: |
           npm install -g vercel
           cd public
-          vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --yes
+          vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --yes --no-clipboard
           echo "vercel-url=https://marts-crm.vercel.app" >> $GITHUB_OUTPUT
 
       - name: Update Firestore version doc
         if: success()
         run: |
           npm install firebase-admin@12
-          node -e "
-          const {initializeApp, cert} = require('firebase-admin/app');
-          const {getFirestore} = require('firebase-admin/firestore');
-          const app = initializeApp({credential: cert('/tmp/sa-key.json')});
-          const db = getFirestore(app);
-          const version = '${{ needs.build.outputs.version }}';
-          db.collection('system_config').doc('version').set({
-            version: version,
-            updatedAt: new Date(),
-            deployedBy: 'github-actions',
-            commitSha: '${{ github.sha }}',
-            commitMsg: (${{ toJSON(github.event.head_commit.message || '') }}).substring(0, 200),
-            hostingUrl: 'https://marts-crm-6ca37.web.app'
-          }, { merge: true }).then(() => {
-            console.log('Firestore updated: version=' + version);
-            process.exit(0);
-          }).catch(e => { console.error(e); process.exit(1); });
-          "
+          cat > update-firestore-version.js << 'EOF'
+            const {initializeApp, cert} = require('firebase-admin/app');
+            const {getFirestore} = require('firebase-admin/firestore');
+            const app = initializeApp({credential: cert('/tmp/sa-key.json')});
+            const db = getFirestore(app);
+            const version = '${{ needs.build.outputs.version }}';
+            const commitMsg = '${{ github.event.head_commit.message || '' }}'.substring(0, 200);
+            console.log('Commit message:', commitMsg);
+            db.collection('system_config').doc('version').set({
+              version: version,
+              updatedAt: new Date(),
+              deployedBy: 'github-actions',
+              commitSha: '${{ github.sha }}',
+              commitMsg: commitMsg,
+              hostingUrl: 'https://marts-crm-6ca37.web.app'
+            }, { merge: true }).then(() => {
+              console.log('Firestore updated: version=' + version);
+              process.exit(0);
+            }).catch(e => { console.error(e); process.exit(1); });
+          EOF
+          node update-firestore-version.js
 
       - name: Summary
         if: success()
