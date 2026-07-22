@@ -483,6 +483,14 @@ jobs:
           firebase deploy --only hosting --project marts-crm-6ca37
           echo "url=https://marts-crm-6ca37.web.app" >> $GITHUB_OUTPUT
 
+      - name: Deploy to Vercel
+        if: success()
+        run: |
+          npm install -g vercel
+          cd public
+          vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --yes
+          echo "vercel-url=https://marts-crm.vercel.app" >> $GITHUB_OUTPUT
+
       - name: Update Firestore version doc
         if: success()
         run: |
