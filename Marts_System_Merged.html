@@ -15675,7 +15675,8 @@ function switchCrmAccTab(tab,btn){
       <p style="color:var(--text-light);font-size:14px;margin:0"><i class="fas fa-info-circle" style="color:var(--accent);margin-left:6px"></i> ${t('crm_acc_subtitle')}</p>
     </div>
     <div class="form-group" style="margin-bottom:16px"><input type="text" id="crmAccSearch" placeholder="${t('crm_acc_search')}" oninput="filterCrmAccounts()" style="max-width:400px"></div>
-    <div class="card"><div class="table-wrap" id="crmAccTable"></div></div>`;
+    <div class="card"><div class="table-wrap" id="crmAccTable"></div></div>
+    <button class="btn btn-danger btn-sm" id="bulkDeleteCrmAccBtn" style="display:none;margin-top:12px" onclick="bulkDeleteCrmAccounts()"><i class="fas fa-trash"></i> ${lang==='ar'?'حذف المحدد':'Delete Selected'}</button>`;
     renderCrmAccountsTable();
   } else if(tab==='team'){
     renderCrmTeam(c);
@@ -15692,10 +15693,10 @@ function renderCrmAccountsTable(filter){
   });
   const filtered = ft ? crmUsers.filter(u=>(u.username||'').toLowerCase().includes(ft)||(u.fullName||'').toLowerCase().includes(ft)||(u.email||'').toLowerCase().includes(ft)) : crmUsers;
 
-  let h = '<table><thead><tr><th>'+t('crm_acc_username')+'</th><th>'+t('crm_acc_name')+'</th><th>'+t('crm_acc_email')+'</th><th>'+t('crm_acc_role')+'</th><th>'+t('crm_acc_perms')+'</th><th>'+t('crm_acc_actions')+'</th></tr></thead><tbody>';
+  let h = '<table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="selectAllCrmAcc" onchange="toggleSelectAllCrmAcc(this)" style="accent-color:var(--primary)"></th><th>'+t('crm_acc_username')+'</th><th>'+t('crm_acc_name')+'</th><th>'+t('crm_acc_email')+'</th><th>'+t('crm_acc_role')+'</th><th>'+t('crm_acc_perms')+'</th><th>'+t('crm_acc_actions')+'</th></tr></thead><tbody>';
 
   if(filtered.length===0){
-    h += '<tr><td colspan="6" style="text-align:center;color:var(--text-light);padding:32px">'+t('crm_acc_noAccounts')+'</td></tr>';
+    h += '<tr><td colspan="7" style="text-align:center;color:var(--text-light);padding:32px">'+t('crm_acc_noAccounts')+'</td></tr>';
   }
 
   filtered.forEach((u)=>{
@@ -15708,8 +15709,10 @@ function renderCrmAccountsTable(filter){
     if(p.includes('crm_edit')) permBadges.push('<span class="badge badge-yellow" style="font-size:10px">'+t('crm_acc_edit_perm')+'</span>');
     if(p.includes('crm_delete')) permBadges.push('<span class="badge badge-red" style="font-size:10px">'+t('crm_acc_delete_perm')+'</span>');
     if(p.includes('crm_manage_accounts')) permBadges.push('<span class="badge badge-purple" style="font-size:10px">'+t('crm_acc_manage_accounts')+'</span>');
+    const isProtected = u.username==='owner'||u.username==='ali.admin';
 
     h += `<tr>
+      <td style="text-align:center"><input type="checkbox" class="crmAcc-select-cb" data-idx="${origIdx}" data-protected="${isProtected}" onchange="updateBulkCrmAccBtn()" style="accent-color:var(--primary)" ${isProtected?'disabled':''}></td>
       <td><strong>${u.username}</strong></td>
       <td>${u.fullName||''}</td>
       <td style="font-size:12px;color:var(--text-light)">${email}</td>
@@ -15718,12 +15721,52 @@ function renderCrmAccountsTable(filter){
       <td style="display:flex;gap:6px">
         <button class="btn btn-outline btn-sm" onclick="openCrmAccountEdit(${origIdx})"><i class="fas fa-pen"></i></button>
         <button class="btn btn-outline btn-sm" onclick="openCrmAccountPerms(${origIdx})"><i class="fas fa-shield-alt"></i></button>
-        ${u.username!=='owner'&&u.username!=='ali.admin'?`<button class="btn btn-danger btn-sm" onclick="deleteCrmAccount(${origIdx})"><i class="fas fa-trash"></i></button>`:''}
+        ${!isProtected?`<button class="btn btn-danger btn-sm" onclick="deleteCrmAccount(${origIdx})"><i class="fas fa-trash"></i></button>`:''}
       </td>
     </tr>`;
   });
   h += '</tbody></table>';
   document.getElementById('crmAccTable').innerHTML = h;
+  updateBulkCrmAccBtn();
+}
+
+function toggleSelectAllCrmAcc(cb) {
+  document.querySelectorAll('.crmAcc-select-cb:not(:disabled)').forEach(c => c.checked = cb.checked);
+  updateBulkCrmAccBtn();
+}
+
+function updateBulkCrmAccBtn() {
+  const cbs = document.querySelectorAll('.crmAcc-select-cb');
+  const checked = document.querySelectorAll('.crmAcc-select-cb:checked');
+  const bulkBtn = document.getElementById('bulkDeleteCrmAccBtn');
+  if(bulkBtn) {
+    if(checked.length > 0) {
+      bulkBtn.style.display = '';
+      bulkBtn.innerHTML = '<i class="fas fa-trash"></i> ' + (lang==='ar'?'حذف المحدد ('+checked.length+')':'Delete Selected ('+checked.length+')');
+    } else {
+      bulkBtn.style.display = 'none';
+    }
+  }
+  const selAll = document.getElementById('selectAllCrmAcc');
+  if(selAll) selAll.checked = cbs.length > 0 && checked.length === cbs.length;
+}
+
+function bulkDeleteCrmAccounts() {
+  const checked = document.querySelectorAll('.crmAcc-select-cb:checked');
+  if(checked.length === 0) return;
+  const users = STORAGE.get('users', defaultUsers);
+  const idxs = Array.from(checked).map(cb => parseInt(cb.dataset.idx));
+  const protectedUsers = idxs.filter(i => users[i] && (users[i].username==='owner'||users[i].username==='ali.admin'));
+  const toDelete = idxs.filter(i => users[i] && users[i].username!=='owner' && users[i].username!=='ali.admin');
+  if(protectedUsers.length > 0) alert(lang==='ar'?'تم تخطي حسابات محمية':'Protected accounts skipped');
+  if(toDelete.length === 0) return;
+  const msg = lang==='ar'?'هل أنت متأكد من حذف '+toDelete.length+' حساب(ات) CRM؟':'Are you sure you want to delete '+toDelete.length+' CRM account(s)?';
+  if(!confirm(msg)) return;
+  const deletedNames = toDelete.map(i => users[i] ? users[i].username : 'unknown');
+  ActivityLog.log('bulk_delete', 'crm_accounts', { count: toDelete.length, usernames: deletedNames });
+  toDelete.sort((a,b) => b - a).forEach(i => users.splice(i, 1));
+  STORAGE.set('users', users);
+  renderCrmAccounts(document.getElementById('mainContent'));
 }
 
 function filterCrmAccounts(){
