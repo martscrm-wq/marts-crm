@@ -8504,6 +8504,24 @@ function refreshCurrentAccTab() {
   else if(activeTab === 'risk') renderRiskManagement();
 }
 
+// --- ACCOUNTING LOCK/UNLOCK ---
+function toggleLockEntry(storageKey, id, idField) {
+  const idKey = idField || 'id';
+  const entries = STORAGE.get(storageKey, []);
+  const entry = entries.find(e => e[idKey] === id);
+  if (!entry) return;
+  entry.locked = !entry.locked;
+  STORAGE.set(storageKey, entries);
+  ActivityLog.log(entry.locked ? 'lock' : 'unlock', storageKey, { id, locked: entry.locked });
+  refreshCurrentAccTab();
+}
+function isLocked(storageKey, id, idField) {
+  const idKey = idField || 'id';
+  const entries = STORAGE.get(storageKey, []);
+  const entry = entries.find(e => e[idKey] === id);
+  return entry && entry.locked;
+}
+
 // --- TREASURY ---
 function renderTreasury() {
   const entries = STORAGE.get('treasury',[]);
@@ -8548,7 +8566,8 @@ function filterTreasury(page) {
     paged.forEach(e=>{
       const f = franchises.find(fr=>fr.id===e.franchiseId);
       const b = branches.find(br=>br.id===e.branchId);
-      h+=`<tr><td>${fmtDate(e.date)}</td><td><span class="badge ${e.type==='income'?'badge-green':'badge-red'}">${e.type==='income'?t('acc_income'):t('acc_expenseType')}</span></td><td>${fmt(e.amount)}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):(e.franchiseId?t('acc_noFranchise'):'-')}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):(e.branchId?'-':'-')}</td><td>${e.desc}</td><td>${canAccounting()?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editTreasuryEntry(\''+e.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteTreasuryEntry(\''+e.id+'\')"><i class="fas fa-trash"></i></button>':''}</td></tr>`;
+      const _lk = e.locked;
+      h+=`<tr><td>${fmtDate(e.date)}</td><td><span class="badge ${e.type==='income'?'badge-green':'badge-red'}">${e.type==='income'?t('acc_income'):t('acc_expenseType')}</span></td><td>${fmt(e.amount)}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):(e.franchiseId?t('acc_noFranchise'):'-')}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):(e.branchId?'-':'-')}</td><td>${e.desc}${_lk?' <i class="fas fa-lock" style="color:#f39c12;font-size:11px" title="'+(lang==='ar'?'مقفل':'Locked')+'"></i>':''}</td><td>${canAccounting()?(_lk?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'treasury\',\''+e.id+'\')"><i class="fas fa-lock"></i></button>':'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editTreasuryEntry(\''+e.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12;margin-right:4px" onclick="toggleLockEntry(\'treasury\',\''+e.id+'\')"><i class="fas fa-lock-open"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteTreasuryEntry(\''+e.id+'\')"><i class="fas fa-trash"></i></button>'):''}</td></tr>`;
     });
     h+='</tbody></table></div>';
     h += AccPagination.render('treasury', total, page, 25, 'filterTreasury');
@@ -8837,7 +8856,7 @@ function filterSalaries(page) {
     const franchises = STORAGE.get('franchises',[]);
     const branches = STORAGE.get('branches',[]);
     h='<div class="table-wrap"><table><thead><tr><th>'+t('acc_employee')+'</th><th>'+t('acc_amount')+'</th><th>'+t('acc_date')+'</th><th>'+t('acc_notes')+'</th><th>'+t('acc_journalFranchise')+'</th><th>'+t('acc_journalBranch')+'</th><th>'+(lang==='ar'?'إجراءات':'Actions')+'</th></tr></thead><tbody>';
-    paged.forEach(p=>{const emp=employees.find(e=>e.id===p.empId);const f=franchises.find(fr=>fr.id===p.franchiseId);const b=branches.find(br=>br.id===p.branchId);h+=`<tr><td>${emp?emp.name:'-'}</td><td>${fmt(p.amount)}</td><td>${fmtDate(p.date)}</td><td>${p.notes||''}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):'-'}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</td><td>${canAccounting()?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editSalary(\''+p.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteSalary(\''+p.id+'\')"><i class="fas fa-trash"></i></button>':''}</td></tr>`;});
+    paged.forEach(p=>{const emp=employees.find(e=>e.id===p.empId);const f=franchises.find(fr=>fr.id===p.franchiseId);const b=branches.find(br=>br.id===p.branchId);const _lk=p.locked;h+=`<tr><td>${emp?emp.name:'-'}</td><td>${fmt(p.amount)}</td><td>${fmtDate(p.date)}</td><td>${p.notes||''}${_lk?' <i class="fas fa-lock" style="color:#f39c12;font-size:11px" title="'+(lang==='ar'?'مقفل':'Locked')+'"></i>':''}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):'-'}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</td><td>${canAccounting()?(_lk?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'salaries\',\''+p.id+'\')"><i class="fas fa-lock"></i></button>':'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editSalary(\''+p.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12;margin-right:4px" onclick="toggleLockEntry(\'salaries\',\''+p.id+'\')"><i class="fas fa-lock-open"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteSalary(\''+p.id+'\')"><i class="fas fa-trash"></i></button>'):''}</td></tr>`;});
     h+='</tbody></table></div>';
     h += AccPagination.render('salaries', total, page, 25, 'filterSalaries');
   }
@@ -8922,7 +8941,7 @@ function filterPartners(page) {
     const franchises = STORAGE.get('franchises',[]);
     const branches = STORAGE.get('branches',[]);
     h='<div class="table-wrap"><table><thead><tr><th>'+t('acc_partnerName')+'</th><th>'+t('acc_amount')+'</th><th>'+t('acc_date')+'</th><th>'+t('acc_notes')+'</th><th>'+t('acc_journalFranchise')+'</th><th>'+t('acc_journalBranch')+'</th><th>'+(lang==='ar'?'إجراءات':'Actions')+'</th></tr></thead><tbody>';
-    paged.forEach(p=>{const f=franchises.find(fr=>fr.id===p.franchiseId);const b=branches.find(br=>br.id===p.branchId);h+=`<tr><td>${p.name}</td><td>${fmt(p.amount)}</td><td>${fmtDate(p.date)}</td><td>${p.notes||''}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):'-'}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</td><td>${canAccounting()?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editPartner(\''+p.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deletePartnerEntry(\''+p.id+'\')"><i class="fas fa-trash"></i></button>':''}</td></tr>`;});
+    paged.forEach(p=>{const f=franchises.find(fr=>fr.id===p.franchiseId);const b=branches.find(br=>br.id===p.branchId);const _lk=p.locked;h+=`<tr><td>${p.name}</td><td>${fmt(p.amount)}</td><td>${fmtDate(p.date)}</td><td>${p.notes||''}${_lk?' <i class="fas fa-lock" style="color:#f39c12;font-size:11px" title="'+(lang==='ar'?'مقفل':'Locked')+'"></i>':''}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):'-'}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</td><td>${canAccounting()?(_lk?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'partners\',\''+p.id+'\')"><i class="fas fa-lock"></i></button>':'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editPartner(\''+p.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12;margin-right:4px" onclick="toggleLockEntry(\'partners\',\''+p.id+'\')"><i class="fas fa-lock-open"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deletePartnerEntry(\''+p.id+'\')"><i class="fas fa-trash"></i></button>'):''}</td></tr>`;});
     h+='</tbody></table></div>';
     h += AccPagination.render('partners', total, page, 25, 'filterPartners');
   }
@@ -9006,7 +9025,8 @@ function filterExpenses(page) {
     paged.forEach(e=>{
       const f = franchises.find(fr=>fr.id===e.franchiseId);
       const b = branches.find(br=>br.id===e.branchId);
-      h+=`<tr><td>${e.category}</td><td>${fmt(e.amount)}</td><td>${fmtDate(e.date)}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):'-'}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</td><td>${e.desc}</td><td>${canAccounting()?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editExpense(\''+e.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteExpense(\''+e.id+'\')"><i class="fas fa-trash"></i></button>':''}</td></tr>`;
+      const _lk=e.locked;
+      h+=`<tr><td>${e.category}</td><td>${fmt(e.amount)}</td><td>${fmtDate(e.date)}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):'-'}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</td><td>${e.desc}${_lk?' <i class="fas fa-lock" style="color:#f39c12;font-size:11px" title="'+(lang==='ar'?'مقفل':'Locked')+'"></i>':''}</td><td>${canAccounting()?(_lk?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'expenses\',\''+e.id+'\')"><i class="fas fa-lock"></i></button>':'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editExpense(\''+e.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12;margin-right:4px" onclick="toggleLockEntry(\'expenses\',\''+e.id+'\')"><i class="fas fa-lock-open"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteExpense(\''+e.id+'\')"><i class="fas fa-trash"></i></button>'):''}</td></tr>`;
     });
     h+='</tbody></table></div>';
     h += AccPagination.render('expenses', total, page, 25, 'filterExpenses');
@@ -9140,7 +9160,7 @@ function renderCoaNode(account, coa, depth) {
     <span style="min-width:120px;text-align:right;font-weight:600;direction:ltr">${fmt(bal)}</span>
     <span style="margin-left:8px">
       ${hasChildren?'':'<button class="btn btn-outline btn-sm" style="padding:2px 6px" onclick="openCoaModal(\''+account.code+'\')"><i class="fas fa-edit"></i></button>'}
-      ${canAccounting()?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteCoaAccount(\''+account.code+'\')"><i class="fas fa-trash"></i></button>':''}
+      ${canAccounting()?(account.locked?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'chartOfAccounts\',\''+account.code+'\',\'code\')"><i class="fas fa-lock"></i></button>':'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'chartOfAccounts\',\''+account.code+'\',\'code\')"><i class="fas fa-lock-open"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteCoaAccount(\''+account.code+'\')"><i class="fas fa-trash"></i></button>'):''}
     </span>
   </div>`;
   children.forEach(child => { h += renderCoaNode(child, coa, depth + 1); });
@@ -9351,16 +9371,17 @@ function renderJournalTable(entries) {
     const balanced = Math.abs(totalDr - totalCr) < 0.01;
     const f = franchises.find(fr=>fr.id===e.franchiseId);
     const b = branches.find(br=>br.id===e.branchId);
-    h += `<tr style="cursor:pointer" onclick="openJournalModal('${e.id}')">
+    const _lk = e.locked;
+    h += `<tr style="cursor:pointer" onclick="${_lk?'':'openJournalModal(\''+e.id+'\')'}">
       <td>${fmtDate(e.date)}</td>
-      <td><strong>${e.ref||''}</strong></td>
+      <td><strong>${e.ref||''}</strong> ${_lk?'<i class="fas fa-lock" style="color:#f39c12;font-size:11px" title="'+(lang==='ar'?'مقفل':'Locked')+'"></i>':''}</td>
       <td>${e.desc||''}</td>
       <td><span style="color:#827148;font-size:0.85em">${f?(lang==='ar'?f.name_ar:f.name_en):(e.franchiseId?t('acc_noFranchise'):'-')}</span></td>
       <td><span style="color:#827148;font-size:0.85em">${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</span></td>
       <td style="color:#C75B4A;font-weight:600;direction:ltr;text-align:right">${fmt(totalDr)}</td>
       <td style="color:#A5AF79;font-weight:600;direction:ltr;text-align:right">${fmt(totalCr)}</td>
       <td><span class="badge ${balanced?'badge-green':'badge-red'}">${balanced?t('acc_journalBalanced'):t('acc_journalUnbalanced')}</span></td>
-      <td onclick="event.stopPropagation()">${canAccounting()?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteJournalEntry(\''+e.id+'\')"><i class="fas fa-trash"></i></button>':''}</td>
+      <td onclick="event.stopPropagation()">${canAccounting()?(_lk?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'journalEntries\',\''+e.id+'\')"><i class="fas fa-lock"></i></button>':'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'journalEntries\',\''+e.id+'\')"><i class="fas fa-lock-open"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteJournalEntry(\''+e.id+'\')"><i class="fas fa-trash"></i></button>'):''}</td>
     </tr>`;
     (e.lines||[]).forEach(l => {
       const acct = STORAGE.get('chartOfAccounts',[]).find(a => a.code === l.code);
@@ -9590,9 +9611,9 @@ function renderFranchises() {
             <small style="color:#888">${fBranches.length} ${t('acc_branches')} | ${fSales.length} ${lang==='ar'?'销售':'sales'}</small>
           </div>
           <div style="display:flex;gap:8px">
+            ${f.locked?'<i class="fas fa-lock" style="color:#f39c12;font-size:14px;margin-right:4px;align-self:center" title="'+(lang==='ar'?'مقفل':'Locked')+'"></i>':''}
             <button class="btn btn-outline btn-sm" onclick="showAccTab('journal');document.getElementById('accGlobalFranchise').value='${f.id}';accFilterFranchise='${f.id}';refreshCurrentAccTab()"><i class="fas fa-eye"></i> ${t('acc_journal')}</button>
-            ${canAccounting()?'<button class="btn btn-outline btn-sm" onclick="openFranchiseModal(\''+f.id+'\')"><i class="fas fa-edit"></i></button>':''}
-            ${canAccounting()?'<button class="btn btn-outline btn-sm" style="color:#C75B4A;border-color:#C75B4A" onclick="deleteFranchise(\''+f.id+'\')"><i class="fas fa-trash"></i></button>':''}
+            ${canAccounting()?(f.locked?'<button class="btn btn-outline btn-sm" style="color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'franchises\',\''+f.id+'\')"><i class="fas fa-lock"></i></button>':'<button class="btn btn-outline btn-sm" onclick="openFranchiseModal(\''+f.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'franchises\',\''+f.id+'\')"><i class="fas fa-lock-open"></i></button><button class="btn btn-outline btn-sm" style="color:#C75B4A;border-color:#C75B4A" onclick="deleteFranchise(\''+f.id+'\')"><i class="fas fa-trash"></i></button>'):''}
           </div>
         </div>
         <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-bottom:12px">
@@ -19646,13 +19667,16 @@ function renderActivityLogs(el) {
     export: lg ? 'تصدير' : 'Export',
     import: lg ? 'استيراد' : 'Import',
     danger: lg ? 'إجراء خطير' : 'Danger Action',
-    settings_change: lg ? 'تغيير إعدادات' : 'Settings Change'
+    settings_change: lg ? 'تغيير إعدادات' : 'Settings Change',
+    lock: lg ? 'قفل' : 'Lock',
+    unlock: lg ? 'فتح القفل' : 'Unlock'
   };
   const actionColors = {
     auth_login: '#10B981', auth_logout: '#6B7280', auth_login_failed: '#EF4444',
     nav_page: '#3B82F6', data_update: '#8B5CF6', create: '#10B981',
     delete: '#EF4444', bulk_delete: '#DC2626', approve: '#059669',
-    export: '#F59E0B', import: '#F59E0B', danger: '#DC2626', settings_change: '#6366F1'
+    export: '#F59E0B', import: '#F59E0B', danger: '#DC2626', settings_change: '#6366F1',
+    lock: '#F59E0B', unlock: '#10B981'
   };
 
   const uniqueUsers = [...new Set(logs.map(l => l.user))];
@@ -19732,8 +19756,8 @@ function filterActivityLogs() {
   if (search) logs = logs.filter(l => (l.target||'').toLowerCase().includes(search) || JSON.stringify(l.details||{}).toLowerCase().includes(search));
 
   const lg = lang === 'ar';
-  const actionLabels = { auth_login: lg?'تسجيل دخول':'Login', auth_logout: lg?'تسجيل خروج':'Logout', auth_login_failed: lg?'فشل دخول':'Login Failed', nav_page: lg?'تنقل':'Nav', data_update: lg?'تحديث':'Update', create: lg?'إنشاء':'Create', delete: lg?'حذف':'Delete', bulk_delete: lg?'حذف جماعي':'Bulk Delete', approve: lg?'اعتماد':'Approve', export: lg?'تصدير':'Export', import: lg?'استيراد':'Import', danger: lg?'خطير':'Danger' };
-  const actionColors = { auth_login:'#10B981', auth_logout:'#6B7280', auth_login_failed:'#EF4444', nav_page:'#3B82F6', data_update:'#8B5CF6', create:'#10B981', delete:'#EF4444', bulk_delete:'#DC2626', approve:'#059669', export:'#F59E0B', import:'#F59E0B', danger:'#DC2626' };
+  const actionLabels = { auth_login: lg?'تسجيل دخول':'Login', auth_logout: lg?'تسجيل خروج':'Logout', auth_login_failed: lg?'فشل دخول':'Login Failed', nav_page: lg?'تنقل':'Nav', data_update: lg?'تحديث':'Update', create: lg?'إنشاء':'Create', delete: lg?'حذف':'Delete', bulk_delete: lg?'حذف جماعي':'Bulk Delete', approve: lg?'اعتماد':'Approve', export: lg?'تصدير':'Export', import: lg?'استيراد':'Import', danger: lg?'خطير':'Danger', settings_change: lg?'تغيير إعدادات':'Settings', lock: lg?'قفل':'Lock', unlock: lg?'فتح القفل':'Unlock' };
+  const actionColors = { auth_login:'#10B981', auth_logout:'#6B7280', auth_login_failed:'#EF4444', nav_page:'#3B82F6', data_update:'#8B5CF6', create:'#10B981', delete:'#EF4444', bulk_delete:'#DC2626', approve:'#059669', export:'#F59E0B', import:'#F59E0B', danger:'#DC2626', settings_change:'#6366F1', lock:'#F59E0B', unlock:'#10B981' };
 
   const tbody = document.getElementById('alTableBody');
   if (!tbody) return;
