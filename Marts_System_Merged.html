@@ -26,9 +26,9 @@
 @font-face{font-family:'Transcity';src:url('TranscityDEMO.otf') format('opentype');font-weight:normal;font-style:normal;font-display:swap}
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--primary:#827148;--primary-dark:#6B5C3A;--primary-light:#A5AF79;--accent:#E8A07C;--bg:#E9EBE7;--card:#FFFFFF;--card-hover:#FFF5E6;--text:#3D3225;--text-light:#7A6E5D;--border:#E8DFD0;--success:#A5AF79;--warning:#E8A07C;--danger:#C75B4A;--sidebar-w:270px;--shadow:0 4px 24px rgba(130,113,72,.08);--shadow-lg:0 8px 40px rgba(130,113,72,.12);--radius:16px;--radius-sm:12px;--gradient-blue:linear-gradient(135deg,#827148,#A5AF79);--gradient-green:linear-gradient(135deg,#6B8C5A,#A5AF79);--gradient-purple:linear-gradient(135deg,#827148,#E8A07C);--gradient-orange:linear-gradient(135deg,#E8A07C,#E9EBE7);--gradient-pink:linear-gradient(135deg,#C75B4A,#E8A07C);--gradient-dark:linear-gradient(135deg,#E9EBE7,#FFFFFF)}
-body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-weight:700}
+body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-weight:700;overflow-x:hidden}
 h1,h2,h3,h4,h5,h6,.login-box h2,.topbar h1,.card h3,.stat-card h3{font-family:'Transcity',sans-serif}
-a{text-decoration:none;color:inherit}button{cursor:pointer;border:none;font-family:inherit}
+a{text-decoration:none;color:inherit}button{cursor:pointer;border:none;font-family:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 input,select,textarea{font-family:inherit;border:2px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;font-size:14px;width:100%;transition:.25s;background:#FFFFFF;color:var(--text)}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 4px rgba(130,113,72,.15)}
 input::placeholder,textarea::placeholder{color:var(--text-light)}
@@ -37,6 +37,7 @@ input::placeholder,textarea::placeholder{color:var(--text-light)}
 .login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#FFFFFF 0%,#E9EBE7 40%,#FFFFFF 100%);background-image:linear-gradient(rgba(130,113,72,.05) 1px, transparent 1px),linear-gradient(90deg, rgba(130,113,72,.05) 1px, transparent 1px);background-size:40px 40px;position:relative;overflow:hidden}
 .login-page::before{content:'';position:absolute;width:600px;height:600px;background:radial-gradient(circle,rgba(130,113,72,.08) 0%,transparent 70%);top:-200px;left:-100px;border-radius:50%}
 .login-page::after{content:'';position:absolute;width:400px;height:400px;background:radial-gradient(circle,rgba(130,113,72,.05) 0%,transparent 70%);bottom:-100px;right:-50px;border-radius:50%}
+@media(max-width:480px){.login-page::before,.login-page::after{display:none}}
 .login-box{background:rgba(253,250,245,.95);backdrop-filter:blur(20px);border-radius:24px;padding:48px 40px;width:420px;max-width:95%;box-shadow:0 25px 80px rgba(0,0,0,.1);position:relative;z-index:1;text-align:center;border:1px solid rgba(130,113,72,.3)}
 .login-logo{width:90px;height:90px;border-radius:20px;object-fit:cover;margin:0 auto 16px;box-shadow:0 8px 24px rgba(130,113,72,.2)}
 .login-box h2{margin-bottom:4px;color:#000;font-size:42px;letter-spacing:6px;font-family:'Helvetica Regular',Helvetica,Arial,sans-serif;font-weight:700}
@@ -103,7 +104,7 @@ input::placeholder,textarea::placeholder{color:var(--text-light)}
 .stat-info h4{font-size:26px;font-weight:800;color:var(--text);line-height:1.2}.stat-info p{font-size:13px;color:var(--text-light);margin-top:2px}
 
 /* TABLES */
-.table-wrap{overflow-x:auto;border-radius:var(--radius-sm)}
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:var(--radius-sm)}
 table{width:100%;border-collapse:separate;border-spacing:0;font-size:14px}
 th,td{padding:14px 18px;text-align:right;border-bottom:1px solid var(--border)}
 th{background:linear-gradient(180deg,#F5F5F5,#F0F0F0);font-weight:700;font-size:13px;color:var(--primary);white-space:nowrap;position:sticky;top:0}
@@ -295,6 +296,24 @@ select{cursor:pointer;appearance:auto}
 .crm-followup-ok{background:rgba(34,197,94,0.15);color:#22c55e}
 
 @media(max-width:768px){.crm-pipeline{flex-direction:column}.crm-pipeline-col{min-width:100%;max-width:100%}}
+@media(max-width:992px){
+  .mobile-hamburger{display:flex!important}
+  .mobile-lang-btn{display:flex!important}
+  .sidebar:not(.open){transform:translateX(100%)}
+  .sidebar.open{transform:translateX(0)}
+  .sidebar-overlay.active{display:block;opacity:1}
+  .sidebar-close-btn{display:flex!important;align-items:center;justify-content:center}
+  .sidebar-header{padding:20px 20px 16px;position:relative}
+  .sidebar-nav{padding:12px 0}
+  .nav-item{padding:15px 20px;font-size:15px;margin:2px 8px;color:rgba(0,0,0,.65);min-height:48px}
+  .main{margin-right:0;width:100%;padding:20px;padding-top:72px}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .form-row,.form-row-3{grid-template-columns:1fr}
+  .rules-grid{grid-template-columns:1fr}
+  .card{padding:18px}
+  .modal{max-width:88%;padding:24px;max-height:90vh}
+  .modal .form-row,.modal .form-row-3{grid-template-columns:1fr}
+}
 @media(max-width:768px){
   .sidebar{width:85vw;max-width:320px;transform:translateX(100%);box-shadow:-8px 0 40px rgba(0,0,0,.2)}
   .sidebar.open{transform:translateX(0)}
@@ -321,8 +340,9 @@ select{cursor:pointer;appearance:auto}
   .login-box{padding:28px 20px;border-radius:20px}
   .login-box h2{font-size:28px;letter-spacing:3px}
   .login-logo{width:70px;height:70px}
-  .modal{padding:20px 16px;border-radius:20px;max-width:95%;margin:0 10px}
-  .modal h3{font-size:17px}
+  .modal{padding:18px 14px;border-radius:18px;max-width:96%;margin:0 8px;max-height:85vh}
+  .modal h3{font-size:16px}
+  .modal .form-row,.modal .form-row-3{grid-template-columns:1fr}
   .deals-page{grid-template-columns:1fr;padding:10px}
   .deals-sidebar,.deals-right{display:none}
   .deals-tab-bar{flex-wrap:wrap;gap:4px;padding:6px}
@@ -380,11 +400,28 @@ select{cursor:pointer;appearance:auto}
   table{font-size:12px}
   th,td{padding:10px 12px}
   .badge{padding:4px 10px;font-size:11px}
-  .btn{padding:10px 16px;font-size:13px}
-  .btn-sm{padding:8px 12px;font-size:12px}
+  .btn{padding:12px 18px;font-size:14px;min-height:44px}
+  .btn-sm{padding:10px 14px;font-size:13px;min-height:40px}
+  .nav-item{padding:16px 20px;min-height:48px}
+  .ws-row-action-icon{width:38px;height:38px}
+  .mkt-row-action{width:36px;height:36px}
+  .deals-tab{padding:10px 14px;min-height:40px}
+  input,select,textarea{padding:12px 14px;font-size:16px}
+}
+@media(max-height:500px){
+  .login-box{padding:16px 14px;width:360px}
+  .login-box h2{font-size:22px;letter-spacing:2px;margin-bottom:0}
+  .login-box p{margin-bottom:12px;font-size:12px}
+  .login-logo{width:50px;height:50px}
+  .login-box .form-group{margin-bottom:8px}
+  .login-box input{padding:10px 12px;font-size:14px}
+  .login-box .btn{padding:10px;font-size:14px}
+  .login-page::before,.login-page::after{display:none}
 }
 @media(max-width:480px){
   .main{padding:10px;padding-top:66px}
+  .mobile-hamburger{width:44px;height:44px;top:12px;right:12px;font-size:18px}
+  .mobile-lang-btn{width:44px;height:44px;top:12px;right:64px;font-size:12px}
   .stats-grid{grid-template-columns:1fr;gap:8px}
   .stat-card{padding:12px;gap:10px}
   .stat-icon{width:40px;height:40px;border-radius:10px;font-size:16px}
@@ -406,8 +443,6 @@ select{cursor:pointer;appearance:auto}
   .mkt-row{flex-wrap:wrap;gap:6px}
   .mkt-row-id{width:auto}
   .mkt-pagination{flex-direction:column;gap:8px;align-items:stretch}
-  .mobile-hamburger{width:44px;height:44px;top:12px;right:12px;font-size:18px}
-  .mobile-lang-btn{display:flex!important;width:44px;height:44px;top:12px;right:64px;font-size:12px}
 }
 
 /* INTEGRATIONS */
@@ -3248,9 +3283,9 @@ function renderDashboard(el) {
     if(!recentSales.length){recentEl.innerHTML='<div class="empty-state"><p>'+lg?'لا توجد مبيعات':'No sales'+'</p></div>';}
     else{
       const empMap={};employees.forEach(e=>{empMap[e.id]=e.name;});
-      recentEl.innerHTML='<table><thead><tr><th>'+lg?'العميل':'Client'+'</th><th>'+lg?'المشروع':'Project'+'</th><th>'+lg?'السعر':'Price'+'</th><th>'+lg?'التاريخ':'Date'+'</th></tr></thead><tbody>'+
+      recentEl.innerHTML='<div class="table-wrap"><table><thead><tr><th>'+lg?'العميل':'Client'+'</th><th>'+lg?'المشروع':'Project'+'</th><th>'+lg?'السعر':'Price'+'</th><th>'+lg?'التاريخ':'Date'+'</th></tr></thead><tbody>'+
       recentSales.map(s=>'<tr><td><strong>'+(s.client||'-')+'</strong></td><td style="font-size:12px">'+(s.project||'-')+'</td><td><strong>'+fmt(s.unitPrice)+'</strong></td><td style="font-size:12px">'+(s.date||'-')+'</td></tr>').join('')+
-      '</tbody></table>';
+      '</tbody></table></div>';
     }
   }
 
@@ -3874,7 +3909,7 @@ function renderSalesTable(sales) {
   const employees = STORAGE.get('employees',[]);
   const getEmpName = (id) => { const e=employees.find(x=>x.id===id); return e?e.name:'-'; };
   if(sales.length===0) { document.getElementById('salesTable').innerHTML='<div class="empty-state"><p>'+t('noData')+'</p></div>'; return; }
-  let h='<table><thead><tr><th>'+t('sale_code')+'</th><th>'+t('sale_date')+'</th><th>'+t('sale_client')+'</th><th>'+t('sale_project')+'</th><th>'+t('sale_unitType')+'</th><th>'+t('sale_unitNum')+'</th><th>'+t('sale_price')+'</th><th>'+t('sale_commissionRate')+'</th><th>'+t('sale_commissionAmount')+'</th><th>'+t('sale_bookingType')+'</th><th>'+t('sale_salesPerson')+'</th><th></th></tr></thead><tbody>';
+  let h='<div class="table-wrap"><table><thead><tr><th>'+t('sale_code')+'</th><th>'+t('sale_date')+'</th><th>'+t('sale_client')+'</th><th>'+t('sale_project')+'</th><th>'+t('sale_unitType')+'</th><th>'+t('sale_unitNum')+'</th><th>'+t('sale_price')+'</th><th>'+t('sale_commissionRate')+'</th><th>'+t('sale_commissionAmount')+'</th><th>'+t('sale_bookingType')+'</th><th>'+t('sale_salesPerson')+'</th><th></th></tr></thead><tbody>';
   sales.forEach(s => {
     const comm = (s.unitPrice||0)*(s.commissionRate||0)/100;
     const cond = s.commissionRate>=3.5;
@@ -3887,7 +3922,7 @@ function renderSalesTable(sales) {
       <td>${canEdit()?`<button class="btn btn-outline btn-sm" onclick="openSaleForm('${s.id}')"><i class="fas fa-pen"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteSale('${s.id}')"><i class="fas fa-trash"></i></button>`:''}</td>
     </tr>`;
   });
-  h+='</tbody></table>';
+  h+='</tbody></table></div>';
   document.getElementById('salesTable').innerHTML=h;
 }
 
@@ -4302,7 +4337,7 @@ function filterEmpList() {
 
   if(employees.length===0) { document.getElementById('empTable').innerHTML='<div class="empty-state"><p>'+t('emp_filterNoResult')+'</p></div>'; return; }
   const allSales = STORAGE.get('sales',[]);
-  let h='<table><thead><tr><th>'+t('emp_name')+'</th><th>'+t('emp_role')+'</th><th>'+t('emp_nationalId')+'</th><th>'+t('emp_personalPhone')+'</th><th>'+t('emp_workPhone')+'</th><th>'+t('emp_address')+'</th><th>'+t('emp_salary')+'</th><th>'+t('emp_target')+'</th><th>'+t('emp_achievement')+'</th><th>'+t('emp_status')+'</th><th>'+t('emp_files')+'</th><th></th></tr></thead><tbody>';
+  let h='<div class="table-wrap"><table><thead><tr><th>'+t('emp_name')+'</th><th>'+t('emp_role')+'</th><th>'+t('emp_nationalId')+'</th><th>'+t('emp_personalPhone')+'</th><th>'+t('emp_workPhone')+'</th><th>'+t('emp_address')+'</th><th>'+t('emp_salary')+'</th><th>'+t('emp_target')+'</th><th>'+t('emp_achievement')+'</th><th>'+t('emp_status')+'</th><th>'+t('emp_files')+'</th><th></th></tr></thead><tbody>';
   employees.forEach(emp => {
     const files = emp.files || [];
     const fileBadge = files.length > 0
@@ -4333,7 +4368,7 @@ function filterEmpList() {
       <td>${canEdit()?`<button class="btn btn-outline btn-sm" onclick="openEmpForm('${emp.id}')"><i class="fas fa-pen"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteEmp('${emp.id}')"><i class="fas fa-trash"></i></button>`:''}</td>
     </tr>`;
   });
-  h+='</tbody></table>';
+  h+='</tbody></table></div>';
   document.getElementById('empTable').innerHTML=h;
 }
 
@@ -4538,7 +4573,7 @@ function renderEmpFilesList() {
   if(!container) return;
   const files = window._pendingEmpFiles || [];
   if(files.length === 0) { container.innerHTML = '<p style="color:var(--text-light);font-size:13px">'+t('emp_noFiles')+'</p>'; return; }
-  let h = '<table style="font-size:13px"><thead><tr><th>'+t('emp_fileName')+'</th><th>'+t('emp_fileSize')+'</th><th>'+t('emp_fileDate')+'</th><th></th></tr></thead><tbody>';
+  let h = '<div class="table-wrap"><table style="font-size:13px"><thead><tr><th>'+t('emp_fileName')+'</th><th>'+t('emp_fileSize')+'</th><th>'+t('emp_fileDate')+'</th><th></th></tr></thead><tbody>';
   files.forEach((f, i) => {
     const sizeKB = (f.size/1024).toFixed(1);
     const sizeStr = sizeKB > 1024 ? (sizeKB/1024).toFixed(1)+' MB' : sizeKB+' KB';
@@ -4553,7 +4588,7 @@ function renderEmpFilesList() {
       </td>
     </tr>`;
   });
-  h += '</tbody></table>';
+  h += '</tbody></table></div>';
   container.innerHTML = h;
 }
 
@@ -5112,7 +5147,7 @@ function filterHrEmpList() {
   const countEl = document.getElementById('empFilterCount');
   if(countEl) countEl.textContent = employees.length + ' ' + t('emp_filterResults');
   if(employees.length===0) { document.getElementById('hrEmpTable').innerHTML='<div class="empty-state"><p>'+t('emp_filterNoResult')+'</p></div>'; return; }
-  let h='<table><thead><tr><th>'+t('emp_name')+'</th><th>'+t('emp_role')+'</th><th>'+t('emp_nationalId')+'</th><th>'+t('emp_personalPhone')+'</th><th>'+t('emp_salary')+'</th><th>'+t('emp_target')+'</th><th>'+t('emp_kpi')+'</th><th>'+t('emp_status')+'</th><th></th></tr></thead><tbody>';
+  let h='<div class="table-wrap"><table><thead><tr><th>'+t('emp_name')+'</th><th>'+t('emp_role')+'</th><th>'+t('emp_nationalId')+'</th><th>'+t('emp_personalPhone')+'</th><th>'+t('emp_salary')+'</th><th>'+t('emp_target')+'</th><th>'+t('emp_kpi')+'</th><th>'+t('emp_status')+'</th><th></th></tr></thead><tbody>';
   employees.forEach(emp => {
     h+=`<tr>
       <td><strong>${emp.name}</strong></td>
@@ -5124,7 +5159,7 @@ function filterHrEmpList() {
       <td>${canEdit()?`<button class="btn btn-outline btn-sm" onclick="openEmpForm('${emp.id}')"><i class="fas fa-pen"></i></button> <button class="btn btn-danger btn-sm" onclick="deleteEmp('${emp.id}')"><i class="fas fa-trash"></i></button>`:''}</td>
     </tr>`;
   });
-  h+='</tbody></table>';
+  h+='</tbody></table></div>';
   document.getElementById('hrEmpTable').innerHTML=h;
 }
 
