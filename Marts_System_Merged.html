@@ -19958,6 +19958,21 @@ try {
   var errEl = document.getElementById('loginError');
   if(errEl) errEl.textContent = 'Init error: ' + e.message;
 }
+(function(){
+  var params = new URLSearchParams(window.location.search);
+  if(params.get('reset') === 'true'){
+    var keys = Object.keys(localStorage);
+    var protectedKeys = ['lang','darkMode','user','currentPage'];
+    keys.forEach(function(k){
+      if(protectedKeys.indexOf(k) === -1) localStorage.removeItem(k);
+    });
+    localStorage.removeItem('activityLog');
+    localStorage.removeItem('systemLog');
+    window.history.replaceState({}, document.title, window.location.pathname);
+    alert(lang==='ar'?'تم حذف جميع البيانات المحلية بنجاح. بياناتك السحابية آمنة.':'Local data cleared successfully. Your cloud data is safe.');
+    location.reload();
+  }
+})();
 document.getElementById('loginPass').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
 document.getElementById('loginUser').addEventListener('keydown',function(e){if(e.key==='Enter')doLogin();});
 
