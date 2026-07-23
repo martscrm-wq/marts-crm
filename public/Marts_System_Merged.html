@@ -1056,7 +1056,48 @@ body.dark-mode .login-box{background:#16213E;border-color:#2A2A4A}
 .ws-outline-sm i{font-size:9px}
 
 /* Workspace page inside CRM dashboard */
-.ws-page{background:var(--crm-page-bg);min-height:calc(100vh - 64px)}
+.ws-page{background:var(--crm-page-bg);min-height:calc(100vh - 64px);padding-bottom:70px}
+
+/* Bulk Actions Bottom Bar */
+.ws-bottom-bar{position:fixed;bottom:0;left:0;right:0;z-index:200;background:var(--crm-primary-dark,#3D3225);color:#fff;padding:10px 20px;display:none;align-items:center;gap:12px;box-shadow:0 -4px 20px rgba(0,0,0,.3);animation:wsSlideUp .3s ease}
+.ws-bottom-bar.visible{display:flex}
+@keyframes wsSlideUp{from{transform:translateY(100%);opacity:0}to{transform:translateY(0);opacity:1}}
+.ws-bottom-bar .ws-bb-count{font-size:13px;font-weight:700;white-space:nowrap;color:var(--crm-primary,#A5AF79)}
+.ws-bottom-bar .ws-bb-count span{font-size:18px;margin:0 2px}
+.ws-bottom-bar .ws-bb-actions{display:flex;align-items:center;gap:6px;flex:1;overflow-x:auto;flex-wrap:nowrap}
+.ws-bottom-bar .ws-bb-btn{display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:none;white-space:nowrap;transition:all .2s;background:rgba(255,255,255,.1);color:#fff}
+.ws-bottom-bar .ws-bb-btn:hover{background:rgba(255,255,255,.2);transform:translateY(-1px)}
+.ws-bottom-bar .ws-bb-btn i{font-size:11px}
+.ws-bottom-bar .ws-bb-btn.danger{background:rgba(239,68,68,.25);color:#EF4444}
+.ws-bottom-bar .ws-bb-btn.danger:hover{background:#EF4444;color:#fff}
+.ws-bottom-bar .ws-bb-sep{width:1px;height:24px;background:rgba(255,255,255,.2);flex-shrink:0}
+.ws-bottom-bar .ws-bb-right{display:flex;align-items:center;gap:8px;flex-shrink:0;margin-left:auto}
+.ws-bottom-bar .ws-bb-select-btn{padding:5px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;border:1px solid rgba(255,255,255,.3);background:transparent;color:#fff;transition:all .2s}
+.ws-bottom-bar .ws-bb-select-btn:hover{background:rgba(255,255,255,.1)}
+.ws-bottom-bar .ws-bb-close{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;cursor:pointer;border:none;background:rgba(255,255,255,.1);color:#fff;font-size:14px;transition:all .2s}
+.ws-bottom-bar .ws-bb-close:hover{background:rgba(239,68,68,.4);color:#fff}
+.ws-bottom-bar .ws-bb-more-wrap{position:relative}
+.ws-bottom-bar .ws-bb-more{padding:6px 10px;border-radius:8px;font-size:11px;font-weight:700;cursor:pointer;border:none;background:rgba(255,255,255,.1);color:#fff;transition:all .2s;display:inline-flex;align-items:center;gap:4px}
+.ws-bottom-bar .ws-bb-more:hover{background:rgba(255,255,255,.2)}
+.ws-bottom-bar .ws-bb-more-menu{position:absolute;bottom:100%;right:0;background:var(--crm-card-bg,#fff);border:1px solid var(--crm-card-border,#ddd);border-radius:10px;padding:6px;min-width:200px;display:none;box-shadow:0 -4px 24px rgba(0,0,0,.2);z-index:201;margin-bottom:6px}
+.ws-bottom-bar .ws-bb-more-menu.open{display:block}
+.ws-bottom-bar .ws-bb-more-menu .ws-bb-more-item{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;color:var(--crm-text-primary,#222);transition:background .15s;white-space:nowrap}
+.ws-bottom-bar .ws-bb-more-menu .ws-bb-more-item:hover{background:var(--crm-page-bg,#f5f5f5)}
+.ws-bottom-bar .ws-bb-more-menu .ws-bb-more-item i{width:16px;text-align:center;font-size:12px;color:var(--crm-text-muted,#888)}
+body.sidebar-collapsed .ws-bottom-bar{right:0;left:68px}
+
+@media(max-width:1024px){
+  .ws-bottom-bar{padding:8px 12px;gap:8px}
+  .ws-bottom-bar .ws-bb-btn{padding:5px 8px;font-size:10px}
+  .ws-bottom-bar .ws-bb-btn span.ws-bb-btn-label{display:none}
+  body.sidebar-collapsed .ws-bottom-bar{left:0}
+}
+@media(max-width:768px){
+  .ws-bottom-bar{flex-wrap:wrap;padding:8px 10px}
+  .ws-bottom-bar .ws-bb-actions{flex-wrap:wrap;gap:4px}
+  .ws-bottom-bar .ws-bb-right{width:100%;justify-content:flex-end}
+  body.sidebar-collapsed .ws-bottom-bar{left:0}
+}
 
 /* ============================================================
    DEALS PAGE
@@ -13887,7 +13928,79 @@ function renderCrmWorkspaceView(el){
         </div>
       </div>`).join('')}
     </div>
+
+    <!-- Bulk Actions Bottom Bar -->
+    <div class="ws-bottom-bar" id="wsBulkBar">
+      <div class="ws-bb-count"><span id="wsBBCountNum">0</span> ${lang==='ar'?'محدد':'selected'}</div>
+      <div class="ws-bb-actions">
+        <button class="ws-bb-btn" onclick="wsBulkReassign()"><i class="fas fa-user"></i><span class="ws-bb-btn-label">${lang==='ar'?'إسناد':'Reassign'}</span></button>
+        <button class="ws-bb-btn" onclick="wsBulkChangeStage()"><i class="fas fa-arrow-right"></i><span class="ws-bb-btn-label">${lang==='ar'?'المرحلة':'Stage'}</span></button>
+        <button class="ws-bb-btn" onclick="wsBulkChangeRating()"><i class="fas fa-star"></i><span class="ws-bb-btn-label">${lang==='ar'?'التقييم':'Rating'}</span></button>
+        <button class="ws-bb-btn" onclick="wsBulkAddTag()"><i class="fas fa-tag"></i><span class="ws-bb-btn-label">${lang==='ar'?'وسم':'Tag'}</span></button>
+        <button class="ws-bb-btn" onclick="wsBulkAddTask()"><i class="fas fa-tasks"></i><span class="ws-bb-btn-label">${lang==='ar'?'مهمة':'Task'}</span></button>
+        <button class="ws-bb-btn" onclick="wsBulkSMS()"><i class="fas fa-sms"></i><span class="ws-bb-btn-label">SMS</span></button>
+        <button class="ws-bb-btn" onclick="wsBulkAttachCampaign()"><i class="fas fa-ad"></i><span class="ws-bb-btn-label">${lang==='ar'?'حملة':'Campaign'}</span></button>
+        <button class="ws-bb-btn" onclick="wsBulkChangeType()"><i class="fas fa-exchange-alt"></i><span class="ws-bb-btn-label">${lang==='ar'?'النوع':'Type'}</span></button>
+        <button class="ws-bb-btn" onclick="wsOpenMergeWizard()"><i class="fas fa-code-branch"></i><span class="ws-bb-btn-label">${lang==='ar'?'دمج':'Merge'}</span></button>
+        <button class="ws-bb-btn danger" onclick="wsBulkDelete()"><i class="fas fa-trash"></i><span class="ws-bb-btn-label">${lang==='ar'?'حذف':'Delete'}</span></button>
+        <div class="ws-bb-sep"></div>
+        <div class="ws-bb-more-wrap">
+          <button class="ws-bb-more" onclick="this.nextElementSibling.classList.toggle('open')"><i class="fas fa-ellipsis-h"></i> ${lang==='ar'?'المزيد':'More'}</button>
+          <div class="ws-bb-more-menu">
+            <div class="ws-bb-more-item" onclick="wsBulkChangeSource()"><i class="fas fa-database"></i> ${lang==='ar'?'تغيير المصدر':'Change Source'}</div>
+            <div class="ws-bb-more-item" onclick="wsBulkChangeWallet()"><i class="fas fa-wallet"></i> ${lang==='ar'?'تغيير المحفظة':'Change Wallet'}</div>
+            <div class="ws-bb-more-item" onclick="wsBulkAddNote()"><i class="fas fa-sticky-note"></i> ${lang==='ar'?'ملاحظة جماعية':'Bulk Note'}</div>
+            <div class="ws-bb-more-item" onclick="wsBulkHideHistory()"><i class="fas fa-eye-slash"></i> ${lang==='ar'?'إخفاء السجل':'Hide History'}</div>
+            <div class="ws-bb-more-item" onclick="wsBulkRemoveTag()"><i class="fas fa-times-circle"></i> ${lang==='ar'?'إزالة وسم':'Remove Tag'}</div>
+            <div class="ws-bb-more-item" onclick="wsBulkCreateCampaign()"><i class="fas fa-ad"></i> ${lang==='ar'?'إنشاء حملة':'Create Campaign'}</div>
+            <div class="ws-bb-more-item" onclick="wsBulkNudge()"><i class="fas fa-bell"></i> ${lang==='ar'?'تنبيه':'Nudge'}</div>
+            <div class="ws-bb-more-item" onclick="openBulkAddInterest()"><i class="fas fa-plus-circle"></i> ${lang==='ar'?'إضافة اهتمام':'Add Interest'}</div>
+            <div class="ws-bb-more-item" onclick="wsBulkChangeLeadList()"><i class="fas fa-list"></i> ${lang==='ar'?'تغيير قائمة':'Change Lead List'}</div>
+          </div>
+        </div>
+      </div>
+      <div class="ws-bb-right">
+        <button class="ws-bb-select-btn" onclick="wsSelectAll(true)"><i class="fas fa-check-double"></i> ${lang==='ar'?'تحديد الكل':'Select All'}</button>
+        <button class="ws-bb-select-btn" onclick="wsSelectAll(false);updateBulkBar()"><i class="fas fa-times"></i> ${lang==='ar'?'إلغاء الكل':'Deselect All'}</button>
+        <button class="ws-bb-close" onclick="wsSelectAll(false);updateBulkBar()" title="${lang==='ar'?'إغلاق':'Close'}"><i class="fas fa-times"></i></button>
+      </div>
+    </div>
   </div>`;
+
+  // Wire up checkboxes to bottom bar
+  document.querySelectorAll('.ws-row-checkbox input[type="checkbox"]').forEach(cb => {
+    cb.addEventListener('change', updateBulkBar);
+  });
+  const selAllCb = document.querySelector('.ws-select-all-cb');
+  if(selAllCb) selAllCb.addEventListener('change', function(){
+    document.querySelectorAll('.ws-row-checkbox input[type="checkbox"]').forEach(cb => {
+      const row = cb.closest('.ws-row');
+      if(row && row.style.display !== 'none') cb.checked = selAllCb.checked;
+    });
+    updateBulkBar();
+  });
+  updateBulkBar();
+  document.addEventListener('click', function(e){
+    var moreMenu = document.querySelector('.ws-bb-more-menu');
+    var moreBtn = document.querySelector('.ws-bb-more');
+    if(moreMenu && moreMenu.classList.contains('open') && !moreMenu.contains(e.target) && moreBtn && !moreBtn.contains(e.target)){
+      moreMenu.classList.remove('open');
+    }
+  });
+}
+
+function updateBulkBar(){
+  const checked = document.querySelectorAll('.ws-row-checkbox input:checked');
+  const bar = document.getElementById('wsBulkBar');
+  const countEl = document.getElementById('wsBBCountNum');
+  if(!bar) return;
+  if(checked.length > 0){
+    bar.classList.add('visible');
+    if(countEl) countEl.textContent = checked.length;
+  } else {
+    bar.classList.remove('visible');
+    if(countEl) countEl.textContent = '0';
+  }
 }
 
 function wsToggle(el){
@@ -14057,7 +14170,53 @@ function wsBulkSMS(){
     wsToast(lang==='ar'?'اختر عملاء أولاً':'Select clients first');
     return;
   }
-  wsToast((lang==='ar'?'إرسال SMS إلى ':'SMS to ') + checked.length + (lang==='ar'?' عملاء':' clients'));
+  const lg = lang==='ar';
+  const ids = Array.from(checked).map(cb => cb.closest('.ws-row')?.dataset?.clientId).filter(Boolean);
+  const clients = getCrmClients();
+  const selected = ids.map(id=>clients.find(c=>c.id===id)).filter(Boolean);
+  const phones = selected.map(c=>c.phone).filter(Boolean);
+  const preview = selected.slice(0,5).map(c=>`${c.name} (${c.phone||lg?'بدون رقم':'No phone'})`).join(', ') + (selected.length>5?' ...':'');
+  const modal = document.getElementById('modalContainer');
+  modal.innerHTML = `<h3><i class="fas fa-sms" style="color:var(--primary)"></i> ${lg?'إرسال SMS إلى '+ids.length+' عميل':'Send SMS to '+ids.length+' clients'}</h3>
+    <div style="margin:12px 0">
+      <div style="background:var(--crm-page-bg);border:1px solid var(--crm-card-border);border-radius:8px;padding:10px 14px;margin-bottom:12px">
+        <div style="font-size:12px;font-weight:700;color:var(--crm-text-muted);margin-bottom:6px">${lg?'المستلمون:':'Recipients:'}</div>
+        <div style="font-size:12px;color:var(--crm-text-secondary)">${preview}</div>
+        <div style="font-size:11px;color:var(--crm-text-muted);margin-top:4px">${lg?'أرقام:'+phones.length+' / '+'إجمالي:'+selected.length:'Phones:'+phones.length+' / Total:'+selected.length}</div>
+      </div>
+      <div class="form-group"><label>${lg?'الرسالة':'Message'}</label>
+        <textarea id="bulkSmsMsg" rows="5" style="resize:vertical;width:100%;padding:10px;border:1px solid var(--crm-card-border);border-radius:8px;background:var(--crm-page-bg);color:var(--crm-text-primary);font-size:13px" placeholder="${lg?'اكتب رسالتك هنا...':'Write your message here...'}" oninput="document.getElementById('smsCharCount').textContent=this.value.length+'/'+160"></textarea>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:4px">
+          <span id="smsCharCount" style="font-size:11px;color:var(--crm-text-muted)">0/160</span>
+          <span style="font-size:11px;color:var(--crm-text-muted)">${lg?'رسالة نصية قصيرة':'SMS'}</span>
+        </div>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" onclick="wsConfirmBulkSMS()"><i class="fas fa-paper-plane"></i> ${lg?'إرسال':'Send'}</button>
+      <button class="btn btn-outline" onclick="closeModal()">${lg?'إلغاء':'Cancel'}</button>
+    </div>`;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function wsConfirmBulkSMS(){
+  const lg = lang==='ar';
+  const ids = wsGetSelectedClientIds();
+  const msg = document.getElementById('bulkSmsMsg')?.value?.trim();
+  if(!msg){wsToast(lg?'اكتب الرسالة':'Enter a message');return;}
+  if(!ids.length){wsToast(lg?'اختر عملاء':'Select clients');return;}
+  const clients = getCrmClients();
+  ids.forEach(id=>{
+    const idx=clients.findIndex(x=>x.id===id);
+    if(idx>=0){
+      clients[idx].lastContact = new Date().toISOString();
+      addCrmActivity(id,'sms',(lg?'إرسال SMS: ':'SMS sent: ')+msg.substring(0,50)+(msg.length>50?'...':''));
+    }
+  });
+  saveCrmClients(clients);
+  closeModal();
+  wsToast((lg?'تم إرسال SMS إلى '+ids.length+' عميل':'SMS sent to '+ids.length+' clients'));
+  renderCrmWorkspaceView(document.getElementById('crmViewContent'));
 }
 
 function wsGetSelectedClientIds(){
@@ -14168,42 +14327,125 @@ function wsBulkActions(){
 function wsBulkReassign(){
   const ids = wsGetSelectedClientIds();
   if(!ids.length) return;
-  const employees = STORAGE.get('employees',[]);
+  const lg = lang==='ar';
   const userOpts = getAllUsers().filter(u=>['sales','tl','sm','marketer','ma','md'].includes(u.role))
     .map(u=>`<option value="${u.username}">${u.fullName||u.username}</option>`).join('');
+  const groups = STORAGE.get('userGroups',[]);
+  const groupOpts = groups.map(g=>`<option value="${g.id||g.name}">${g.name||g.id}</option>`).join('');
+  const stageOpts = CRM_STAGES.map(s=>`<option value="${s}">${t('crm_stage_'+s)}</option>`).join('');
   const modal = document.getElementById('modalContainer');
-  modal.innerHTML = `<h3><i class="fas fa-user" style="color:var(--primary)"></i> ${lang==='ar'?'إعادة التعيين لـ '+ids.length+' عميل':'Reassign '+ids.length+' clients'}</h3>
-    <div class="form-group"><label>${lang==='ar'?'الوكيل الجديد':'New Agent'}</label><select id="bulkReassignAgent">${userOpts}</select></div>
+  modal.innerHTML = `<h3><i class="fas fa-user" style="color:var(--primary)"></i> ${lg?'إعادة تعيين '+ids.length+' عميل':'Reassign '+ids.length+' clients'}</h3>
+    <div style="margin:14px 0;display:flex;flex-direction:column;gap:12px">
+      <div class="form-group"><label>${lg?'نوع الإسناد':'Assignment Type'}</label>
+        <select id="bulkReassignType" onchange="wsReassignTypeChange()">
+          <option value="users">${lg?'مستخدمون':'Users'}</option>
+          <option value="groups">${lg?'مجموعات':'Groups'}</option>
+          <option value="rule">${lg?'قاعدة إسناد':'Assignment Rule'}</option>
+        </select>
+      </div>
+      <div id="reassignUsersGroup" class="form-group"><label>${lg?'الوكيل/ون':'Agent(s)'}</label>
+        <select id="bulkReassignAgent" multiple style="width:100%;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;background:var(--crm-page-bg);color:var(--crm-text-primary);min-height:80px">${userOpts}</select>
+        <div style="font-size:10px;color:var(--crm-text-muted);margin-top:4px">${lg?'اضغط Ctrl لاختيار أكثر من واحد':'Hold Ctrl to select multiple'}</div>
+      </div>
+      <div id="reassignGroupsGroup" class="form-group" style="display:none"><label>${lg?'المجموعة':'Group'}</label>
+        <select id="bulkReassignGroup" style="width:100%;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;background:var(--crm-page-bg);color:var(--crm-text-primary)">
+          <option value="">${lg?'اختر مجموعة...':'Select group...'}</option>${groupOpts}</select>
+      </div>
+      <div id="reassignRuleGroup" style="display:none">
+        <div class="form-group"><label>${lg?'نوع القاعدة':'Rule Type'}</label>
+          <select id="bulkReassignRuleType" style="width:100%;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;background:var(--crm-page-bg);color:var(--crm-text-primary)">
+            <option value="round_robin">${lg?'تدوير دوري':'Round Robin'}</option>
+            <option value="load_balance">${lg?'توزيع الحمل':'Load Balance'}</option>
+            <option value="skills_based">${lg?'بناءً على المهارات':'Skills Based'}</option>
+            <option value="random">${lg?'عشوائي':'Random'}</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <div style="display:flex;align-items:center;gap:8px">
+            <label style="margin:0;font-size:12px">${lg?'الاحتفاظ بي هناك':'Keep Me There'}</label>
+            <div class="ws-toggle" onclick="wsToggle(this)" style="cursor:pointer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="form-group"><label>${lg?'إخفاء السجل':'Hide History'}</label>
+        <div style="display:flex;align-items:center;gap:8px">
+          <div class="ws-toggle" onclick="wsToggle(this)" style="cursor:pointer"></div>
+          <span style="font-size:11px;color:var(--crm-text-muted)">${lg?'إخفاء سجل النشاط القديم':'Hide old activity history'}</span>
+        </div>
+      </div>
+      <div class="form-group"><label>${lg?'تغيير المرحلة (اختياري)':'Change Stage (optional)'}</label>
+        <select id="bulkReassignStage" style="width:100%;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;background:var(--crm-page-bg);color:var(--crm-text-primary)">
+          <option value="">${lg?'بدون تغيير':'No change'}</option>${stageOpts}</select>
+      </div>
+      <div class="form-group"><label>${lg?'تغيير التقييم (اختياري)':'Change Rating (optional)'}</label>
+        <select id="bulkReassignRating" style="width:100%;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;background:var(--crm-page-bg);color:var(--crm-text-primary)">
+          <option value="">${lg?'بدون تغيير':'No change'}</option>
+          <option value="hot">${lg?'ساخن':'Hot'}</option>
+          <option value="warm">${lg?'دافئ':'Warm'}</option>
+          <option value="cold">${lg?'بارد':'Cold'}</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <div style="display:flex;align-items:center;gap:8px">
+          <label style="margin:0;font-size:12px">${lg?'إكمال المهام القديمة':'Mark Old To-dos as Completed'}</label>
+          <div class="ws-toggle" onclick="wsToggle(this)" style="cursor:pointer"></div>
+        </div>
+      </div>
+    </div>
     <div class="modal-actions">
-      <button class="btn btn-primary" onclick="wsConfirmBulkReassign()"><i class="fas fa-check"></i> ${lang==='ar'?'تأكيد':'Confirm'}</button>
-      <button class="btn btn-outline" onclick="closeModal()">${lang==='ar'?'إلغاء':'Cancel'}</button>
+      <button class="btn btn-primary" onclick="wsConfirmBulkReassign()"><i class="fas fa-check"></i> ${lg?'تأكيد':'Confirm'}</button>
+      <button class="btn btn-outline" onclick="closeModal()">${lg?'إلغاء':'Cancel'}</button>
     </div>`;
   document.getElementById('modalOverlay').classList.add('active');
 }
 
+function wsReassignTypeChange(){
+  const type = document.getElementById('bulkReassignType')?.value;
+  const usersGrp = document.getElementById('reassignUsersGroup');
+  const groupsGrp = document.getElementById('reassignGroupsGroup');
+  const ruleGrp = document.getElementById('reassignRuleGroup');
+  if(usersGrp) usersGrp.style.display = type==='users'?'':'none';
+  if(groupsGrp) groupsGrp.style.display = type==='groups'?'':'none';
+  if(ruleGrp) ruleGrp.style.display = type==='rule'?'':'none';
+}
+
 function wsConfirmBulkReassign(){
   const ids = wsGetSelectedClientIds();
-  const agent = document.getElementById('bulkReassignAgent').value;
-  if(!agent) return;
+  const lg = lang==='ar';
+  const assignType = document.getElementById('bulkReassignType')?.value || 'users';
+  let agent = '';
+  if(assignType === 'users'){
+    const sel = document.getElementById('bulkReassignAgent');
+    agent = sel ? (sel.value || '') : '';
+  } else if(assignType === 'groups'){
+    agent = document.getElementById('bulkReassignGroup')?.value || '';
+  } else {
+    agent = document.getElementById('bulkReassignRuleType')?.value || '';
+  }
+  if(!agent){wsToast(lg?'اختر مستخدم أو مجموعة':'Select a user or group');return;}
+  const newStage = document.getElementById('bulkReassignStage')?.value || '';
+  const newRating = document.getElementById('bulkReassignRating')?.value || '';
   const clients = getCrmClients();
   const prevState = [];
   ids.forEach(id => {
     const idx = clients.findIndex(x=>x.id===id);
     if(idx>=0){
-      prevState.push({id,assignedUser:clients[idx].assignedUser});
+      prevState.push({id,assignedUser:clients[idx].assignedUser,stage:clients[idx].stage,rating:clients[idx].rating});
       clients[idx].assignedUser = agent;
-      addCrmActivity(id,'assigned',(lang==='ar'?'إعادة تعيين إلى ':'Reassigned to ')+agent);
+      if(newStage) clients[idx].stage = newStage;
+      if(newRating) clients[idx].rating = newRating;
+      addCrmActivity(id,'assigned',(lg?'إعادة تعيين إلى ':'Reassigned to ')+agent+(newStage?' | '+lg?'مرحلة: ':'Stage: '+t('crm_stage_'+newStage):'')+(newRating?' | '+lg?'تقييم: ':'Rating: '+newRating:''));
     }
   });
   saveCrmClients(clients);
-  pushUndo((lang==='ar'?'إعادة تعيين '+ids.length+' عملاء':'Reassigned '+ids.length+' clients'),()=>{
+  pushUndo((lg?'إعادة تعيين '+ids.length+' عملاء':'Reassigned '+ids.length+' clients'),()=>{
     const cur=getCrmClients();
-    prevState.forEach(p=>{const i=cur.findIndex(x=>x.id===p.id);if(i>=0)cur[i].assignedUser=p.assignedUser;});
+    prevState.forEach(p=>{const i=cur.findIndex(x=>x.id===p.id);if(i>=0){cur[i].assignedUser=p.assignedUser;cur[i].stage=p.stage;cur[i].rating=p.rating;}});
     saveCrmClients(cur);
     renderCrmWorkspaceView(document.getElementById('crmViewContent'));
   });
   closeModal();
-  wsToast((lang==='ar'?'تم إعادة تعيين '+ids.length+' عملاء':'Reassigned '+ids.length+' clients'));
+  wsToast((lg?'تم إعادة تعيين '+ids.length+' عملاء':'Reassigned '+ids.length+' clients'));
   renderCrmWorkspaceView(document.getElementById('crmViewContent'));
 }
 
@@ -14414,6 +14656,161 @@ function wsConfirmBulkCreateCampaign(){
   renderCrmWorkspaceView(document.getElementById('crmViewContent'));
 }
 
+function wsBulkAttachCampaign(){
+  const ids = wsGetSelectedClientIds();
+  if(!ids.length){wsToast(lang==='ar'?'اختر عملاء أولاً':'Select clients first');return;}
+  const lg = lang==='ar';
+  const campaigns = STORAGE.get('marketingCampaigns',[]);
+  const cmpOpts = campaigns.map(c=>'<option value="'+c.id+'">'+c.name+' ('+(c.platform||'-')+')</option>').join('');
+  const modal = document.getElementById('modalContainer');
+  modal.innerHTML = '<h3><i class="fas fa-ad" style="color:#EC4899"></i> '+lg?'إرفاق حملة لـ '+ids.length+' عميل':'Attach campaign to '+ids.length+' clients'+'</h3>'
+    +'<div style="margin:14px 0;display:flex;flex-direction:column;gap:12px">'
+    +'<div class="form-group"><label>'+(lg?'الحملة':'Campaign')+'</label>'
+    +'<select id="bulkAttachCampaign" style="width:100%;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;background:var(--crm-page-bg);color:var(--crm-text-primary)">'
+    +'<option value="">'+(lg?'اختر حملة...':'Select campaign...')+'</option>'+cmpOpts+'</select></div>'
+    +'<div class="form-group"><label>'+(lg?'حالة الحملة للعميل':'Lead Campaign Status')+'</label>'
+    +'<select id="bulkAttachCampaignStatus" style="width:100%;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;background:var(--crm-page-bg);color:var(--crm-text-primary)">'
+    +'<option value="new">'+(lg?'جديد':'New')+'</option>'
+    +'<option value="contacted">'+(lg?'تم التواصل':'Contacted')+'</option>'
+    +'<option value="qualified">'+(lg?'مؤهل':'Qualified')+'</option>'
+    +'<option value="converted">'+(lg?'محوّل':'Converted')+'</option>'
+    +'</select></div>'
+    +'<div class="form-group"><div style="display:flex;align-items:center;gap:8px">'
+    +'<label style="margin:0;font-size:12px">'+(lg?'إلغاء إرفاق الحملة القديمة':'Detach Old Campaign')+'</label>'
+    +'<div class="ws-toggle" onclick="wsToggle(this)" style="cursor:pointer"></div></div></div>'
+    +'</div>'
+    +'<div class="modal-actions">'
+    +'<button class="btn btn-primary" onclick="wsConfirmBulkAttachCampaign()"><i class="fas fa-check"></i> '+(lg?'إرفاق':'Attach')+'</button>'
+    +'<button class="btn btn-outline" onclick="closeModal()">'+(lg?'إلغاء':'Cancel')+'</button></div>';
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function wsConfirmBulkAttachCampaign(){
+  const ids = wsGetSelectedClientIds();
+  const lg = lang==='ar';
+  const cmpId = document.getElementById('bulkAttachCampaign')?.value || '';
+  const status = document.getElementById('bulkAttachCampaignStatus')?.value || 'new';
+  if(!cmpId){wsToast(lg?'اختر حملة':'Select a campaign');return;}
+  const campaigns = STORAGE.get('marketingCampaigns',[]);
+  const cmp = campaigns.find(c=>c.id===cmpId);
+  const clients = getCrmClients();
+  const prevState = [];
+  ids.forEach(id=>{
+    const idx=clients.findIndex(x=>x.id===id);
+    if(idx>=0){
+      prevState.push({id,campaignId:clients[idx].campaignId,campaignStatus:clients[idx].campaignStatus});
+      clients[idx].campaignId = cmpId;
+      clients[idx].campaignStatus = status;
+      clients[idx].lastContact = new Date().toISOString();
+      addCrmActivity(id,'note',(lg?'إرفاق بالحملة: ':'Attached to campaign: ')+(cmp?cmp.name:cmpId)+' ['+status+']');
+    }
+  });
+  saveCrmClients(clients);
+  pushUndo((lg?'إرفاق حملة لـ '+ids.length+' عملاء':'Attached campaign to '+ids.length+' clients'),()=>{
+    const cur=getCrmClients();
+    prevState.forEach(p=>{const i=cur.findIndex(x=>x.id===p.id);if(i>=0){cur[i].campaignId=p.campaignId;cur[i].campaignStatus=p.campaignStatus;}});
+    saveCrmClients(cur);
+    renderCrmWorkspaceView(document.getElementById('crmViewContent'));
+  });
+  closeModal();
+  wsToast((lg?'تم إرفاق الحملة لـ '+ids.length+' عميل':'Campaign attached to '+ids.length+' clients'));
+  renderCrmWorkspaceView(document.getElementById('crmViewContent'));
+}
+
+function wsBulkChangeType(){
+  const ids = wsGetSelectedClientIds();
+  if(!ids.length){wsToast(lang==='ar'?'اختر عملاء أولاً':'Select clients first');return;}
+  const lg = lang==='ar';
+  const modal = document.getElementById('modalContainer');
+  modal.innerHTML = '<h3><i class="fas fa-exchange-alt" style="color:#6366F1"></i> '+lg?'تغيير نوع '+ids.length+' عميل':'Change type for '+ids.length+' clients'+'</h3>'
+    +'<div style="margin:14px 0;display:flex;flex-direction:column;gap:12px">'
+    +'<div class="form-group"><label>'+(lg?'النوع الجديد':'New Type')+'</label>'
+    +'<select id="bulkChangeTypeSelect" style="width:100%;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;background:var(--crm-page-bg);color:var(--crm-text-primary)">'
+    +'<option value="lead">'+(lg?'عميل محتمل':'Lead')+'</option>'
+    +'<option value="contact">'+(lg?'جهة اتصال':'Contact')+'</option>'
+    +'<option value="customer">'+(lg?'عميل':'Customer')+'</option>'
+    +'<option value="account">'+(lg?'حساب':'Account')+'</option>'
+    +'</select></div></div>'
+    +'<div class="modal-actions">'
+    +'<button class="btn btn-primary" onclick="wsConfirmBulkChangeType()"><i class="fas fa-check"></i> '+(lg?'تأكيد':'Confirm')+'</button>'
+    +'<button class="btn btn-outline" onclick="closeModal()">'+(lg?'إلغاء':'Cancel')+'</button></div>';
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function wsConfirmBulkChangeType(){
+  const ids = wsGetSelectedClientIds();
+  const lg = lang==='ar';
+  const newType = document.getElementById('bulkChangeTypeSelect')?.value || 'lead';
+  if(!ids.length) return;
+  const clients = getCrmClients();
+  const prevState = [];
+  ids.forEach(id=>{
+    const idx=clients.findIndex(x=>x.id===id);
+    if(idx>=0){
+      prevState.push({id,type:clients[idx].type});
+      clients[idx].type = newType;
+      clients[idx].lastContact = new Date().toISOString();
+      addCrmActivity(id,'updated',(lg?'تغيير النوع إلى ':'Type changed to ')+newType);
+    }
+  });
+  saveCrmClients(clients);
+  pushUndo((lg?'تغيير نوع '+ids.length+' عملاء':'Changed type for '+ids.length+' clients'),()=>{
+    const cur=getCrmClients();
+    prevState.forEach(p=>{const i=cur.findIndex(x=>x.id===p.id);if(i>=0)cur[i].type=p.type;});
+    saveCrmClients(cur);
+    renderCrmWorkspaceView(document.getElementById('crmViewContent'));
+  });
+  closeModal();
+  wsToast((lg?'تم تغيير النوع لـ '+ids.length+' عملاء':'Type changed for '+ids.length+' clients'));
+  renderCrmWorkspaceView(document.getElementById('crmViewContent'));
+}
+
+function wsBulkChangeLeadList(){
+  const ids = wsGetSelectedClientIds();
+  if(!ids.length){wsToast(lang==='ar'?'اختر عملاء أولاً':'Select clients first');return;}
+  const lg = lang==='ar';
+  const leadLists = STORAGE.get('crmLeadLists',[]);
+  const listOpts = leadLists.map(l=>'<option value="'+l.id+'">'+l.name+'</option>').join('');
+  const modal = document.getElementById('modalContainer');
+  modal.innerHTML = '<h3><i class="fas fa-list" style="color:#14B8A6"></i> '+lg?'تغيير قائمة '+ids.length+' عميل':'Change lead list for '+ids.length+' clients'+'</h3>'
+    +'<div style="margin:14px 0;display:flex;flex-direction:column;gap:12px">'
+    +'<div class="form-group"><label>'+(lg?'قائمة العملاء الجديدة':'New Lead List')+'</label>'
+    +'<select id="bulkChangeLeadListSelect" style="width:100%;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;background:var(--crm-page-bg);color:var(--crm-text-primary)">'
+    +'<option value="">'+(lg?'اختر قائمة...':'Select list...')+'</option>'+listOpts+'</select></div></div>'
+    +'<div class="modal-actions">'
+    +'<button class="btn btn-primary" onclick="wsConfirmBulkChangeLeadList()"><i class="fas fa-check"></i> '+(lg?'تأكيد':'Confirm')+'</button>'
+    +'<button class="btn btn-outline" onclick="closeModal()">'+(lg?'إلغاء':'Cancel')+'</button></div>';
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function wsConfirmBulkChangeLeadList(){
+  const ids = wsGetSelectedClientIds();
+  const lg = lang==='ar';
+  const listId = document.getElementById('bulkChangeLeadListSelect')?.value || '';
+  if(!listId){wsToast(lg?'اختر قائمة':'Select a list');return;}
+  const clients = getCrmClients();
+  const prevState = [];
+  ids.forEach(id=>{
+    const idx=clients.findIndex(x=>x.id===id);
+    if(idx>=0){
+      prevState.push({id,leadList:clients[idx].leadList});
+      clients[idx].leadList = listId;
+      clients[idx].lastContact = new Date().toISOString();
+      addCrmActivity(id,'updated',(lg?'تغيير القائمة إلى ':'Lead list changed to ')+listId);
+    }
+  });
+  saveCrmClients(clients);
+  pushUndo((lg?'تغيير قائمة '+ids.length+' عملاء':'Changed lead list for '+ids.length+' clients'),()=>{
+    const cur=getCrmClients();
+    prevState.forEach(p=>{const i=cur.findIndex(x=>x.id===p.id);if(i>=0)cur[i].leadList=p.leadList;});
+    saveCrmClients(cur);
+    renderCrmWorkspaceView(document.getElementById('crmViewContent'));
+  });
+  closeModal();
+  wsToast((lg?'تم تغيير القائمة لـ '+ids.length+' عملاء':'Lead list changed for '+ids.length+' clients'));
+  renderCrmWorkspaceView(document.getElementById('crmViewContent'));
+}
+
 function wsBulkChangeRating(){
   const ids = wsGetSelectedClientIds();
   if(!ids.length) return;
@@ -14619,25 +15016,45 @@ function wsConfirmBulkDelete(){
 function wsOpenMergeWizard(){
   const ids = wsGetSelectedClientIds();
   if(ids.length < 2){wsToast(lang==='ar'?'اختر عميلين على الأقل':'Select at least 2 clients');return;}
+  const lg = lang==='ar';
   const clients = getCrmClients();
   const selected = ids.map(id=>clients.find(c=>c.id===id)).filter(Boolean);
+  const mainOpts = selected.map(c=>'<option value="'+c.id+'">'+c.name+' ('+(c.phone||'')+') - '+t('crm_stage_'+(c.stage||'fresh_leads'))+'</option>').join('');
   const modal = document.getElementById('modalContainer');
-  modal.innerHTML = `<h3><i class="fas fa-code-branch" style="color:#84CC16"></i> ${lang==='ar'?'دمج '+selected.length+' عملاء':'Merge '+selected.length+' clients'}</h3>
-    <p style="color:var(--text-light);font-size:13px;margin-bottom:12px">${lang==='ar'?'اختر العميل الاحتفاظ به (سيتم دمج البقية إليه)':'Choose which client to keep (others will be merged into it)'}</p>
-    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:16px">
-      ${selected.map(c=>`<label style="display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--border);border-radius:8px;cursor:pointer"><input type="radio" name="mergeTarget" value="${c.id}" ${c.id===selected[0].id?'checked':''}><div><strong>${c.name}</strong><div style="font-size:11px;color:var(--text-light)">${c.phone||''} | ${c.email||''} | ${t('crm_stage_'+(c.stage||'fresh_leads'))}</div></div></label>`).join('')}
-    </div>
-    <div class="modal-actions">
-      <button class="btn btn-success" onclick="wsConfirmMerge()"><i class="fas fa-code-branch"></i> ${lang==='ar'?'دمج':'Merge'}</button>
-      <button class="btn btn-outline" onclick="closeModal()">${lang==='ar'?'إلغاء':'Cancel'}</button>
-    </div>`;
+  modal.innerHTML = '<h3><i class="fas fa-code-branch" style="color:#84CC16"></i> '+lg?'دمج '+selected.length+' عملاء':'Merge '+selected.length+' clients'+'</h3>'
+    +'<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 14px;margin:12px 0;font-size:12px;color:#EF4444;display:flex;align-items:center;gap:8px">'
+    +'<i class="fas fa-exclamation-triangle"></i> <span>'+(lg?'هذا الإجراء لا يمكن التراجع عنه. سيتم دمج العميلين المحددين في العميل الرئيسي المختار.':'This action cannot be undone. The selected clients will be merged into the chosen main client.')+'</span></div>'
+    +'<div style="margin:14px 0;display:flex;flex-direction:column;gap:12px">'
+    +'<div class="form-group"><label>'+(lg?'العميل الرئيسي':'Main Lead')+'</label>'
+    +'<select id="mergeMainLead" style="width:100%;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;background:var(--crm-page-bg);color:var(--crm-text-primary)">'+mainOpts+'</select></div>'
+    +'<div class="form-group"><label>'+(lg?'خيارات الدمج':'Merge Options')+'</label>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px">'
+    +['Merge Activities','Merge Opportunities','Merge Sources','Merge Events','Attach Campaigns','Merge Notes','Merge Tasks','Merge Tickets'].map(opt=>'<label style="display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border:1px solid var(--crm-card-border);border-radius:6px;cursor:pointer;font-size:11px;font-weight:600;background:var(--crm-page-bg);color:var(--crm-text-primary)"><input type="checkbox" value="'+opt+'" checked style="accent-color:var(--crm-primary)"> '+(lg?({'Merge Activities':'دمج الأنشطة','Merge Opportunities':'دمج الفرص','Merge Sources':'دمج المصادر','Merge Events':'دمج الأحداث','Attach Campaigns':'إرفاق الحملات','Merge Notes':'دمج الملاحظات','Merge Tasks':'دمج المهام','Merge Tickets':'دمج التذاكر'}[opt]):opt)+'</label>').join('')+'</div></div>'
+    +'<div class="form-group"><label>'+(lg?'اكتب MERGE للتأكيد':'Type MERGE to confirm')+'</label>'
+    +'<input type="text" id="mergeConfirmInput" placeholder="MERGE" style="width:100%;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;background:var(--crm-page-bg);color:var(--crm-text-primary);font-weight:700;letter-spacing:2px;text-transform:uppercase"></div>'
+    +'</div>'
+    +'<div class="modal-actions">'
+    +'<button class="btn btn-success" onclick="wsConfirmMerge()"><i class="fas fa-code-branch"></i> '+(lg?'دمج':'Merge')+'</button>'
+    +'<button class="btn btn-outline" onclick="closeModal()">'+(lg?'إلغاء':'Cancel')+'</button></div>';
   document.getElementById('modalOverlay').classList.add('active');
 }
 
 function wsConfirmMerge(){
   const ids = wsGetSelectedClientIds();
-  const targetId = document.querySelector('input[name="mergeTarget"]:checked')?.value;
+  const lg = lang==='ar';
+  const targetId = document.getElementById('mergeMainLead')?.value;
+  const confirmText = document.getElementById('mergeConfirmInput')?.value || '';
   if(!targetId) return;
+  if(confirmText !== 'MERGE'){wsToast(lg?'اكتب MERGE للتأكيد':'Type MERGE to confirm');return;}
+  const mergeOpts = [...document.querySelectorAll('#modalContainer input[type="checkbox"]:checked')].map(cb=>cb.value);
+  const doMergeActivities = mergeOpts.includes('Merge Activities');
+  const doMergeOpportunities = mergeOpts.includes('Merge Opportunities');
+  const doMergeSources = mergeOpts.includes('Merge Sources');
+  const doMergeEvents = mergeOpts.includes('Merge Events');
+  const doAttachCampaigns = mergeOpts.includes('Attach Campaigns');
+  const doMergeNotes = mergeOpts.includes('Merge Notes');
+  const doMergeTasks = mergeOpts.includes('Merge Tasks');
+  const doMergeTickets = mergeOpts.includes('Merge Tickets');
   const clients = getCrmClients();
   const target = clients.find(c=>c.id===targetId);
   if(!target) return;
@@ -14652,16 +15069,40 @@ function wsConfirmMerge(){
     if(!target.email && source.email) target.email = source.email;
     if(!target.notes && source.notes) target.notes = source.notes;
     if(source.budget && (!target.budget || parseFloat(source.budget)>parseFloat(target.budget))) target.budget = source.budget;
-    const sourceActivities = activities.filter(a=>a.clientId===id);
-    sourceActivities.forEach(a=>{a.clientId=targetId;});
+    if(doMergeSources && source.source && !target.source) target.source = source.source;
+    if(doAttachCampaigns && source.campaignId && !target.campaignId) target.campaignId = source.campaignId;
+    if(doMergeTasks && source.tasks && source.tasks.length){
+      if(!target.tasks) target.tasks = [];
+      target.tasks = target.tasks.concat(source.tasks);
+    }
+    if(doMergeOpportunities && source.opportunities && source.opportunities.length){
+      if(!target.opportunities) target.opportunities = [];
+      target.opportunities = target.opportunities.concat(source.opportunities);
+    }
+    if(doMergeNotes && source.notesList && source.notesList.length){
+      if(!target.notesList) target.notesList = [];
+      target.notesList = target.notesList.concat(source.notesList);
+    }
+    if(doMergeTickets && source.tickets && source.tickets.length){
+      if(!target.tickets) target.tickets = [];
+      target.tickets = target.tickets.concat(source.tickets);
+    }
+    if(doMergeActivities){
+      const sourceActivities = activities.filter(a=>a.clientId===id);
+      sourceActivities.forEach(a=>{a.clientId=targetId;});
+    }
+    if(doMergeEvents && source.events && source.events.length){
+      if(!target.events) target.events = [];
+      target.events = target.events.concat(source.events);
+    }
     const idx = clients.findIndex(c=>c.id===id);
     if(idx>=0) clients.splice(idx,1);
   });
   target.lastContact = new Date().toISOString();
-  addCrmActivity(targetId,'note',(lang==='ar'?'دمج '+mergedCount+' عملاء':'Merged '+mergedCount+' clients'));
+  addCrmActivity(targetId,'note',(lg?'دمج '+mergedCount+' عملاء مع خيارات: ':'Merged '+mergedCount+' clients with options: ')+mergeOpts.join(', '));
   saveCrmClients(clients);
   closeModal();
-  wsToast((lang==='ar'?'تم دمج '+mergedCount+' عميل في '+target.name:'Merged '+mergedCount+' clients into '+target.name));
+  wsToast((lg?'تم دمج '+mergedCount+' عميل في '+target.name:'Merged '+mergedCount+' clients into '+target.name));
   renderCrmWorkspaceView(document.getElementById('crmViewContent'));
 }
 
@@ -14824,50 +15265,72 @@ function openBulkAddInterest(){
     wsToast(lg?'يرجى تحديد عميل واحد على الأقل':'Please select at least one client');
     return;
   }
-  openModal(`<h3><i class="fas fa-plus-circle"></i> ${lg?'إضافة اهتمام جماعي':'Bulk Add Interest'}</h3>
-    <p style="font-size:13px;color:var(--text-light);margin-bottom:16px">${lg?'سيتم إضافة الاهتمام لـ':'This will add interest to'} <strong>${checked.length}</strong> ${lg?'عميل':'client(s)'}</p>
-    <div class="form-group"><label>${lg?'نوع الاهتمام':'Interest Type'}</label>
-      <select id="bulkInterestType">
-        <option value="villa">Villa</option>
-        <option value="apartment">${lg?'شقة':'Apartment'}</option>
-        <option value="duplex">Duplex</option>
-        <option value="penthouse">Penthouse</option>
-        <option value="land">${lg?'أرض':'Land'}</option>
-        <option value="commercial">${lg?'تجاري':'Commercial'}</option>
-        <option value="investment">${lg?'استثماري':'Investment'}</option>
-      </select></div>
-    <div class="form-group"><label>${lg?'تفاصيل الاهتمام':'Interest Details'}</label>
-      <textarea id="bulkInterestDetails" rows="3" style="resize:vertical" placeholder="${lg?'أدخل تفاصيل الاهتمام':'Enter interest details...'}"></textarea></div>
-    <div class="form-group"><label>${lg?'نطاق السعر':'Price Range'}</label>
-      <div style="display:flex;gap:8px"><input type="text" id="bulkInterestPriceFrom" placeholder="${lg?'من':'From'}" style="flex:1;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;background:var(--crm-page-bg)"><input type="text" id="bulkInterestPriceTo" placeholder="${lg?'إلى':'To'}" style="flex:1;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;background:var(--crm-page-bg)"></div></div>
-    <div class="modal-actions">
-      <button class="btn btn-primary" onclick="confirmBulkAddInterest()"><i class="fas fa-check"></i> ${lg?'إضافة':'Add'}</button>
-      <button class="btn btn-outline" onclick="closeModal()">${lg?'إلغاء':'Cancel'}</button>
-    </div>`);
+  const commonInterests = [
+    {value:'real_estate',label:lg?'عقارات':'Real Estate'},
+    {value:'investment',label:lg?'استثمار':'Investment'},
+    {value:'commercial',label:lg?'تجاري':'Commercial'},
+    {value:'residential',label:lg?'سكني':'Residential'},
+    {value:'off_plan',label:lg?'على المخطط':'Off-Plan'},
+    {value:'ready',label:lg?'جاهز':'Ready'},
+    {value:'villa',label:'Villa'},
+    {value:'apartment',label:lg?'شقة':'Apartment'},
+    {value:'land',label:lg?'أرض':'Land'}
+  ];
+  const interestCheckboxes = commonInterests.map(int=>
+    '<label style="display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--crm-card-border);border-radius:8px;cursor:pointer;font-size:12px;font-weight:600;transition:all .2s;background:var(--crm-page-bg);color:var(--crm-text-primary)" class="bulk-interest-chip">'
+    +'<input type="checkbox" value="'+int.value+'" style="accent-color:var(--crm-primary)"> '+int.label+'</label>'
+  ).join(' ');
+  openModal('<h3><i class="fas fa-plus-circle"></i> '+(lg?'إضافة اهتمام جماعي':'Bulk Add Interest')+'</h3>'
+    +'<p style="font-size:13px;color:var(--text-light);margin-bottom:16px">'+(lg?'سيتم إضافة الاهتمام لـ':'This will add interest to')+' <strong>'+checked.length+'</strong> '+(lg?'عميل':'client(s)')+'</p>'
+    +'<div class="form-group"><label>'+(lg?'الاهتمامات المشتركة':'Common Interests')+'</label>'
+    +'<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">'+interestCheckboxes+'</div></div>'
+    +'<div class="form-group"><label>'+(lg?'نوع الاهتمام المخصص':'Custom Interest Type')+'</label>'
+    +'<select id="bulkInterestType">'
+    +'<option value="">'+(lg?'اختر...':'Select...')+'</option>'
+    +'<option value="villa">Villa</option>'
+    +'<option value="apartment">'+(lg?'شقة':'Apartment')+'</option>'
+    +'<option value="duplex">Duplex</option>'
+    +'<option value="penthouse">Penthouse</option>'
+    +'<option value="land">'+(lg?'أرض':'Land')+'</option>'
+    +'<option value="commercial">'+(lg?'تجاري':'Commercial')+'</option>'
+    +'<option value="investment">'+(lg?'استثماري':'Investment')+'</option>'
+    +'</select></div>'
+    +'<div class="form-group"><label>'+(lg?'تفاصيل الاهتمام':'Interest Details')+'</label>'
+    +'<textarea id="bulkInterestDetails" rows="3" style="resize:vertical" placeholder="'+(lg?'أدخل تفاصيل الاهتمام':'Enter interest details...')+'"></textarea></div>'
+    +'<div class="form-group"><label>'+(lg?'نطاق السعر':'Price Range')+'</label>'
+    +'<div style="display:flex;gap:8px"><input type="text" id="bulkInterestPriceFrom" placeholder="'+(lg?'من':'From')+'" style="flex:1;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;background:var(--crm-page-bg)"><input type="text" id="bulkInterestPriceTo" placeholder="'+(lg?'إلى':'To')+'" style="flex:1;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;background:var(--crm-page-bg)"></div></div>'
+    +'<div class="modal-actions">'
+    +'<button class="btn btn-primary" onclick="confirmBulkAddInterest()"><i class="fas fa-check"></i> '+(lg?'إضافة':'Add')+'</button>'
+    +'<button class="btn btn-outline" onclick="closeModal()">'+(lg?'إلغاء':'Cancel')+'</button></div>');
 }
 
 function confirmBulkAddInterest(){
   const lg = lang === 'ar';
   const ids = [...document.querySelectorAll('.ws-row-checkbox input:checked')].map(cb => cb.closest('.ws-row')?.dataset?.clientId).filter(Boolean);
-  const type = document.getElementById('bulkInterestType')?.value;
+  const selectedCommon = [...document.querySelectorAll('.bulk-interest-chip input:checked')].map(cb=>cb.value);
+  const customType = document.getElementById('bulkInterestType')?.value;
   const details = document.getElementById('bulkInterestDetails')?.value?.trim();
   const priceFrom = document.getElementById('bulkInterestPriceFrom')?.value?.trim();
   const priceTo = document.getElementById('bulkInterestPriceTo')?.value?.trim();
-  if(!ids.length || !type) return;
+  const allTypes = [...new Set([...selectedCommon, ...(customType ? [customType] : [])])];
+  if(!ids.length || !allTypes.length){wsToast(lg?'اختر اهتمام واحد على الأقل':'Select at least one interest');return;}
   const clients = getCrmClients();
   let updated = 0;
   ids.forEach(id => {
     const idx = clients.findIndex(c => c.id === id);
     if(idx >= 0){
       if(!clients[idx].interests) clients[idx].interests = [];
-      clients[idx].interests.push({type, details: details || '', priceFrom, priceTo, date: new Date().toISOString()});
+      allTypes.forEach(type => {
+        clients[idx].interests.push({type, details: details || '', priceFrom, priceTo, date: new Date().toISOString()});
+      });
       updated++;
     }
   });
   saveCrmClients(clients);
   closeModal();
-  wsToast((lg?'تم إضافة الاهتمام لـ ':'Interest added to ') + updated + (lg?' عميل':' client(s)'));
+  wsToast((lg?'تم إضافة '+allTypes.length+' اهتمام لـ ':'Added '+allTypes.length+' interests to ') + updated + (lg?' عميل':' client(s)'));
   document.querySelectorAll('.ws-row-checkbox input').forEach(cb => cb.checked = false);
+  updateBulkBar();
 }
 
 function wsSearchRows(query){
