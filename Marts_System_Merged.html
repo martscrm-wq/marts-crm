@@ -502,6 +502,22 @@ select{cursor:pointer;appearance:auto}
   --crm-radius:12px;
   --crm-radius-sm:8px;
 }
+body.dark-mode{
+  --crm-page-bg:#1A1A2E;
+  --crm-card-bg:#16213E;
+  --crm-card-border:#2A2A4A;
+  --crm-text-primary:#E0E0E0;
+  --crm-text-secondary:#A0A0A0;
+  --crm-text-muted:#707070;
+  --crm-primary:#C4B47A;
+  --crm-primary-dark:#A89A5C;
+  --crm-shadow:0 1px 3px rgba(0,0,0,.3), 0 1px 2px rgba(0,0,0,.2);
+  --crm-shadow-lg:0 4px 12px rgba(0,0,0,.4), 0 2px 4px rgba(0,0,0,.3);
+  --bg:#1A1A2E;--card:#16213E;--border:#2A2A4A;--text:#E0E0E0;--text-light:#A0A0A0;
+  --sidebar-bg:#0F0F23;--sidebar-text:#A0A0A0;--sidebar-active:#C4B47A;
+}
+body.dark-mode .crm-navbar{background:linear-gradient(90deg,#16213E,#1A1A2E,#16213E)}
+body.dark-mode .login-box{background:#16213E;border-color:#2A2A4A}
 
 /* CRM Dashboard Page Wrapper */
 .crm-dashboard-page{background:var(--crm-page-bg);background-image:linear-gradient(rgba(130,113,72,.04) 1px, transparent 1px),linear-gradient(90deg, rgba(130,113,72,.04) 1px, transparent 1px);background-size:40px 40px;min-height:100vh;padding:0}
@@ -673,9 +689,9 @@ select{cursor:pointer;appearance:auto}
   width:80px;height:80px;border-radius:50%;
   border:4px solid var(--crm-card-bg);background:var(--crm-page-bg);
   display:flex;align-items:center;justify-content:center;font-size:28px;font-weight:800;color:var(--crm-primary);
-  box-shadow:0 4px 16px rgba(130,113,72,.2)}
+  box-shadow:0 4px 16px rgba(130,113,72,.2);
   position:absolute;bottom:-40px;left:50%;transform:translateX(-50%);
-  box-shadow:0 4px 16px rgba(0,0,0,.1);overflow:hidden
+  overflow:hidden;
 }
 .crm-top-agent-avatar img{width:100%;height:100%;object-fit:cover}
 .crm-top-agent-info{padding:50px 16px 20px}
@@ -1233,17 +1249,17 @@ select{cursor:pointer;appearance:auto}
 
 
 </style>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js" defer></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-storage-compat.js" defer></script>
 </head>
 <body>
 <div id="offlineBanner" style="display:none;position:fixed;top:0;left:0;right:0;z-index:99999;background:linear-gradient(135deg,#F59E0B,#EF4444);color:#fff;padding:8px 16px;font-size:13px;font-weight:600;align-items:center;justify-content:center;text-align:center;box-shadow:0 2px 10px rgba(0,0,0,.2)"></div>
 
 <div class="login-page" id="loginPage">
 <div class="login-box">
-<img src="C:\Users\khelw\Downloads\LogoMarts.jpeg" alt="Marts Logo" class="login-logo" loading="lazy" onerror="this.style.display='none'">
+<img src="LogoMarts.jpeg" alt="Marts Logo" class="login-logo" loading="lazy" onerror="this.style.display='none'">
 <h2>Marts</h2>
 <p data-i18n="subtitle">Real Estate Management</p>
 <div class="login-error" id="loginError"></div>
@@ -1260,12 +1276,8 @@ if(_deferredPrompt || (window.matchMedia('(display-mode: standalone)').matches =
   if(ib) ib.style.display = 'block';
 }
 </script>
-<div style="margin-top:20px;padding-top:16px;border-top:1px solid rgba(130,113,72,.1)">
-<button onclick="resetAllData()" style="background:none;border:none;color:var(--text-light);font-size:12px;cursor:pointer;text-decoration:underline">Reset All Data</button>
-        </div>
-      </div>
-      </div><!-- /dealsListPanel -->
-    </div>
+</div>
+</div>
 
 <div class="app" id="app">
 <button class="mobile-hamburger" id="mobileHamburger" onclick="toggleMobileSidebar()"><i class="fas fa-bars"></i></button>
@@ -1274,13 +1286,14 @@ if(_deferredPrompt || (window.matchMedia('(display-mode: standalone)').matches =
 <aside class="sidebar" id="sidebar">
 <div class="sidebar-header">
 <button onclick="closeMobileSidebar()" style="display:none;position:absolute;top:16px;left:16px;background:rgba(255,255,255,.2);border:none;color:#fff;width:36px;height:36px;border-radius:10px;font-size:16px;cursor:pointer;z-index:10" class="sidebar-close-btn"><i class="fas fa-times"></i></button>
-<img src="C:\Users\khelw\Downloads\LogoMarts.jpeg" alt="Marts" class="sidebar-logo" loading="lazy" onerror="this.style.display='none'">
+<img src="LogoMarts.jpeg" alt="Marts" class="sidebar-logo" loading="lazy" onerror="this.style.display='none'">
 <h3>Marts</h3><small data-i18n="subtitle">Real Estate Management</small></div>
 <nav class="sidebar-nav" id="sidebarNav"></nav>
 <div id="sidebarLangToggle" style="padding:10px 16px;border-top:1px solid rgba(130,113,72,.12)"></div>
 <div class="user-info">
 <div class="user-avatar" id="userAvatar">O</div>
 <div class="user-meta"><div class="name" id="userName">Owner</div><div class="role" id="userRole"></div></div>
+<button id="darkModeBtn" onclick="toggleDarkMode()" style="background:none;color:rgba(130,113,72,.6);font-size:16px;cursor:pointer" title="Toggle Dark Mode"><i class="fas fa-moon"></i></button>
 <button onclick="doLogout()" style="background:none;color:rgba(130,113,72,.4);font-size:18px" title="Logout"><i class="fas fa-sign-out-alt"></i></button>
 </div>
 <div class="sidebar-footer">Marts v2.0 &copy; 2026</div>
@@ -1827,7 +1840,7 @@ try {
   } else { if (_resolveFbAuth) _resolveFbAuth(); }
 } catch(e) { console.warn('Firebase init failed:', e); if (_resolveFbAuth) _resolveFbAuth(); }
 
-const SYSTEM_VERSION = '2.5.0';
+const SYSTEM_VERSION = '2.6.0';
 let _latestUpdate = null;
 let _swRegistration = null;
 
@@ -2755,6 +2768,15 @@ function getAllRoles() { return STORAGE.get('empRoles', DEFAULT_ROLES); }
 function getResaleTeam() { return STORAGE.get('resaleTeam', DEFAULT_RESALE_TEAM); }
 const getInitials = (name) => { const p=name.trim().split(/\s+/); return p.length>=2?(p[0][0]+p[1][0]).toUpperCase():p[0].substring(0,2).toUpperCase(); };
 
+function toggleDarkMode(){
+  document.body.classList.toggle('dark-mode');
+  const isDark = document.body.classList.contains('dark-mode');
+  STORAGE.set('darkMode', isDark);
+  const btn = document.getElementById('darkModeBtn');
+  if(btn) btn.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+}
+if(STORAGE.get('darkMode')){ document.body.classList.add('dark-mode'); }
+
 function genSaleCode() {
   const sales = STORAGE.get('sales',[]);
   const num = sales.length + 1;
@@ -3243,6 +3265,12 @@ function buildSidebar() {
       </div>`;
     }
     langToggle.innerHTML = langToggleHTML;
+  }
+  const dmBtn = document.getElementById('darkModeBtn');
+  if(dmBtn){
+    const isDark = document.body.classList.contains('dark-mode');
+    dmBtn.innerHTML = isDark ? '<i class="fas fa-sun"></i>' : '<i class="fas fa-moon"></i>';
+    dmBtn.onclick = toggleDarkMode;
   }
 }
 function toggleMobileSidebar() {
@@ -6888,7 +6916,7 @@ function renderPublicJobForm() {
   publicEl.innerHTML = `
   <div style="max-width:800px;margin:0 auto">
     <div style="text-align:center;margin-bottom:24px">
-      <img src="C:\\Users\\khelw\\Downloads\\LogoMarts.jpeg" alt="Marts" style="width:80px;height:80px;border-radius:16px;object-fit:cover;margin-bottom:8px" loading="lazy" onerror="this.style.display='none'">
+      <img src="LogoMarts.jpeg" alt="Marts" style="width:80px;height:80px;border-radius:16px;object-fit:cover;margin-bottom:8px" loading="lazy" onerror="this.style.display='none'">
       <h1 style="margin:0;color:#827148;letter-spacing:4px;font-family:'Cinzel',serif">Marts</h1>
       <p style="color:var(--text-light);margin:4px 0 0">${lang==='ar'?'طلب توظيف - الموارد البشرية':'Job Application - Human Resources'}</p>
     </div>
