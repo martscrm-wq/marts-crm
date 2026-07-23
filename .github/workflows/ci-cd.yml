@@ -20,6 +20,10 @@ on:
       - 'manifest.json'
       - 'testsprite_tests/**'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: '18'
 
@@ -131,12 +135,31 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "Status: Scan complete" >> $GITHUB_STEP_SUMMARY
 
+      - name: Run gitleaks secret detection
+        if: always()
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_ARGS: "--source=. --report-format=sarif --report-path=gitleaks-results.sarif"
+
+      - name: Run Trivy vulnerability scanner
+        if: always()
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
       - name: Upload security report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: security-report
-          path: ${{ github.workspace }}/.github/workflows/ci-cd.yml
+          path: |
+            gitleaks-results.sarif
+            ${{ github.workspace }}/.github/workflows/ci-cd.yml
           retention-days: 30
 
   # ══════════════════════════════════════════════
@@ -517,6 +540,40 @@ jobs:
           EOF
           node update-firestore-version.js
 
+      - name: Health check (Firebase)
+        if: success()
+        run: |
+          echo "Waiting 15s for deploy to propagate..."
+          sleep 15
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://marts-crm-6ca37.web.app/Marts_System_Merged.html")
+            if [ "$STATUS" = "200" ]; then
+              echo "Firebase: HEALTHY (HTTP $STATUS)"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $STATUS, waiting 10s..."
+            sleep 10
+          done
+          echo "::error::Firebase health check failed after 2 minutes"
+          exit 1
+
+      - name: Health check (Vercel)
+        if: success()
+        run: |
+          echo "Waiting 10s for Vercel deploy to propagate..."
+          sleep 10
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://marts-crm.vercel.app/Marts_System_Merged.html")
+            if [ "$STATUS" = "200" ]; then
+              echo "Vercel: HEALTHY (HTTP $STATUS)"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $STATUS, waiting 10s..."
+            sleep 10
+          done
+          echo "::error::Vercel health check failed after 2 minutes"
+          exit 1
+
       - name: Summary
         if: success()
         run: |
@@ -589,3 +646,99 @@ jobs:
               body: `## Test Failure Report\n\n| | |\n|---|---|\n| **Version** | \`${{ needs.build.outputs.version }}\` |\n| **Commit** | \`${{ github.sha }}\` |\n| **URL** | https://marts-crm-6ca37.web.app |\n\nCheck [TestSprite Dashboard](https://app.testsprite.com) for detailed results and video recordings.`,
               labels: ['bug', 'automated'],
             });
+
+  # ══════════════════════════════════════════════
+  # Stage 7: Slack Notification
+  # ══════════════════════════════════════════════
+  notify:
+    name: Slack Notification
+    needs: [security, lint, build, approve, deploy, test-production]
+    if: always() && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Determine overall status
+        id: status
+        run: |
+          NEEDS='${{ toJSON(needs.*.result) }}'
+          if echo "$NEEDS" | grep -q '"failure"'; then
+            echo "emoji=:x:" >> $GITHUB_OUTPUT
+            echo "color=#ff0000" >> $GITHUB_OUTPUT
+            echo "status=FAILED" >> $GITHUB_OUTPUT
+          elif echo "$NEEDS" | grep -q '"cancelled"'; then
+            echo "emoji=:no_entry_sign:" >> $GITHUB_OUTPUT
+            echo "color=#ff9900" >> $GITHUB_OUTPUT
+            echo "status=CANCELLED" >> $GITHUB_OUTPUT
+          else
+            echo "emoji=:white_check_mark:" >> $GITHUB_OUTPUT
+            echo "color=#36a64f" >> $GITHUB_OUTPUT
+            echo "status=SUCCESS" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Send Slack notification
+        if: env.SLACK_WEBHOOK_URL != ''
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          curl -s -X POST "$SLACK_WEBHOOK_URL" \
+            -H "Content-Type: application/json" \
+            -d @- << EOF
+          {
+            "attachments": [
+              {
+                "color": "${{ steps.status.outputs.color }}",
+                "blocks": [
+                  {
+                    "type": "header",
+                    "text": {
+                      "type": "plain_text",
+                      "text": "${{ steps.status.outputs.emoji }} Marts CI/CD: ${{ steps.status.outputs.status }}"
+                    }
+                  },
+                  {
+                    "type": "section",
+                    "fields": [
+                      {
+                        "type": "mrkdwn",
+                        "text": "*Branch:*\n${{ github.ref_name }}"
+                      },
+                      {
+                        "type": "mrkdwn",
+                        "text": "*Version:*\n\`${{ needs.build.outputs.version || 'N/A' }}\`"
+                      },
+                      {
+                        "type": "mrkdwn",
+                        "text": "*Commit:*\n\`${{ github.sha }}\`"
+                      },
+                      {
+                        "type": "mrkdwn",
+                        "text": "*URL:*\nhttps://marts-crm-6ca37.web.app"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "actions",
+                    "elements": [
+                      {
+                        "type": "button",
+                        "text": {
+                          "type": "plain_text",
+                          "text": "View Workflow"
+                        },
+                        "url": "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+                      },
+                      {
+                        "type": "button",
+                        "text": {
+                          "type": "plain_text",
+                          "text": "View Site"
+                        },
+                        "url": "https://marts-crm-6ca37.web.app"
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+          EOF

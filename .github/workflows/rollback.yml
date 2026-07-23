@@ -1,0 +1,228 @@
+name: Rollback to Previous Version
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_commit:
+        description: 'Commit SHA or tag to rollback to (leave empty for previous commit)'
+        required: false
+        type: string
+      reason:
+        description: 'Reason for rollback'
+        required: true
+        type: string
+      notify_slack:
+        description: 'Send Slack notification'
+        required: false
+        type: boolean
+        default: true
+
+env:
+  NODE_VERSION: '18'
+
+permissions:
+  contents: write
+
+jobs:
+  # ══════════════════════════════════════════════
+  # Step 1: Resolve Target Version
+  # ══════════════════════════════════════════════
+  resolve:
+    name: Resolve Target Version
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      target_sha: ${{ steps.resolve.outputs.target_sha }}
+      target_version: ${{ steps.resolve.outputs.target_version }}
+      current_sha: ${{ steps.resolve.outputs.current_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 100
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve commit
+        id: resolve
+        run: |
+          CURRENT_SHA="${{ github.sha }}"
+          echo "current_sha=$CURRENT_SHA" >> $GITHUB_OUTPUT
+
+          INPUT_SHA="${{ inputs.target_commit }}"
+
+          if [ -z "$INPUT_SHA" ]; then
+            # Use the commit before current
+            TARGET_SHA=$(git rev-parse HEAD~1)
+            echo "No target specified, using previous commit: $TARGET_SHA"
+          else
+            # Resolve the input (could be SHA, tag, or branch)
+            TARGET_SHA=$(git rev-parse "$INPUT_SHA" 2>/dev/null || echo "")
+            if [ -z "$TARGET_SHA" ]; then
+              echo "::error::Could not resolve commit: $INPUT_SHA"
+              exit 1
+            fi
+            echo "Resolved target: $TARGET_SHA"
+          fi
+
+          echo "target_sha=$TARGET_SHA" >> $GITHUB_OUTPUT
+
+          # Extract version from target commit
+          git checkout "$TARGET_SHA" -- Marts_System_Merged.html 2>/dev/null
+          VERSION=$(grep -oP "SYSTEM_VERSION\s*=\s*'([^']+)'" Marts_System_Merged.html | head -1 | sed "s/.*'\([^']*\)'.*/\1/")
+          echo "target_version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Target version: $VERSION"
+
+          git checkout HEAD -- Marts_System_Merged.html 2>/dev/null || true
+
+      - name: Verify target exists
+        run: |
+          echo "Verifying target commit exists..."
+          git cat-file -e "${{ steps.resolve.outputs.target_sha }}" 2>/dev/null
+          if [ $? -ne 0 ]; then
+            echo "::error::Target commit not found: ${{ steps.resolve.outputs.target_sha }}"
+            exit 1
+          fi
+          echo "Target verified"
+
+  # ══════════════════════════════════════════════
+  # Step 2: Deploy Rollback
+  # ══════════════════════════════════════════════
+  rollback:
+    name: Deploy Rollback v${{ needs.resolve.outputs.target_version }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: resolve
+    environment:
+      name: production
+      url: https://marts-crm-6ca37.web.app
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.resolve.outputs.target_sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Prepare public directory
+        run: |
+          mkdir -p public
+          cp Marts_System_Merged.html public/Marts_System_Merged.html
+          cp sw.js public/sw.js
+          cp manifest.json public/manifest.json
+
+      - name: Install Firebase CLI
+        run: npm install -g firebase-tools
+
+      - name: Setup Service Account
+        run: |
+          echo "${{ secrets.FIREBASE_SA_KEY }}" | base64 -d > /tmp/sa-key.json
+          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa-key.json" >> $GITHUB_ENV
+
+      - name: Deploy to Firebase Hosting
+        run: |
+          firebase deploy --only hosting --project marts-crm-6ca37
+
+      - name: Deploy to Vercel
+        run: |
+          npm install -g vercel
+          cd public
+          vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --yes --no-clipboard
+
+      - name: Update Firestore version doc
+        run: |
+          npm install firebase-admin@12
+          cat > update-firestore-version.js << 'EOF'
+            const {initializeApp, cert} = require('firebase-admin/app');
+            const {getFirestore} = require('firebase-admin/firestore');
+            const app = initializeApp({credential: cert('/tmp/sa-key.json')});
+            const db = getFirestore(app);
+            const version = '${{ needs.resolve.outputs.target_version }}';
+            db.collection('system_config').doc('version').set({
+              version: version,
+              updatedAt: new Date(),
+              deployedBy: 'github-actions-rollback',
+              commitSha: '${{ needs.resolve.outputs.target_sha }}',
+              commitMsg: 'ROLLBACK: ${{ inputs.reason }}',
+              hostingUrl: 'https://marts-crm-6ca37.web.app'
+            }, { merge: true }).then(() => {
+              console.log('Firestore updated: version=' + version);
+              process.exit(0);
+            }).catch(e => { console.error(e); process.exit(1); });
+          EOF
+          node update-firestore-version.js
+
+      - name: Health check
+        run: |
+          echo "Waiting 15s for deploy to propagate..."
+          sleep 15
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://marts-crm-6ca37.web.app/Marts_System_Merged.html")
+            if [ "$STATUS" = "200" ]; then
+              echo "HEALTHY (HTTP $STATUS)"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $STATUS, waiting 10s..."
+            sleep 10
+          done
+          echo "::error::Health check failed after 2 minutes"
+          exit 1
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Rollback Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Rolled back to:** \`${{ needs.resolve.outputs.target_version }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ needs.resolve.outputs.target_sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Reason:** ${{ inputs.reason }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **URL:** https://marts-crm-6ca37.web.app" >> $GITHUB_STEP_SUMMARY
+
+  # ══════════════════════════════════════════════
+  # Step 3: Notify
+  # ══════════════════════════════════════════════
+  notify:
+    name: Send Notification
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    needs: [resolve, rollback]
+    if: always() && inputs.notify_slack == true
+    steps:
+      - name: Determine status
+        id: status
+        run: |
+          if [ "${{ needs.rollback.result }}" = "success" ]; then
+            echo "emoji=white_check_mark" >> $GITHUB_OUTPUT
+            echo "color=#36a64f" >> $GITHUB_OUTPUT
+            echo "status=SUCCESS" >> $GITHUB_OUTPUT
+          else
+            echo "emoji=x" >> $GITHUB_OUTPUT
+            echo "color=#ff0000" >> $GITHUB_OUTPUT
+            echo "status=FAILED" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Issue for rollback record
+        if: needs.rollback.result == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Rollback: v${{ needs.resolve.outputs.target_version }} — ${{ inputs.reason }}`,
+              body: `## Rollback Record\n\n` +
+                    `| Field | Value |\n` +
+                    `|-------|-------|\n` +
+                    `| **From** | \`${{ needs.resolve.outputs.current_sha }}\` |\n` +
+                    `| **To** | \`${{ needs.resolve.outputs.target_sha }}\` |\n` +
+                    `| **Version** | \`${{ needs.resolve.outputs.target_version }}\` |\n` +
+                    `| **Reason** | ${{ inputs.reason }} |\n` +
+                    `| **Initiated by** | @${{ github.actor }} |\n` +
+                    `| **Workflow** | [Run](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |\n\n` +
+                    `### Checklist\n` +
+                    `- [ ] Root cause identified\n` +
+                    `- [ ] Fix prepared for re-deploy\n` +
+                    `- [ ] Team notified`,
+              labels: ['incident', 'rollback'],
+            });
+            console.log(`Created issue #${issue.data.number}`);
