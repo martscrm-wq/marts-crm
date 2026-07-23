@@ -1417,10 +1417,7 @@ const NAV_ITEMS = [
   {id:'accounting',icon:'fa-calculator',en:'Company Accounts',ar:'حسابات الشركة',perm:'accounts_view'},
   {id:'reports',icon:'fa-chart-bar',en:'Reports',ar:'التقارير',perm:'reports_view'},
   {id:'search',icon:'fa-search',en:'Search',ar:'البحث',perm:'search_view'},
-  {id:'crm',icon:'fa-address-book',en:'CRM',ar:'إدارة العملاء',perm:'crm_view'},
-  {id:'crmAccounts',icon:'fa-user-shield',en:'CRM Accounts',ar:'حسابات CRM',perm:'crm_manage_accounts'},
-  {id:'crmSettings',icon:'fa-address-card',en:'CRM Settings',ar:'إعدادات CRM',perm:'crm_view'},
-  {id:'adAccounts',icon:'fa-plug',en:'Ad Accounts',ar:'ربط المنصات',perm:'integ_view'}
+  {id:'crm',icon:'fa-address-book',en:'CRM',ar:'إدارة العملاء',perm:'crm_view'}
 ];
 
 const AD_PLATFORMS = [
@@ -3235,7 +3232,18 @@ function buildSidebar() {
     `<div class="nav-item${n.id===currentPage?' active':''}" data-page="${n.id}" onclick="showPage('${n.id}')"><i class="fas ${n.icon}"></i><span>${t('nav_'+n.id)}</span></div>`
   ).join('');
   const langToggle = document.getElementById('sidebarLangToggle');
-  if(langToggle) langToggle.innerHTML = `<div style="display:flex;align-items:center;gap:8px;justify-content:center;width:100%"><span style="font-size:12px;font-weight:600;color:${lang==='ar'?'var(--primary)':'var(--text-light)'};cursor:pointer" onclick="if(lang!=='ar')toggleLang()">AR</span><div class="toggle${lang==='en'?' on':''}" onclick="toggleLang()" style="cursor:pointer"></div><span style="font-size:12px;font-weight:600;color:${lang==='en'?'var(--primary)':'var(--text-light)'};cursor:pointer" onclick="if(lang!=='en')toggleLang()">EN</span></div>`;
+  if(langToggle) {
+    let langToggleHTML = `<div style="display:flex;align-items:center;gap:8px;justify-content:center;width:100%"><span style="font-size:12px;font-weight:600;color:${lang==='ar'?'var(--primary)':'var(--text-light)'};cursor:pointer" onclick="if(lang!=='ar')toggleLang()">AR</span><div class="toggle${lang==='en'?' on':''}" onclick="toggleLang()" style="cursor:pointer"></div><span style="font-size:12px;font-weight:600;color:${lang==='en'?'var(--primary)':'var(--text-light)'};cursor:pointer" onclick="if(lang!=='en')toggleLang()">EN</span></div>`;
+    if (_latestUpdate && _isVersionNewer(_latestUpdate, SYSTEM_VERSION)) {
+      langToggleHTML += `
+      <div style="width:100%;margin-top:12px;padding:0 16px">
+        <button onclick="applyUpdate()" style="width:100%;padding:10px 16px;background:var(--primary);color:#fff;border:none;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:8px;justify-content:center">
+          <i class="fas fa-sync-alt"></i> ${t('update_updateNow') || 'Update Now'}
+        </button>
+      </div>`;
+    }
+    langToggle.innerHTML = langToggleHTML;
+  }
 }
 function toggleMobileSidebar() {
   const sidebar = document.getElementById('sidebar');
@@ -12150,6 +12158,8 @@ function renderCRM(el){
         <div class="crm-nav-item" onclick="switchCrmView('events')"><i class="fas fa-calendar-alt"></i> <span>${lang==='ar'?'الأحداث':'Events'}</span></div>
         <div class="crm-nav-item" onclick="switchCrmView('checkin')"><i class="fas fa-map-marker-alt"></i> <span>${lang==='ar'?'الحضور':'Check-in'}</span></div>
         <div class="crm-nav-item" onclick="switchCrmView('clientMgmt')"><i class="fas fa-users-cog"></i> <span>${lang==='ar'?'ادارة العملاء':'Client Mgmt'}</span></div>
+        <div class="crm-nav-item" onclick="switchCrmView('crmAccounts')"><i class="fas fa-user-shield"></i> <span>${t('crm_acc_title')}</span></div>
+        <div class="crm-nav-item" onclick="switchCrmView('crmSettings')"><i class="fas fa-address-card"></i> <span>${t('crm_settings_title')}</span></div>
       </div>
       <div class="crm-navbar-right">
         <button class="crm-nav-icon" title="${lang==='ar'?'بحث':'Search'}" aria-label="Search"><i class="fas fa-search"></i></button>
@@ -12187,7 +12197,11 @@ function switchCrmView(view, stageKey){
   else if(view === 'checkin') renderCrmCheckinView(content);
   else if(view === 'stage' && stageKey) renderCrmStageView(content, stageKey);
   else if(view === 'clientMgmt') renderCrmClientManagement(content);
-  else content.innerHTML = `<div class="empty-state" style="padding:80px 20px"><i class="fas fa-tools" style="font-size:48px;color:var(--crm-text-muted)"></i><p style="margin-top:16px;color:var(--crm-text-muted)">${lang==='ar'?'قريباً':'Coming soon'}</p></div>`;
+  else if(view === 'crmAccounts') {
+    document.getElementById('crmAccBtn') && document.getElementById('crmAccBtn').click();
+  } else if(view === 'crmSettings') {
+    document.getElementById('crmSettingsBtn') && document.getElementById('crmSettingsBtn').click();
+  } else content.innerHTML = `<div class="empty-state" style="padding:80px 20px"><i class="fas fa-tools" style="font-size:48px;color:var(--crm-text-muted)"></i><p style="margin-top:16px;color:var(--crm-text-muted)">${lang==='ar'?'قريباً':'Coming soon'}</p></div>`;
 }
 
 // ============================================================
