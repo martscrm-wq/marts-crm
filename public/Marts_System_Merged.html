@@ -519,6 +519,23 @@ body.dark-mode{
 body.dark-mode .crm-navbar{background:linear-gradient(90deg,#16213E,#1A1A2E,#16213E)}
 body.dark-mode .login-box{background:#16213E;border-color:#2A2A4A}
 
+/* Loading Skeleton */
+@keyframes shimmer{0%{background-position:-200px 0}100%{background-position:200px 0}}
+.skeleton{background:linear-gradient(90deg,var(--border) 25%,rgba(130,113,72,.08) 50%,var(--border) 75%);background-size:400px 100%;animation:shimmer 1.5s infinite;border-radius:var(--radius-sm);min-height:16px}
+.skeleton-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px}
+.skeleton-card .skeleton-line{height:14px;margin-bottom:8px;border-radius:6px}
+.skeleton-card .skeleton-line.short{width:60%}
+.skeleton-card .skeleton-line.xshort{width:35%}
+.skeleton-card .skeleton-circle{width:48px;height:48px;border-radius:50%}
+.skeleton-chart{height:260px;border-radius:var(--radius)}
+
+/* Icon fallback (shows initials when FA fails) */
+.fallback-icon{display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border-radius:8px;color:#fff}
+
+/* Dashboard error fallback */
+.dash-error-box{text-align:center;padding:40px 20px;color:var(--text-light)}
+.dash-error-box i{font-size:48px;color:var(--danger);margin-bottom:12px;display:block}
+
 /* CRM Dashboard Page Wrapper */
 .crm-dashboard-page{background:var(--crm-page-bg);background-image:linear-gradient(rgba(130,113,72,.04) 1px, transparent 1px),linear-gradient(90deg, rgba(130,113,72,.04) 1px, transparent 1px);background-size:40px 40px;min-height:100vh;padding:0}
 
@@ -1840,7 +1857,7 @@ try {
   } else { if (_resolveFbAuth) _resolveFbAuth(); }
 } catch(e) { console.warn('Firebase init failed:', e); if (_resolveFbAuth) _resolveFbAuth(); }
 
-const SYSTEM_VERSION = '2.5.0';
+const SYSTEM_VERSION = '2.6.0';
 let _latestUpdate = null;
 let _swRegistration = null;
 
@@ -3316,6 +3333,17 @@ function renderPage(page) {
 // ============================================================
 function renderDashboard(el) {
   const lg=lang==='ar';
+  el.innerHTML=`
+  <div class="topbar"><h1><i class="fas fa-tachometer-alt"></i> ${lg?'لوحة التحكم الرئيسية':'Dashboard'}</h1>
+  <div class="topbar-actions">
+    <button class="btn btn-outline btn-sm" onclick="showPage('reports')"><i class="fas fa-chart-bar"></i> ${lg?'التقارير':'Reports'}</button>
+  </div></div>
+  <div id="dashSkeleton" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:24px">
+    ${Array(8).fill('<div class="skeleton-card"><div class="skeleton skeleton-circle" style="margin:0 auto 10px;width:48px;height:48px"></div><div class="skeleton skeleton-line short" style="margin:0 auto 6px;height:20px;width:70%"></div><div class="skeleton skeleton-line xshort" style="margin:0 auto;height:12px"></div></div>').join('')}
+  </div>`;
+
+  setTimeout(()=>{
+  try{
   const sales=STORAGE.get('sales',[]);
   const employees=STORAGE.get('employees',[]);
   const leads=STORAGE.get('marketingLeads',[]);
@@ -3448,12 +3476,32 @@ function renderDashboard(el) {
   }
 
   setTimeout(()=>{
-    const cc=['#827148','#A5AF79','#E8A07C','#C75B4A','#6B5C3A','#10B981','#3B82F6'];
-    const monthMap={};sales.forEach(s=>{if(s.date){const m=s.date.slice(0,7);monthMap[m]=(monthMap[m]||0)+(s.unitPrice||0);}});
-    const mLbl=Object.keys(monthMap).sort().slice(-6);
-    if(mLbl.length&&document.getElementById('dashChartRevenue'))
-      new Chart(document.getElementById('dashChartRevenue'),{type:'bar',data:{labels:mLbl.map(m=>{const[y,mo]=m.split('-');return mo+'/'+y.slice(2);}),datasets:[{label:lg?'المبيعات':'Revenue',data:mLbl.map(m=>monthMap[m]),backgroundColor:cc.map(c=>c+'cc'),borderColor:cc,borderWidth:2,borderRadius:8}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmt(v)},grid:{color:'rgba(130,113,72,.08)'}},x:{grid:{display:false}}}}});
+    try{
+      const cc=['#827148','#A5AF79','#E8A07C','#C75B4A','#6B5C3A','#10B981','#3B82F6'];
+      const monthMap={};sales.forEach(s=>{if(s.date){const m=s.date.slice(0,7);monthMap[m]=(monthMap[m]||0)+(s.unitPrice||0);}});
+      const mLbl=Object.keys(monthMap).sort().slice(-6);
+      const canvas=document.getElementById('dashChartRevenue');
+      if(!canvas){return;}
+      if(typeof Chart==='undefined'){
+        canvas.parentElement.innerHTML='<div class="dash-error-box"><i class="fas fa-chart-bar"></i><p>'+(lg?'مكتبة الرسم غير متوفرة':'Chart library unavailable')+'</p></div>';
+        return;
+      }
+      if(mLbl.length){
+        new Chart(canvas,{type:'bar',data:{labels:mLbl.map(m=>{const[y,mo]=m.split('-');return mo+'/'+y.slice(2);}),datasets:[{label:lg?'المبيعات':'Revenue',data:mLbl.map(m=>monthMap[m]),backgroundColor:cc.map(c=>c+'cc'),borderColor:cc,borderWidth:2,borderRadius:8}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{callback:v=>fmt(v)},grid:{color:'rgba(130,113,72,.08)'}},x:{grid:{display:false}}}}});
+      } else {
+        canvas.parentElement.innerHTML='<div class="dash-error-box"><i class="fas fa-chart-bar"></i><p>'+(lg?'لا توجد بيانات مبيعات':'No sales data')+'</p></div>';
+      }
+    }catch(e){
+      const canvas=document.getElementById('dashChartRevenue');
+      if(canvas&&canvas.parentElement){
+        canvas.parentElement.innerHTML='<div class="dash-error-box"><i class="fas fa-exclamation-triangle"></i><p>'+(lg?'خطأ في تحميل الرسم البياني':'Chart loading error')+'</p></div>';
+      }
+    }
   },100);
+  }catch(e){
+    el.innerHTML='<div class="topbar"><h1><i class="fas fa-tachometer-alt"></i> '+lg?'لوحة التحكم الرئيسية':'Dashboard'+'</h1></div><div class="dash-error-box"><i class="fas fa-exclamation-triangle"></i><h3>'+(lg?'خطأ في تحميل لوحة التحكم':'Dashboard Error')+'</h3><p>'+e.message+'</p><button class="btn btn-outline btn-sm" onclick="showPage(\'dashboard\')" style="margin-top:12px"><i class="fas fa-redo"></i> '+(lg?'إعادة المحاولة':'Retry')+'</button></div>';
+  }
+  },50);
 }
 
 function dashShowDetail(type) {
