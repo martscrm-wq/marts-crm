@@ -1447,7 +1447,8 @@ const NAV_ITEMS = [
   {id:'accounting',icon:'fa-calculator',en:'Company Accounts',ar:'حسابات الشركة',perm:'accounts_view'},
   {id:'reports',icon:'fa-chart-bar',en:'Reports',ar:'التقارير',perm:'reports_view'},
   {id:'search',icon:'fa-search',en:'Search',ar:'البحث',perm:'search_view'},
-  {id:'crm',icon:'fa-address-book',en:'CRM',ar:'إدارة العملاء',perm:'crm_view'}
+  {id:'crm',icon:'fa-address-book',en:'CRM',ar:'إدارة العملاء',perm:'crm_view'},
+  {id:'settings',icon:'fa-cog',en:'Settings',ar:'الإعدادات',perm:'settings_view'}
 ];
 
 const AD_PLATFORMS = [
@@ -3320,7 +3321,7 @@ function renderPage(page) {
   const pages = {
     dashboard: renderDashboard, sales: renderSales, employees: renderEmployees,
     orgChart: renderOrgChart, commissions: renderCommissions, accounting: renderAccounting,
-    reports: renderReports, search: renderSearch, crm: renderCRM, crmAccounts: renderCrmAccounts, crmSettings: renderCrmSettings, marketing: renderMarketing, activityLogs: renderActivityLogs
+    reports: renderReports, search: renderSearch, crm: renderCRM, crmAccounts: renderCrmAccounts, crmSettings: renderCrmSettings, marketing: renderMarketing, activityLogs: renderActivityLogs, settings: renderSettings
   };
   if(page==='adAccounts') {
     document.getElementById('adAccountsBtn') && document.getElementById('adAccountsBtn').click();
