@@ -2106,6 +2106,7 @@ const FirebaseSync = {
   _queue: {},
   _flushing: false,
   _initialized: false,
+  _loadFailed: false,
   _listeners: [],
 
   getDocPath(key) { return 'app_data/' + key; },
@@ -2156,6 +2157,7 @@ const FirebaseSync = {
     } catch(e) {
       console.warn('[Firebase] Load failed:', e);
       this._initialized = true;
+      this._loadFailed = true;
     }
     this.flushPending();
     this._startRealtimeListeners();
@@ -3267,6 +3269,8 @@ function initData() {
     STORAGE.set('_migration_v3_cleared','1');
     console.log('[Migration v3] Cleared old data');
   }
+  if(FirebaseSync._loadFailed) { console.log('[Init] Skipping all defaults — cloud load failed, data preserved'); }
+  else {
   if(!STORAGE.get('treasury')||STORAGE.get('treasury').length===0){
     if(FirebaseSync._initialized && safeStorage.get('_ts_treasury')) { console.log('[Init] Skipping treasury default — cloud data exists'); }
     else {
@@ -3326,6 +3330,7 @@ function initData() {
       STORAGE.set(k, []);
     }
   });
+  } // end _loadFailed guard
 
   if(!STORAGE.get('chartOfAccounts')) STORAGE.set('chartOfAccounts', JSON.parse(JSON.stringify(DEFAULT_COA)));
   if(!STORAGE.get('ollamaSettings')) STORAGE.set('ollamaSettings', {url:'http://localhost:11434', model:'llama3.2', enabled:true});
