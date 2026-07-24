@@ -1,8 +1,8 @@
-const CACHE_NAME = 'marts-crm-v3.9';
+const CACHE_NAME = 'marts-crm-v5.0';
 const ASSETS = [
-  './',
   './Marts_System_Merged.html',
   './manifest.json',
+  './version.json',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
   'https://fonts.googleapis.com/css2?family=Cinzel:wght@700;800;900&display=swap',
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js',
@@ -50,6 +50,24 @@ self.addEventListener('fetch', e => {
 
   if (url.hostname.includes('firebasestorage.googleapis.com')) {
     e.respondWith(fetch(e.request));
+    return;
+  }
+
+  if (url.pathname.endsWith('version.json') || (url.search && url.search.includes('_t='))) {
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
+    return;
+  }
+
+  if (url.pathname.endsWith('.html') || url.pathname === '/' || url.pathname.endsWith('Marts_System_Merged.html') || url.pathname.endsWith('index.html')) {
+    e.respondWith(
+      fetch(e.request).then(resp => {
+        if (resp && resp.status === 200) {
+          const clone = resp.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(e.request, clone));
+        }
+        return resp;
+      }).catch(() => caches.match(e.request))
+    );
     return;
   }
 
