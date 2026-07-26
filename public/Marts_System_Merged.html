@@ -4194,8 +4194,8 @@ function toggleLang() { lang = lang==='ar'?'en':'ar'; STORAGE.set('lang',lang); 
 // ============================================================
 let _opsTab = 'dashboard';
 
-const OPS_TABS = ['dashboard','units','reservations','contracts','sales','contracted','cancelled','collected'];
-const OPS_TAB_LABELS = {dashboard:{ar:'لوحة التحكم',en:'Dashboard',icon:'fa-tachometer-alt'},units:{ar:'الوحدات',en:'Units',icon:'fa-building'},reservations:{ar:'الحجوزات',en:'Reservations',icon:'fa-calendar-check'},contracts:{ar:'العقود',en:'Contracts',icon:'fa-file-contract'},sales:{ar:'إضافة حركة',en:'Add Transaction',icon:'fa-plus-circle'},contracted:{ar:'التعاقد',en:'Contracted',icon:'fa-handshake'},cancelled:{ar:'الإلغاءات',en:'Cancelled',icon:'fa-ban'},collected:{ar:'التحصيل',en:'Collection',icon:'fa-money-check-alt'}};
+const OPS_TABS = ['dashboard','sales','reservations','contracted','cancelled','collected'];
+const OPS_TAB_LABELS = {dashboard:{ar:'لوحة التحكم',en:'Dashboard',icon:'fa-tachometer-alt'},sales:{ar:'إضافة حركة',en:'Add Transaction',icon:'fa-plus-circle'},reservations:{ar:'الحجوزات',en:'Reservations',icon:'fa-calendar-check'},contracted:{ar:'التعاقد',en:'Contracted',icon:'fa-handshake'},cancelled:{ar:'الإلغاءات',en:'Cancelled',icon:'fa-ban'},collected:{ar:'المبيعات',en:'Sales',icon:'fa-file-invoice-dollar'}};
 
 function renderSales(el) {
   let tabsHtml = '<div class="tab-bar" style="flex-wrap:wrap;margin-bottom:16px">';
@@ -4217,10 +4217,8 @@ function renderOpsTabContent() {
   const c = document.getElementById('opsTabContent');
   if(!c) return;
   if(_opsTab === 'dashboard') renderOpsDashboard(c);
-  else if(_opsTab === 'units') renderOpsUnits(c);
-  else if(_opsTab === 'reservations') renderOpsReservations(c);
-  else if(_opsTab === 'contracts') renderOpsContracts(c);
   else if(_opsTab === 'sales') renderOpsSales(c);
+  else if(_opsTab === 'reservations') renderOpsReservations(c);
   else if(_opsTab === 'contracted') renderOpsContractedSales(c);
   else if(_opsTab === 'cancelled') renderOpsCancelledSales(c);
   else if(_opsTab === 'collected') renderOpsCollectedSales(c);
@@ -4230,31 +4228,24 @@ function renderOpsTabContent() {
 // OPERATIONS - DASHBOARD
 // ============================================================
 function renderOpsDashboard(el) {
-  const units = STORAGE.get('op_units',[]);
-  const reservations = STORAGE.get('op_reservations',[]);
-  const contracts = STORAGE.get('op_contracts',[]);
   const sales = STORAGE.get('sales',[]);
-  const available = units.filter(u => u.status === 'available').length;
-  const reserved = units.filter(u => u.status === 'reserved').length;
-  const sold = units.filter(u => u.status === 'sold').length;
-  const pendingRes = reservations.filter(r => r.status === 'pending').length;
-  const activeContracts = contracts.filter(c => c.status === 'active').length;
   const pendingSales = sales.filter(s => !s.status || s.status === 'pending').length;
   const contractedSales = sales.filter(s => s.status === 'contracted').length;
   const cancelledSales = sales.filter(s => s.status === 'cancelled').length;
   const collectedSales = sales.filter(s => s.status === 'collected').length;
+  const totalValue = sales.reduce((s,x)=>s+(x.unitPrice||0),0);
+  const collectedValue = sales.filter(s=>s.status==='collected').reduce((s,x)=>s+(x.unitPrice||0),0);
 
   let h = `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">`;
-  h += `<div style="flex:1;min-width:150px;background:#f8f6f0;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('units')"><div style="font-size:32px;font-weight:800;color:var(--primary)">${units.length}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'إجمالي الوحدات':'Total Units'}</div></div>`;
-  h += `<div style="flex:1;min-width:150px;background:#e8f5e9;padding:16px;border-radius:10px;text-align:center"><div style="font-size:32px;font-weight:800;color:#4CAF50">${available}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'متاحة':'Available'}</div></div>`;
-  h += `<div style="flex:1;min-width:150px;background:#fff3e0;padding:16px;border-radius:10px;text-align:center"><div style="font-size:32px;font-weight:800;color:#FF9800">${reserved}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'محجوزة':'Reserved'}</div></div>`;
-  h += `<div style="flex:1;min-width:150px;background:#fce4ec;padding:16px;border-radius:10px;text-align:center"><div style="font-size:32px;font-weight:800;color:#C75B4A">${sold}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'مباعة':'Sold'}</div></div>`;
-  h += `</div>`;
-  h += `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">`;
   h += `<div style="flex:1;min-width:120px;background:#fff8e1;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('sales')"><div style="font-size:32px;font-weight:800;color:#FF9800">${pendingSales}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'حجوزات مبدئية':'Pending'}</div></div>`;
   h += `<div style="flex:1;min-width:120px;background:#e8f5e9;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('contracted')"><div style="font-size:32px;font-weight:800;color:#4CAF50">${contractedSales}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'تعاقد':'Contracted'}</div></div>`;
   h += `<div style="flex:1;min-width:120px;background:#fce4ec;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('cancelled')"><div style="font-size:32px;font-weight:800;color:#C75B4A">${cancelledSales}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'إلغاءات':'Cancelled'}</div></div>`;
-  h += `<div style="flex:1;min-width:120px;background:#e3f2fd;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('collected')"><div style="font-size:32px;font-weight:800;color:#1976D2">${collectedSales}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'تحصيل':'Collected'}</div></div>`;
+  h += `<div style="flex:1;min-width:120px;background:#e3f2fd;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('collected')"><div style="font-size:32px;font-weight:800;color:#1976D2">${collectedSales}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'مبيعات':'Sales'}</div></div>`;
+  h += `</div>`;
+  h += `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">`;
+  h += `<div style="flex:1;min-width:150px;background:#f8f6f0;padding:16px;border-radius:10px;text-align:center"><div style="font-size:32px;font-weight:800;color:var(--primary)">${sales.length}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'إجمالي الحركات':'Total Transactions'}</div></div>`;
+  h += `<div style="flex:1;min-width:150px;background:#e8f5e9;padding:16px;border-radius:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#27ae60">${fmt(totalValue)}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'إجمالي القيمة':'Total Value'}</div></div>`;
+  h += `<div style="flex:1;min-width:150px;background:#e3f2fd;padding:16px;border-radius:10px;text-align:center"><div style="font-size:18px;font-weight:800;color:#1976D2">${fmt(collectedValue)}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'قيمة المبيعات':'Sales Value'}</div></div>`;
   h += `</div>`;
   el.innerHTML = h;
 }
@@ -5256,15 +5247,15 @@ function renderOpsCollectedSales(el) {
 
   el.innerHTML = `
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px">
-    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #1976D2"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي التحصيل':'Total Collected'}</div><div style="font-size:22px;font-weight:800;color:#1976D2">${sales.length}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #1976D2"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي المبيعات':'Total Sales'}</div><div style="font-size:22px;font-weight:800;color:#1976D2">${sales.length}</div></div>
     <div class="card" style="padding:14px;text-align:center;border-left:4px solid #27ae60"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي القيمة':'Total Value'}</div><div style="font-size:18px;font-weight:800;color:#27ae60">${fmt(totalValue)}</div></div>
-    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #E67E22"><div style="font-size:11px;color:var(--text-light)">${lg?'عمولات مدفوعة':'Paid Commissions'}</div><div style="font-size:18px;font-weight:800;color:#E67E22">${fmt(totalComm)}</div></div>
-    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #EC4899"><div style="font-size:11px;color:var(--text-light)">${lg?'تحصيلات الشهر':'This Month'}</div><div style="font-size:22px;font-weight:800;color:#EC4899">${thisMonth.length}</div><div style="font-size:11px;color:var(--text-light)">${fmt(monthValue)}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #E67E22"><div style="font-size:11px;color:var(--text-light)">${lg?'عمولات الشركة':'Commissions'}</div><div style="font-size:18px;font-weight:800;color:#E67E22">${fmt(totalComm)}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #EC4899"><div style="font-size:11px;color:var(--text-light)">${lg?'مبيعات الشهر':'This Month'}</div><div style="font-size:22px;font-weight:800;color:#EC4899">${thisMonth.length}</div><div style="font-size:11px;color:var(--text-light)">${fmt(monthValue)}</div></div>
   </div>
   <div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:10px"><i class="fas fa-trophy"></i> ${lg?'أبرز المشاريع':'Top Projects'}</h3>
     <div style="display:flex;gap:8px;flex-wrap:wrap">${topProjects.length?topProjects.map(p=>`<div style="flex:1;min-width:120px;padding:10px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:16px;font-weight:800;color:var(--primary)">${p.count}</div><div style="font-size:11px;color:var(--text-light)">${p.name}</div><div style="font-size:10px;color:var(--text-light)">${fmt(p.value)}</div></div>`).join(''):`<span style="font-size:12px;color:var(--text-light)">${lg?'لا توجد بيانات':'No data'}</span>`}</div>
   </div>
-  <div class="card" style="margin-bottom:12px"><div class="flex-between mb-16"><h3><i class="fas fa-money-check-alt"></i> ${lg?'التحصيلات':'Collection'} (${sales.length})</h3></div>
+  <div class="card" style="margin-bottom:12px"><div class="flex-between mb-16"><h3><i class="fas fa-file-invoice-dollar"></i> ${lg?'المبيعات':'Sales'} (${sales.length})</h3></div>
   <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
     <div class="form-group"><label>${lg?'بحث':'Search'}</label><input type="text" id="collectedSearch" placeholder="${lg?'عميل، كود، مشروع...':'Client, code, project...'}" oninput="filterCollectedSales()"></div>
     <div class="form-group"><label>${lg?'المشروع':'Project'}</label><select id="collectedProject" onchange="filterCollectedSales()"><option value="">${lg?'الكل':'All'}</option>${projects.map(p=>`<option value="${p}">${p}</option>`).join('')}</select></div>
@@ -5299,7 +5290,7 @@ function filterCollectedSales() {
   if(priceTo<Infinity) sales = sales.filter(s=>(s.unitPrice||0)<=priceTo);
 
   let h = '';
-  if(sales.length===0) { h='<div class="empty-state"><p>'+(lg?'لا توجد تحصيلات':'No collections')+'</p></div>'; }
+  if(sales.length===0) { h='<div class="empty-state"><p>'+(lg?'لا توجد مبيعات':'No sales')+'</p></div>'; }
   else {
     h=`<div class="table-wrap"><table><thead><tr><th>${lg?'الكود':'Code'}</th><th>${lg?'التاريخ':'Date'}</th><th>${lg?'العميل':'Client'}</th><th>${lg?'المشروع':'Project'}</th><th>${lg?'النوع':'Type'}</th><th>${lg?'المساحة':'Area'}</th><th>${lg?'السعر':'Price'}</th><th>${lg?'العمولة':'Comm.'}</th><th>${lg?'المسوق':'Marketer'}</th></tr></thead><tbody>`;
     sales.slice().reverse().forEach(s=>{
