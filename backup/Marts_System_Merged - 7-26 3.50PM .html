@@ -3933,7 +3933,7 @@ function renderPage(page) {
   const pages = {
     dashboard: renderDashboard, sales: renderSales, employees: renderEmployees,
     orgChart: renderOrgChart, commissions: renderCommissions, accounting: renderAccounting,
-    reports: renderReports, search: renderSearch, crm: renderCRM, crmSettings: renderCrmSettings, marketing: renderMarketing, activityLogs: renderActivityLogs, settings: renderSettings, jobFormBuilder: renderJobFormBuilder
+    reports: renderReports, search: renderSearch, crm: renderCRM, crmSettings: renderCrmSettings, marketing: renderMarketing, activityLogs: renderActivityLogs, settings: renderSettings
   };
   if(page==='adAccounts') {
     document.getElementById('adAccountsBtn') && document.getElementById('adAccountsBtn').click();
@@ -7558,224 +7558,8 @@ function rejectJobRequest(reqId) {
 }
 
 // ============================================================
-// JOB APPLICATION FORM BUILDER
-// ============================================================
-const DEFAULT_JOB_FORM_FIELDS = [
-  {id:'jf_nationality',type:'select',labelAr:'الجنسية',labelEn:'Nationality',options:['مصري','أجنبي'],required:false,order:0,visible:true},
-  {id:'jf_marital',type:'select',labelAr:'الحالة الاجتماعية',labelEn:'Marital Status',options:['أعزب/ة','متزوج/ة','مطلق/ة','أرمل/ة'],required:false,order:1,visible:true},
-  {id:'jf_gender',type:'select',labelAr:'الجنس',labelEn:'Gender',options:['ذكر','أنثى'],required:false,order:2,visible:true},
-  {id:'jf_military',type:'select',labelAr:'الخدمة العسكرية',labelEn:'Military Service',options:['معفى','مؤجل','خالص','غير متقدم'],required:false,order:3,visible:true},
-  {id:'jf_hasCar',type:'checkbox',labelAr:'هل تملك سيارة؟',labelEn:'Do you have a car?',required:false,order:4,visible:true},
-  {id:'jf_hasLicense',type:'checkbox',labelAr:'هل تملك رخصة قيادة؟',labelEn:'Do you have a driving license?',required:false,order:5,visible:true},
-  {id:'jf_shifts',type:'checkbox',labelAr:'هل تقبل العمل بنوبات؟',labelEn:'Are you willing to work shifts?',required:false,order:6,visible:true}
-];
-
-function _getJobFormFields() {
-  let fields = STORAGE.get('jobFormFields', null);
-  if (!fields || !Array.isArray(fields) || fields.length === 0) {
-    fields = JSON.parse(JSON.stringify(DEFAULT_JOB_FORM_FIELDS));
-    STORAGE.set('jobFormFields', fields);
-  }
-  return fields.sort((a,b) => (a.order||0) - (b.order||0));
-}
-
-function _saveJobFormFields(fields) {
-  STORAGE.set('jobFormFields', fields);
-}
-
-function renderJobFormBuilder(el) {
-  const lg = lang === 'ar';
-  const fields = _getJobFormFields();
-  let h = `<div class="topbar"><h1><i class="fas fa-wpforms"></i> ${lg?'محرر نموذج التوظيف':'Job Application Form Builder'}</h1></div>`;
-  h += `<div class="card" style="border-left:4px solid var(--primary)">
-    <div class="flex-between" style="margin-bottom:16px">
-      <h3><i class="fas fa-list-ul"></i> ${lg?'حقول النموذج المخصصة':'Custom Form Fields'}</h3>
-      <button class="btn btn-primary btn-sm" onclick="openJobFieldModal()"><i class="fas fa-plus"></i> ${lg?'إضافة حقل':'Add Field'}</button>
-    </div>
-    <p style="font-size:13px;color:var(--text-light);margin-bottom:16px">${lg?'أضف وعدل واحذف الحقول التي تظهر في نموذج التقديم على الوظائف العام. يمكنك سحب وإعادة ترتيب الحقول.':'Add, edit, and delete fields that appear on the public job application form.'}</p>
-    <div id="jobFormFieldsList">`;
-
-  if (fields.length === 0) {
-    h += `<div class="empty-state"><p>${lg?'لا توجد حقول مخصصة بعد. اضغط "إضافة حقل" للبدء.':'No custom fields yet. Click "Add Field" to start.'}</p></div>`;
-  } else {
-    h += `<div class="table-wrap"><table><thead><tr>
-      <th style="width:40px">#</th>
-      <th>${lg?'النوع':'Type'}</th>
-      <th>${lg?'الاسم (عربي)':'Label (AR)'}</th>
-      <th>${lg?'الاسم (إنجليزي)':'Label (EN)'}</th>
-      <th>${lg?'الخيارات':'Options'}</th>
-      <th>${lg?'إلزامي':'Req'}</th>
-      <th>${lg?'مرئي':'Vis'}</th>
-      <th style="width:120px">${lg?'إجراءات':'Actions'}</th>
-    </tr></thead><tbody>`;
-
-    fields.forEach((f, i) => {
-      const typeLabel = f.type === 'text' ? (lg?'نص':'Text') : f.type === 'select' ? (lg?'قائمة منسدلة':'Dropdown') : (lg?'مربع اختيار':'Checkbox');
-      const typeIcon = f.type === 'text' ? 'fa-font' : f.type === 'select' ? 'fa-caret-down' : 'fa-check-square';
-      const opts = f.options ? f.options.join(', ') : '-';
-      h += `<tr style="cursor:move" draggable="true" ondragstart="event.dataTransfer.setData('text','${i}')" ondragover="event.preventDefault()" ondrop="jobFieldReorder(${i},event)">
-        <td style="text-align:center;color:var(--text-light)"><i class="fas fa-grip-vertical" style="cursor:move"></i></td>
-        <td><span style="font-size:12px;padding:3px 10px;border-radius:12px;background:rgba(130,113,72,0.1);color:#827148"><i class="fas ${typeIcon}"></i> ${typeLabel}</span></td>
-        <td style="font-weight:600">${f.labelAr||'-'}</td>
-        <td>${f.labelEn||'-'}</td>
-        <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${opts}</td>
-        <td style="text-align:center">${f.required?'<i class="fas fa-check-circle" style="color:#10B981"></i>':'<i class="fas fa-times-circle" style="color:var(--text-light)"></i>'}</td>
-        <td style="text-align:center">${f.visible?'<i class="fas fa-eye" style="color:#10B981"></i>':'<i class="fas fa-eye-slash" style="color:var(--text-light)"></i>'}</td>
-        <td>
-          <div style="display:flex;gap:4px">
-            <button class="btn btn-outline btn-sm" onclick="openJobFieldModal(${i})" title="${lg?'تعديل':'Edit'}"><i class="fas fa-pen"></i></button>
-            <button class="btn btn-danger btn-sm" onclick="deleteJobField(${i})" title="${lg?'حذف':'Delete'}"><i class="fas fa-trash"></i></button>
-          </div>
-        </td>
-      </tr>`;
-    });
-    h += `</tbody></table></div>`;
-  }
-  h += `</div></div>`;
-
-  h += `<div class="card" style="border-left:4px solid #10B981">
-    <h3><i class="fas fa-eye" style="color:#10B981"></i> ${lg?'معاينة النموذج':'Form Preview'}</h3>
-    <p style="font-size:13px;color:var(--text-light);margin-bottom:12px">${lg?'هكذا سيبدو النموذج للمتقدمين:':'This is how the form will look to applicants:'}</p>
-    <div style="background:#f9f9f9;border-radius:12px;padding:20px;border:1px dashed var(--border)" id="jobFormPreview"></div>
-  </div>`;
-
-  el.innerHTML = h;
-  _renderJobFormPreview();
-}
-
-function _renderJobFormPreview() {
-  const el = document.getElementById('jobFormPreview');
-  if (!el) return;
-  const lg = lang === 'ar';
-  const fields = _getJobFormFields().filter(f => f.visible);
-  let h = `<div style="max-width:600px">`;
-  fields.forEach(f => {
-    h += `<div class="form-group" style="margin-bottom:12px">`;
-    h += `<label style="font-weight:600;font-size:13px">${lg?f.labelAr:f.labelEn}${f.required?' *':''}</label>`;
-    if (f.type === 'text') {
-      h += `<input type="text" disabled placeholder="${lg?f.labelAr:f.labelEn}" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;margin-top:4px;background:#fff">`;
-    } else if (f.type === 'select') {
-      h += `<select disabled style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;margin-top:4px;background:#fff"><option>${lg?'اختر...':'Select...'}</option>`;
-      (f.options||[]).forEach(o => { h += `<option>${o}</option>`; });
-      h += `</select>`;
-    } else if (f.type === 'checkbox') {
-      h += `<label style="display:flex;align-items:center;gap:8px;margin-top:4px;font-size:13px"><input type="checkbox" disabled> ${lg?f.labelAr:f.labelEn}</label>`;
-    }
-    h += `</div>`;
-  });
-  if (fields.length === 0) h += `<p style="text-align:center;color:var(--text-light)">${lg?'لا توجد حقول مرئية':'No visible fields'}</p>`;
-  h += `</div>`;
-  el.innerHTML = h;
-}
-
-function openJobFieldModal(idx) {
-  const lg = lang === 'ar';
-  const fields = _getJobFormFields();
-  const f = idx !== undefined ? fields[idx] : null;
-  const isNew = !f;
-  const title = isNew ? (lg?'إضافة حقل جديد':'Add New Field') : (lg?'تعديل الحقل':'Edit Field');
-  const type = f ? f.type : 'text';
-  const html = `
-  <div style="max-width:500px">
-    <h3 style="margin:0 0 16px;color:#827148"><i class="fas fa-wpforms"></i> ${title}</h3>
-    <div class="form-group"><label>${lg?'نوع الحقل *':'Field Type *'}</label>
-      <select id="jfType" onchange="_jfTypeChange()" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px">
-        <option value="text" ${type==='text'?'selected':''}>${lg?'حقل نصي':'Text Input'}</option>
-        <option value="select" ${type==='select'?'selected':''}>${lg?'قائمة منسدلة':'Dropdown'}</option>
-        <option value="checkbox" ${type==='checkbox'?'selected':''}>${lg?'مربع اختيار':'Checkbox'}</option>
-      </select>
-    </div>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
-      <div class="form-group"><label>${lg?'الاسم بالعربي *':'Label (AR) *'}</label><input type="text" id="jfLabelAr" value="${f?f.labelAr:''}" required style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px"></div>
-      <div class="form-group"><label>${lg?'الاسم بالإنجليزي *':'Label (EN) *'}</label><input type="text" id="jfLabelEn" value="${f?f.labelEn:''}" required style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px"></div>
-    </div>
-    <div class="form-group" id="jfOptionsGroup" style="display:${type==='select'?'block':'none'}">
-      <label>${lg?'الخيارات (كل خيار في سطر منفصل)':'Options (one per line)'}</label>
-      <textarea id="jfOptions" rows="4" style="width:100%;padding:8px 12px;border:1px solid var(--border);border-radius:8px;resize:vertical" placeholder="${lg?'خيار 1&#10;خيار 2&#10;خيار 3':'Option 1&#10;Option 2&#10;Option 3'}">${f&&f.options?f.options.join('\n'):''}</textarea>
-    </div>
-    <div style="display:flex;gap:16px;margin-top:8px">
-      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="jfRequired" ${f&&f.required?'checked':''}> ${lg?'إلزامي':'Required'}</label>
-      <label style="display:flex;align-items:center;gap:6px;font-size:13px;cursor:pointer"><input type="checkbox" id="jfVisible" ${!f||f.visible?'checked':''}> ${lg?'مرئي في النموذج':'Visible on form'}</label>
-    </div>
-    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
-      <button class="btn btn-outline" onclick="closeModal()">${lg?'إلغاء':'Cancel'}</button>
-      <button class="btn btn-primary" onclick="saveJobField(${isNew?'null':idx})"><i class="fas fa-save"></i> ${lg?'حفظ':'Save'}</button>
-    </div>
-  </div>`;
-  openModal(html, '500px');
-}
-
-function _jfTypeChange() {
-  const type = document.getElementById('jfType').value;
-  document.getElementById('jfOptionsGroup').style.display = type === 'select' ? 'block' : 'none';
-}
-
-function saveJobField(idx) {
-  const lg = lang === 'ar';
-  const fields = _getJobFormFields();
-  const type = document.getElementById('jfType').value;
-  const labelAr = (document.getElementById('jfLabelAr').value||'').trim();
-  const labelEn = (document.getElementById('jfLabelEn').value||'').trim();
-  if (!labelAr || !labelEn) { alert(lg?'أكمل جميع الحقول':'Please fill all fields'); return; }
-  const required = document.getElementById('jfRequired').checked;
-  const visible = document.getElementById('jfVisible').checked;
-  const options = type === 'select' ? (document.getElementById('jfOptions').value||'').split('\n').map(s=>s.trim()).filter(Boolean) : [];
-  const id = (idx !== null && idx !== undefined) ? fields[idx].id : 'jf_' + Date.now();
-  const order = (idx !== null && idx !== undefined) ? fields[idx].order : fields.length;
-  const field = {id, type, labelAr, labelEn, options, required, order, visible};
-  if (idx !== null && idx !== undefined) { fields[idx] = field; } else { fields.push(field); }
-  _saveJobFormFields(fields);
-  closeModal();
-  renderJobFormBuilder(document.getElementById('mainContent'));
-}
-
-function deleteJobField(idx) {
-  const lg = lang === 'ar';
-  if (!confirm(lg?'هل أنت متأكد من حذف هذا الحقل؟':'Are you sure you want to delete this field?')) return;
-  const fields = _getJobFormFields();
-  fields.splice(idx, 1);
-  fields.forEach((f,i) => f.order = i);
-  _saveJobFormFields(fields);
-  renderJobFormBuilder(document.getElementById('mainContent'));
-}
-
-function jobFieldReorder(toIdx, event) {
-  event.preventDefault();
-  const fromIdx = parseInt(event.dataTransfer.getData('text'));
-  if (isNaN(fromIdx) || fromIdx === toIdx) return;
-  const fields = _getJobFormFields();
-  const item = fields.splice(fromIdx, 1)[0];
-  fields.splice(toIdx, 0, item);
-  fields.forEach((f,i) => f.order = i);
-  _saveJobFormFields(fields);
-  renderJobFormBuilder(document.getElementById('mainContent'));
-}
-
-// ============================================================
 // PUBLIC JOB APPLICATION FORM (via QR code link)
 // ============================================================
-function _renderPublicJobCustomFields() {
-  const lg = lang === 'ar';
-  const fields = _getJobFormFields().filter(f => f.visible);
-  if (fields.length === 0) return '';
-  let h = `<div style="margin-top:16px;padding-top:16px;border-top:1px dashed var(--border)">`;
-  h += `<p style="font-size:12px;color:var(--text-light);margin-bottom:12px;font-weight:600"><i class="fas fa-list-ul"></i> ${lg?'معلومات إضافية':'Additional Information'}</p>`;
-  h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">`;
-  fields.forEach(f => {
-    if (f.type === 'text') {
-      h += `<div class="form-group"><label>${lg?f.labelAr:f.labelEn}${f.required?' *':''}</label><input type="text" name="${f.id}" ${f.required?'required':''} placeholder="${lg?f.labelAr:f.labelEn}"></div>`;
-    } else if (f.type === 'select') {
-      h += `<div class="form-group"><label>${lg?f.labelAr:f.labelEn}${f.required?' *':''}</label><select name="${f.id}" ${f.required?'required':''}><option value="">${lg?'اختر...':'Select...'}</option>`;
-      (f.options||[]).forEach(o => { h += `<option value="${o}">${o}</option>`; });
-      h += `</select></div>`;
-    } else if (f.type === 'checkbox') {
-      h += `<div class="form-group" style="display:flex;align-items:center;gap:8px;padding-top:24px"><input type="checkbox" name="${f.id}" id="pub_${f.id}" value="yes"><label for="pub_${f.id}" style="font-weight:400;cursor:pointer">${lg?f.labelAr:f.labelEn}</label></div>`;
-    }
-  });
-  h += `</div></div>`;
-  return h;
-}
-
 function renderPublicJobForm() {
   const loginEl = document.getElementById('loginPage');
   const appEl = document.getElementById('app');
@@ -7822,7 +7606,6 @@ function renderPublicJobForm() {
         </div>
         <div class="form-group"><label>${lang==='ar'?'خبرات سابقة':'Previous Experience'}</label><textarea name="experiences" rows="2" placeholder="${lang==='ar'?'اذكر خبراتك السابقة...':'Describe your previous experience...'}"></textarea></div>
         <div class="form-group"><label>${lang==='ar'?'لماذا تريد الانضمام؟':'Why do you want to join?'}*</label><textarea name="motivation" required rows="2"></textarea></div>
-        ${_renderPublicJobCustomFields()}
         <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
           <button type="submit" class="btn btn-primary" style="padding:12px 32px;font-size:16px"><i class="fas fa-paper-plane"></i> ${lang==='ar'?'إرسال الطلب':'Submit Application'}</button>
         </div>
@@ -7852,16 +7635,6 @@ function submitPublicJaForm(e) {
     references:[], signature:'', sigDate:today(), hasCv:false, cvFileName:'',
     source:'public_qr', motivation: fd.get('motivation')||''
   };
-  const customFields = _getJobFormFields().filter(f => f.visible);
-  const customData = {};
-  customFields.forEach(f => {
-    if (f.type === 'checkbox') {
-      customData[f.id] = fd.has(f.id) ? 'yes' : 'no';
-    } else {
-      customData[f.id] = fd.get(f.id) || '';
-    }
-  });
-  if (Object.keys(customData).length > 0) appData.customFields = customData;
   applications.push(appData);
   STORAGE.set('jobApplications', applications);
 
@@ -19700,17 +19473,6 @@ function renderSettings(el) {
   ${renderSettingsSystemHealth()}
   ${renderSettingsPermissionsAudit()}
   ${renderSettingsActivityLog()}
-
-  <div class="card" style="border-left:4px solid #6366F1;cursor:pointer" onclick="showPage('jobFormBuilder')">
-    <div style="display:flex;align-items:center;gap:16px">
-      <div style="width:48px;height:48px;background:rgba(99,102,241,0.1);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;color:#6366F1"><i class="fas fa-wpforms"></i></div>
-      <div style="flex:1">
-        <h3 style="margin:0;color:#6366F1">${lang==='ar'?'محرر نموذج التوظيف':'Job Application Form Builder'}</h3>
-        <p style="font-size:13px;color:var(--text-light);margin:4px 0 0">${lang==='ar'?'إضافة وتعديل حقول نموذج التقديم على الوظائف (قوائم منسدلة، خانات نصية، مربعات اختيار)':'Add and edit fields for the job application form (dropdowns, text inputs, checkboxes)'}</p>
-      </div>
-      <i class="fas fa-chevron-${lang==='ar'?'left':'right'}" style="color:var(--text-light)"></i>
-    </div>
-  </div>
   `;
 
   renderCompanyProfilesList();

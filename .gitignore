@@ -31,3 +31,5 @@ tmp/
 
 # Secrets
 sa-key.json
+
+.vercel
