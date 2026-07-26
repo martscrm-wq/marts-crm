@@ -2797,13 +2797,15 @@ let currentPage = 'dashboard';
 // ============================================================
 const tr = {
   ar: {
-    subtitle:'إدارة العقارات',nav_dashboard:'لوحة التحكم',nav_sales:'العمليات',nav_addSale:'إضافة بيع',
+    subtitle:'إدارة العقارات',nav_dashboard:'لوحة التحكم',nav_sales:'العمليات',    nav_addSale:'إضافة حركة',
     nav_employees:'الموظفين',nav_orgChart:'الموارد البشرية',    nav_commissions:'العمولات',nav_accounting:'حسابات الشركة',
     nav_reports:'التقارير',nav_search:'البحث',nav_settings:'الإعدادات',nav_crm:'إدارة العملاء',nav_crmAccounts:'حسابات CRM',nav_crmSettings:'إعدادات CRM',nav_marketing:'مساحة التسويق',
     lang_en:'EN',lang_ar:'AR',save:'حفظ',cancel:'إلغاء',delete:'حذف',edit:'تعديل',
     dash_totalSales:'إجمالي المبيعات',dash_totalCommission:'إجمالي العمولات',dash_activeEmployees:'الموظفين النشطين',
     dash_thisMonth:'هذا الشهر',dash_recentSales:'آخر المبيعات',dash_commissionDue:'عمولات مستحقة',
-    addSale_title:'إضافة عملية بيع',editSale_title:'تعديل عملية بيع',
+    addSale_title:'إضافة حركة',editSale_title:'تعديل الحركة',
+    sale_status:'حالة الحركة',sale_status_pending:'حجز مبدئي',sale_status_contracted:'تم التعاقد',sale_status_cancelled:'تم الإلغاء',sale_status_collected:'تم التحصيل',
+    sale_convertToContract:'تحويل لعقد',sale_cancel:'إلغاء الحجز',sale_collect:'تحصيل',sale_statusHistory:'سجل الحالات',
     sale_code:'كود البيع',sale_company:'اسم الشركة',sale_project:'المشروع',sale_unitType:'نوع الوحدة',
     sale_area:'المساحة (م²)',sale_unitNum:'رقم الوحدة',sale_price:'سعر البيع (ج.م)',
     sale_commissionRate:'نسبة العمولة (%)',sale_commissionAmount:'مبلغ العمولة',
@@ -3083,13 +3085,15 @@ const tr = {
     ai_connectionSuccess:'تم الاتصال بـ Ollama بنجاح',ai_connectionFailed:'فشل الاتصال بـ Ollama'
   },
   en: {
-    subtitle:'Real Estate Management',nav_dashboard:'Dashboard',nav_sales:'Operations',nav_addSale:'Add Sale',
+    subtitle:'Real Estate Management',nav_dashboard:'Dashboard',nav_sales:'Operations',    nav_addSale:'Add Transaction',
     nav_employees:'Employees',nav_orgChart:'HR',    nav_commissions:'Commissions',nav_accounting:'Company Accounts',
     nav_reports:'Reports',nav_search:'Search',nav_settings:'Settings',nav_crm:'CRM',nav_crmAccounts:'CRM Accounts',nav_crmSettings:'CRM Settings',nav_marketing:'Marketing Workspace',
     lang_en:'EN',lang_ar:'AR',save:'Save',cancel:'Cancel',delete:'Delete',edit:'Edit',
     dash_totalSales:'Total Sales',dash_totalCommission:'Total Commission',dash_activeEmployees:'Active Employees',
     dash_thisMonth:'This Month',dash_recentSales:'Recent Sales',dash_commissionDue:'Commission Due',
-    addSale_title:'Add Sale',editSale_title:'Edit Sale',
+    addSale_title:'Add Transaction',editSale_title:'Edit Transaction',
+    sale_status:'Transaction Status',sale_status_pending:'Preliminary Reservation',sale_status_contracted:'Contracted',sale_status_cancelled:'Cancelled',sale_status_collected:'Collected',
+    sale_convertToContract:'Convert to Contract',sale_cancel:'Cancel Reservation',sale_collect:'Collect',sale_statusHistory:'Status History',
     sale_code:'Sale Code',sale_company:'Company',sale_project:'Project',sale_unitType:'Unit Type',
     sale_area:'Area (m²)',sale_unitNum:'Unit Number',sale_price:'Sale Price (EGP)',
     sale_commissionRate:'Commission Rate (%)',sale_commissionAmount:'Commission Amount',
@@ -4190,8 +4194,8 @@ function toggleLang() { lang = lang==='ar'?'en':'ar'; STORAGE.set('lang',lang); 
 // ============================================================
 let _opsTab = 'dashboard';
 
-const OPS_TABS = ['dashboard','units','reservations','contracts','sales'];
-const OPS_TAB_LABELS = {dashboard:{ar:'لوحة التحكم',en:'Dashboard',icon:'fa-tachometer-alt'},units:{ar:'الوحدات',en:'Units',icon:'fa-building'},reservations:{ar:'الحجوزات',en:'Reservations',icon:'fa-calendar-check'},contracts:{ar:'العقود',en:'Contracts',icon:'fa-file-contract'},sales:{ar:'المبيعات',en:'Sales',icon:'fa-file-invoice-dollar'}};
+const OPS_TABS = ['dashboard','units','reservations','contracts','sales','contracted','cancelled','collected'];
+const OPS_TAB_LABELS = {dashboard:{ar:'لوحة التحكم',en:'Dashboard',icon:'fa-tachometer-alt'},units:{ar:'الوحدات',en:'Units',icon:'fa-building'},reservations:{ar:'الحجوزات',en:'Reservations',icon:'fa-calendar-check'},contracts:{ar:'العقود',en:'Contracts',icon:'fa-file-contract'},sales:{ar:'إضافة حركة',en:'Add Transaction',icon:'fa-plus-circle'},contracted:{ar:'التعاقد',en:'Contracted',icon:'fa-handshake'},cancelled:{ar:'الإلغاءات',en:'Cancelled',icon:'fa-ban'},collected:{ar:'التحصيل',en:'Collection',icon:'fa-money-check-alt'}};
 
 function renderSales(el) {
   let tabsHtml = '<div class="tab-bar" style="flex-wrap:wrap;margin-bottom:16px">';
@@ -4217,6 +4221,9 @@ function renderOpsTabContent() {
   else if(_opsTab === 'reservations') renderOpsReservations(c);
   else if(_opsTab === 'contracts') renderOpsContracts(c);
   else if(_opsTab === 'sales') renderOpsSales(c);
+  else if(_opsTab === 'contracted') renderOpsContractedSales(c);
+  else if(_opsTab === 'cancelled') renderOpsCancelledSales(c);
+  else if(_opsTab === 'collected') renderOpsCollectedSales(c);
 }
 
 // ============================================================
@@ -4232,6 +4239,10 @@ function renderOpsDashboard(el) {
   const sold = units.filter(u => u.status === 'sold').length;
   const pendingRes = reservations.filter(r => r.status === 'pending').length;
   const activeContracts = contracts.filter(c => c.status === 'active').length;
+  const pendingSales = sales.filter(s => !s.status || s.status === 'pending').length;
+  const contractedSales = sales.filter(s => s.status === 'contracted').length;
+  const cancelledSales = sales.filter(s => s.status === 'cancelled').length;
+  const collectedSales = sales.filter(s => s.status === 'collected').length;
 
   let h = `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">`;
   h += `<div style="flex:1;min-width:150px;background:#f8f6f0;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('units')"><div style="font-size:32px;font-weight:800;color:var(--primary)">${units.length}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'إجمالي الوحدات':'Total Units'}</div></div>`;
@@ -4240,9 +4251,10 @@ function renderOpsDashboard(el) {
   h += `<div style="flex:1;min-width:150px;background:#fce4ec;padding:16px;border-radius:10px;text-align:center"><div style="font-size:32px;font-weight:800;color:#C75B4A">${sold}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'مباعة':'Sold'}</div></div>`;
   h += `</div>`;
   h += `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:20px">`;
-  h += `<div style="flex:1;min-width:150px;background:#fff8e1;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('reservations')"><div style="font-size:32px;font-weight:800;color:#F9A825">${pendingRes}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'حجوزات قيد الانتظار':'Pending Reservations'}</div></div>`;
-  h += `<div style="flex:1;min-width:150px;background:#e3f2fd;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('contracts')"><div style="font-size:32px;font-weight:800;color:#1976D2">${activeContracts}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'عقود نشطة':'Active Contracts'}</div></div>`;
-  h += `<div style="flex:1;min-width:150px;background:#f3e5f5;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('sales')"><div style="font-size:32px;font-weight:800;color:#7B1FA2">${sales.length}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'إجمالي المبيعات':'Total Sales'}</div></div>`;
+  h += `<div style="flex:1;min-width:120px;background:#fff8e1;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('sales')"><div style="font-size:32px;font-weight:800;color:#FF9800">${pendingSales}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'حجوزات مبدئية':'Pending'}</div></div>`;
+  h += `<div style="flex:1;min-width:120px;background:#e8f5e9;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('contracted')"><div style="font-size:32px;font-weight:800;color:#4CAF50">${contractedSales}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'تعاقد':'Contracted'}</div></div>`;
+  h += `<div style="flex:1;min-width:120px;background:#fce4ec;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('cancelled')"><div style="font-size:32px;font-weight:800;color:#C75B4A">${cancelledSales}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'إلغاءات':'Cancelled'}</div></div>`;
+  h += `<div style="flex:1;min-width:120px;background:#e3f2fd;padding:16px;border-radius:10px;text-align:center;cursor:pointer" onclick="showOpsTab('collected')"><div style="font-size:32px;font-weight:800;color:#1976D2">${collectedSales}</div><div style="font-size:13px;color:var(--text-light)">${lang==='ar'?'تحصيل':'Collected'}</div></div>`;
   h += `</div>`;
   el.innerHTML = h;
 }
@@ -4617,16 +4629,16 @@ function renderOpsSales(el) {
   const lg=lang==='ar';
   el.innerHTML = `
   <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px">
-    <div class="card" style="padding:14px;text-align:center;border-left:4px solid var(--primary)"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي المبيعات':'Total Sales'}</div><div style="font-size:22px;font-weight:800;color:var(--primary)">${sales.length}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid var(--primary)"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي الحركات':'Total Transactions'}</div><div style="font-size:22px;font-weight:800;color:var(--primary)">${sales.length}</div></div>
     <div class="card" style="padding:14px;text-align:center;border-left:4px solid #27ae60"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي القيمة':'Total Value'}</div><div style="font-size:18px;font-weight:800;color:#27ae60">${fmt(totalValue)}</div></div>
     <div class="card" style="padding:14px;text-align:center;border-left:4px solid #6C63FF"><div style="font-size:11px;color:var(--text-light)">${lg?'متوسط السعر':'Avg Price'}</div><div style="font-size:18px;font-weight:800;color:#6C63FF">${fmt(avgPrice)}</div></div>
     <div class="card" style="padding:14px;text-align:center;border-left:4px solid #E67E22"><div style="font-size:11px;color:var(--text-light)">${lg?'عمولات الشركة':'Commissions'}</div><div style="font-size:18px;font-weight:800;color:#E67E22">${fmt(totalComm)}</div></div>
-    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #EC4899"><div style="font-size:11px;color:var(--text-light)">${lg?'مبيعات الشهر':'This Month'}</div><div style="font-size:22px;font-weight:800;color:#EC4899">${thisMonth.length}</div><div style="font-size:11px;color:var(--text-light)">${fmt(monthValue)}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #EC4899"><div style="font-size:11px;color:var(--text-light)">${lg?'حركات الشهر':'This Month'}</div><div style="font-size:22px;font-weight:800;color:#EC4899">${thisMonth.length}</div><div style="font-size:11px;color:var(--text-light)">${fmt(monthValue)}</div></div>
   </div>
   <div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:10px"><i class="fas fa-trophy"></i> ${lg?'أبرز المشاريع':'Top Projects'}</h3>
     <div style="display:flex;gap:8px;flex-wrap:wrap">${topProjects.length?topProjects.map(p=>`<div style="flex:1;min-width:120px;padding:10px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:16px;font-weight:800;color:var(--primary)">${p.count}</div><div style="font-size:11px;color:var(--text-light)">${p.name}</div><div style="font-size:10px;color:var(--text-light)">${fmt(p.value)}</div></div>`).join(''):`<span style="font-size:12px;color:var(--text-light)">${lg?'لا توجد بيانات':'No data'}</span>`}</div>
   </div>
-  <div class="card"><div class="flex-between mb-16"><h3><i class="fas fa-file-invoice-dollar"></i> ${lang==='ar'?'المبيعات':'Sales'} (${sales.length})</h3>
+  <div class="card"><div class="flex-between mb-16"><h3><i class="fas fa-plus-circle"></i> ${lang==='ar'?'إضافة حركة':'Add Transaction'} (${sales.length})</h3>
   <div style="display:flex;gap:8px;flex-wrap:wrap">`;
   if(canEdit()) el.querySelector('.card').innerHTML += `<button class="btn btn-primary btn-sm" onclick="openSaleForm()"><i class="fas fa-plus"></i> ${t('addSale_title')}</button>`;
   el.innerHTML += `</div></div>
@@ -4641,14 +4653,22 @@ function filterOpsSales() {
   if(search) sales = sales.filter(s => (s.client||'').toLowerCase().includes(search) || (s.code||'').toLowerCase().includes(search) || (s.project||'').toLowerCase().includes(search));
   const employees = STORAGE.get('employees',[]);
   let h = '';
-  if(sales.length === 0) { h = '<div class="empty-state"><p>'+(lang==='ar'?'لا توجد مبيعات':'No sales')+'</p></div>'; }
+  if(sales.length === 0) { h = '<div class="empty-state"><p>'+(lang==='ar'?'لا توجد حركات':'No transactions')+'</p></div>'; }
   else {
-    h = `<div class="table-wrap"><table><thead><tr><th>${lang==='ar'?'الكود':'Code'}</th><th>${lang==='ar'?'التاريخ':'Date'}</th><th>${lang==='ar'?'العميل':'Client'}</th><th>${lang==='ar'?'المشروع':'Project'}</th><th>${lang==='ar'?'النوع':'Type'}</th><th>${lang==='ar'?'السعر':'Price'}</th><th>${lang==='ar'?'العمولة':'Comm.'}</th><th>${lang==='ar'?'إجراءات':'Actions'}</th></tr></thead><tbody>`;
+    h = `<div class="table-wrap"><table><thead><tr><th>${lang==='ar'?'الكود':'Code'}</th><th>${lang==='ar'?'التاريخ':'Date'}</th><th>${lang==='ar'?'العميل':'Client'}</th><th>${lang==='ar'?'المشروع':'Project'}</th><th>${lang==='ar'?'النوع':'Type'}</th><th>${lang==='ar'?'السعر':'Price'}</th><th>${lang==='ar'?'العمولة':'Comm.'}</th><th>${lang==='ar'?'الحالة':'Status'}</th><th>${lang==='ar'?'إجراءات':'Actions'}</th></tr></thead><tbody>`;
     sales.slice().reverse().forEach(s => {
-      const sp = employees.find(e => e.id === s.salesPersonId);
-      h += `<tr><td>${s.code||'-'}</td><td>${fmtDate(s.date)}</td><td>${s.client||'-'}</td><td>${s.project||'-'}</td><td>${s.unitType||'-'}</td><td>${fmt(s.unitPrice)}</td><td>${fmt(s.unitPrice*s.commissionRate/100)}</td><td>`;
+      const st = SALE_STATUSES[s.status||'pending'] || SALE_STATUSES.pending;
+      h += `<tr><td>${s.code||'-'}</td><td>${fmtDate(s.date)}</td><td>${s.client||'-'}</td><td>${s.project||'-'}</td><td>${s.unitType||'-'}</td><td>${fmt(s.unitPrice)}</td><td>${fmt(s.unitPrice*s.commissionRate/100)}</td><td><span class="badge" style="background:${st.color}22;color:${st.color};border:1px solid ${st.color}44">${lang==='ar'?st.ar:st.en}</span></td><td>`;
       if(canEdit()) {
         h += `<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="openSaleForm('${s.id}')"><i class="fas fa-edit"></i></button>`;
+        if(!s.status || s.status === 'pending') {
+          h += `<button class="btn btn-sm" style="padding:2px 8px;background:#e8f5e9;color:#2e7d32;border:1px solid #a5d6a7;margin-right:4px" onclick="convertSaleToContract('${s.id}')"><i class="fas fa-exchange-alt"></i></button>`;
+          h += `<button class="btn btn-sm" style="padding:2px 8px;background:#fce4ec;color:#c62828;border:1px solid #ef9a9a;margin-right:4px" onclick="cancelSale('${s.id}')"><i class="fas fa-times"></i></button>`;
+        }
+        if(s.status === 'contracted') {
+          h += `<button class="btn btn-sm" style="padding:2px 8px;background:#e3f2fd;color:#1565c0;border:1px solid #90caf9;margin-right:4px" onclick="collectSale('${s.id}')"><i class="fas fa-check-circle"></i></button>`;
+        }
+        h += `<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#888;border-color:#ddd;margin-right:4px" onclick="viewSaleStatusHistory('${s.id}')"><i class="fas fa-history"></i></button>`;
         h += `<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteSale('${s.id}')"><i class="fas fa-trash"></i></button>`;
       }
       h += `</td></tr>`;
@@ -4970,6 +4990,8 @@ function saveSale(saleId) {
     sales = sales.map(s=>s.id===saleId?{...s,...data}:s);
   } else {
     data.id = uid();
+    data.status = 'pending';
+    data.statusHistory = [{status:'pending',date:new Date().toISOString(),note:'إنشاء الحركة'}];
     sales.push(data);
   }
   STORAGE.set('sales', sales);
@@ -4989,11 +5011,304 @@ function saveSale(saleId) {
   renderPage('sales');
 }
 
+// ============================================================
+// SALE STATUS TRANSITIONS
+// ============================================================
+const SALE_STATUSES = {
+  pending: {ar:'حجز مبدئي',en:'Preliminary Reservation',color:'#FF9800'},
+  contracted: {ar:'تم التعاقد',en:'Contracted',color:'#4CAF50'},
+  cancelled: {ar:'تم الإلغاء',en:'Cancelled',color:'#C75B4A'},
+  collected: {ar:'تم التحصيل',en:'Collected',color:'#1976D2'}
+};
+
+function convertSaleToContract(saleId) {
+  if(!confirm(lang==='ar'?'تحويل الحركة لعقد؟':'Convert transaction to contract?')) return;
+  let sales = STORAGE.get('sales',[]);
+  const s = sales.find(x=>x.id===saleId);
+  if(!s) return;
+  s.status = 'contracted';
+  s.statusHistory = s.statusHistory || [];
+  s.statusHistory.push({status:'contracted',date:new Date().toISOString(),note:'تحويل لعقد'});
+  STORAGE.set('sales', sales);
+  wsToast(lang==='ar'?'تم التحويل لعقد':'Converted to contract');
+  renderOpsSales(document.getElementById('mainContent'));
+}
+
+function cancelSale(saleId) {
+  if(!confirm(lang==='ar'?'إلغاء الحجز؟':'Cancel reservation?')) return;
+  let sales = STORAGE.get('sales',[]);
+  const s = sales.find(x=>x.id===saleId);
+  if(!s) return;
+  s.status = 'cancelled';
+  s.statusHistory = s.statusHistory || [];
+  s.statusHistory.push({status:'cancelled',date:new Date().toISOString(),note:'إلغاء الحجز'});
+  STORAGE.set('sales', sales);
+  wsToast(lang==='ar'?'تم الإلغاء':'Cancelled');
+  renderOpsSales(document.getElementById('mainContent'));
+}
+
+function collectSale(saleId) {
+  if(!confirm(lang==='ar'?'تسجيل التحصيل؟':'Record collection?')) return;
+  let sales = STORAGE.get('sales',[]);
+  const s = sales.find(x=>x.id===saleId);
+  if(!s) return;
+  s.status = 'collected';
+  s.statusHistory = s.statusHistory || [];
+  s.statusHistory.push({status:'collected',date:new Date().toISOString(),note:'تسجيل التحصيل'});
+  STORAGE.set('sales', sales);
+  wsToast(lang==='ar'?'تم التحصيل':'Collected');
+  renderOpsSales(document.getElementById('mainContent'));
+}
+
+function viewSaleStatusHistory(saleId) {
+  const sales = STORAGE.get('sales',[]);
+  const s = sales.find(x=>x.id===saleId);
+  if(!s) return;
+  const hist = s.statusHistory || [];
+  const lg = lang==='ar';
+  let h = `<h3>${lg?'سجل الحالات':'Status History'}</h3>`;
+  if(hist.length === 0) {
+    h += `<div class="empty-state"><p>${lg?'لا توجد سجلات':'No history'}</p></div>`;
+  } else {
+    h += `<div class="table-wrap"><table><thead><tr><th>${lg?'التاريخ':'Date'}</th><th>${lg?'الحالة':'Status'}</th><th>${lg?'ملاحظة':'Note'}</th></tr></thead><tbody>`;
+    hist.slice().reverse().forEach(item => {
+      const st = SALE_STATUSES[item.status] || {ar:item.status,en:item.status,color:'#999'};
+      h += `<tr><td>${fmtDate(item.date)}</td><td><span class="badge" style="background:${st.color}22;color:${st.color};border:1px solid ${st.color}44">${lg?st.ar:st.en}</span></td><td>${item.note||'-'}</td></tr>`;
+    });
+    h += '</tbody></table></div>';
+  }
+  h += `<div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  document.getElementById('modalContainer').innerHTML = h;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
 function deleteSale(id) {
   if(!confirm(t('confirm_delete'))) return;
   ActivityLog.log('delete', 'sales', { id });
   STORAGE.set('sales', STORAGE.get('sales',[]).filter(s=>s.id!==id));
   renderPage('sales');
+}
+
+// ============================================================
+// CONTRACTED SALES TAB
+// ============================================================
+function renderOpsContractedSales(el) {
+  const sales = STORAGE.get('sales',[]).filter(s=>s.status==='contracted');
+  const employees = STORAGE.get('employees',[]);
+  const lg = lang==='ar';
+  const totalValue = sales.reduce((s,x)=>s+(x.unitPrice||0),0);
+  const totalComm = sales.reduce((s,x)=>s+((x.unitPrice||0)*(x.commissionRate||0)/100),0);
+  const avgPrice = sales.length?Math.round(totalValue/sales.length):0;
+  const projects = [...new Set(sales.map(s=>s.project).filter(Boolean))];
+  const topProjects = projects.map(p=>({name:p,count:sales.filter(s=>s.project===p).length,value:sales.filter(s=>s.project===p).reduce((s,x)=>s+(x.unitPrice||0),0)})).sort((a,b)=>b.count-a.count).slice(0,5);
+  const marketers = [...new Set(sales.map(s=>s.marketerId).filter(Boolean))];
+  const marketerStats = marketers.map(mid=>{const emp=employees.find(e=>e.id===mid);return{name:emp?emp.name:'-',count:sales.filter(s=>s.marketerId===mid).length,value:sales.filter(s=>s.marketerId===mid).reduce((s,x)=>s+(x.unitPrice||0),0)}}).sort((a,b)=>b.count-a.count).slice(0,5);
+
+  el.innerHTML = `
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px">
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #4CAF50"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي التعاقدات':'Total Contracts'}</div><div style="font-size:22px;font-weight:800;color:#4CAF50">${sales.length}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #27ae60"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي القيمة':'Total Value'}</div><div style="font-size:18px;font-weight:800;color:#27ae60">${fmt(totalValue)}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #6C63FF"><div style="font-size:11px;color:var(--text-light)">${lg?'متوسط السعر':'Avg Price'}</div><div style="font-size:18px;font-weight:800;color:#6C63FF">${fmt(avgPrice)}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #E67E22"><div style="font-size:11px;color:var(--text-light)">${lg?'عمولات الشركة':'Commissions'}</div><div style="font-size:18px;font-weight:800;color:#E67E22">${fmt(totalComm)}</div></div>
+  </div>
+  <div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:10px"><i class="fas fa-trophy"></i> ${lg?'أبرز المشاريع':'Top Projects'}</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${topProjects.length?topProjects.map(p=>`<div style="flex:1;min-width:120px;padding:10px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:16px;font-weight:800;color:var(--primary)">${p.count}</div><div style="font-size:11px;color:var(--text-light)">${p.name}</div><div style="font-size:10px;color:var(--text-light)">${fmt(p.value)}</div></div>`).join(''):`<span style="font-size:12px;color:var(--text-light)">${lg?'لا توجد بيانات':'No data'}</span>`}</div>
+  </div>
+  <div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:10px"><i class="fas fa-user-tie"></i> ${lg?'أفضل المسوقين':'Top Marketers'}</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${marketerStats.length?marketerStats.map(m=>`<div style="flex:1;min-width:120px;padding:10px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:16px;font-weight:800;color:var(--primary)">${m.count}</div><div style="font-size:11px;color:var(--text-light)">${m.name}</div><div style="font-size:10px;color:var(--text-light)">${fmt(m.value)}</div></div>`).join(''):`<span style="font-size:12px;color:var(--text-light)">${lg?'لا توجد بيانات':'No data'}</span>`}</div>
+  </div>
+  <div class="card" style="margin-bottom:12px"><div class="flex-between mb-16"><h3><i class="fas fa-handshake"></i> ${lg?'التعاقدات':'Contracted'} (${sales.length})</h3></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <div class="form-group"><label>${lg?'بحث':'Search'}</label><input type="text" id="contractedSearch" placeholder="${lg?'عميل، كود، مشروع...':'Client, code, project...'}" oninput="filterContractedSales()"></div>
+    <div class="form-group"><label>${lg?'المشروع':'Project'}</label><select id="contractedProject" onchange="filterContractedSales()"><option value="">${lg?'الكل':'All'}</option>${projects.map(p=>`<option value="${p}">${p}</option>`).join('')}</select></div>
+    <div class="form-group"><label>${lg?'نوع الوحدة':'Unit Type'}</label><select id="contractedUnitType" onchange="filterContractedSales()"><option value="">${lg?'الكل':'All'}</option>${[...new Set(sales.map(s=>s.unitType).filter(Boolean))].map(t=>`<option value="${t}">${t}</option>`).join('')}</select></div>
+    <div class="form-group"><label>${lg?'من تاريخ':'From Date'}</label><input type="date" id="contractedDateFrom" onchange="filterContractedSales()"></div>
+    <div class="form-group"><label>${lg?'إلى تاريخ':'To Date'}</label><input type="date" id="contractedDateTo" onchange="filterContractedSales()"></div>
+    <div class="form-group"><label>${lg?'السعر من':'Price From'}</label><input type="number" id="contractedPriceFrom" placeholder="0" oninput="filterContractedSales()"></div>
+    <div class="form-group"><label>${lg?'السعر إلى':'Price To'}</label><input type="number" id="contractedPriceTo" placeholder="∞" oninput="filterContractedSales()"></div>
+  </div>
+  <div id="contractedSalesTable"></div></div>`;
+  filterContractedSales();
+}
+
+function filterContractedSales() {
+  let sales = STORAGE.get('sales',[]).filter(s=>s.status==='contracted');
+  const employees = STORAGE.get('employees',[]);
+  const lg = lang==='ar';
+  const search = (document.getElementById('contractedSearch')?.value||'').toLowerCase();
+  const project = document.getElementById('contractedProject')?.value||'';
+  const unitType = document.getElementById('contractedUnitType')?.value||'';
+  const dateFrom = document.getElementById('contractedDateFrom')?.value||'';
+  const dateTo = document.getElementById('contractedDateTo')?.value||'';
+  const priceFrom = parseFloat(document.getElementById('contractedPriceFrom')?.value)||0;
+  const priceTo = parseFloat(document.getElementById('contractedPriceTo')?.value)||Infinity;
+
+  if(search) sales = sales.filter(s=>(s.client||'').toLowerCase().includes(search)||(s.code||'').toLowerCase().includes(search)||(s.project||'').toLowerCase().includes(search)||(s.clientPhone||'').includes(search));
+  if(project) sales = sales.filter(s=>s.project===project);
+  if(unitType) sales = sales.filter(s=>s.unitType===unitType);
+  if(dateFrom) sales = sales.filter(s=>s.date>=dateFrom);
+  if(dateTo) sales = sales.filter(s=>s.date<=dateTo);
+  if(priceFrom) sales = sales.filter(s=>(s.unitPrice||0)>=priceFrom);
+  if(priceTo<Infinity) sales = sales.filter(s=>(s.unitPrice||0)<=priceTo);
+
+  const cnt = document.getElementById('contractedSalesCount');
+  if(cnt) cnt.textContent = sales.length + ' / ' + STORAGE.get('sales',[]).filter(s=>s.status==='contracted').length;
+
+  let h = '';
+  if(sales.length===0) { h='<div class="empty-state"><p>'+(lg?'لا توجد تعاقادات':'No contracts')+'</p></div>'; }
+  else {
+    h=`<div class="table-wrap"><table><thead><tr><th>${lg?'الكود':'Code'}</th><th>${lg?'التاريخ':'Date'}</th><th>${lg?'العميل':'Client'}</th><th>${lg?'المشروع':'Project'}</th><th>${lg?'النوع':'Type'}</th><th>${lg?'المساحة':'Area'}</th><th>${lg?'السعر':'Price'}</th><th>${lg?'العمولة':'Comm.'}</th><th>${lg?'المسوق':'Marketer'}</th></tr></thead><tbody>`;
+    sales.slice().reverse().forEach(s=>{
+      const emp = employees.find(e=>e.id===s.marketerId);
+      h+=`<tr><td><strong>${s.code||'-'}</strong></td><td>${fmtDate(s.date)}</td><td>${s.client||'-'}<br><small style="color:var(--text-light)">${s.clientPhone||''}</small></td><td>${s.project||'-'}</td><td>${s.unitType||'-'}</td><td>${s.area?s.area+' m²':'-'}</td><td>${fmt(s.unitPrice)}</td><td>${fmt((s.unitPrice||0)*(s.commissionRate||0)/100)}</td><td>${emp?emp.name:'-'}</td></tr>`;
+    });
+    h+='</tbody></table></div>';
+  }
+  document.getElementById('contractedSalesTable').innerHTML=h;
+}
+
+// ============================================================
+// CANCELLED SALES TAB
+// ============================================================
+function renderOpsCancelledSales(el) {
+  const sales = STORAGE.get('sales',[]).filter(s=>s.status==='cancelled');
+  const employees = STORAGE.get('employees',[]);
+  const lg = lang==='ar';
+  const totalValue = sales.reduce((s,x)=>s+(x.unitPrice||0),0);
+  const thisMonth = sales.filter(s=>s.date&&s.date.startsWith(today().slice(0,7)));
+  const projects = [...new Set(sales.map(s=>s.project).filter(Boolean))];
+  const topProjects = projects.map(p=>({name:p,count:sales.filter(s=>s.project===p).length,value:sales.filter(s=>s.project===p).reduce((s,x)=>s+(x.unitPrice||0),0)})).sort((a,b)=>b.count-a.count).slice(0,5);
+
+  el.innerHTML = `
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px">
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #C75B4A"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي الإلغاءات':'Total Cancellations'}</div><div style="font-size:22px;font-weight:800;color:#C75B4A">${sales.length}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #e74c3c"><div style="font-size:11px;color:var(--text-light)">${lg?'قيمة الإلغاءات':'Cancelled Value'}</div><div style="font-size:18px;font-weight:800;color:#e74c3c">${fmt(totalValue)}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #FF9800"><div style="font-size:11px;color:var(--text-light)">${lg?'إلغاءات الشهر':'This Month'}</div><div style="font-size:22px;font-weight:800;color:#FF9800">${thisMonth.length}</div></div>
+  </div>
+  <div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:10px"><i class="fas fa-chart-pie"></i> ${lg?'الأسباب':'Reasons'}</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${topProjects.length?topProjects.map(p=>`<div style="flex:1;min-width:120px;padding:10px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:16px;font-weight:800;color:#C75B4A">${p.count}</div><div style="font-size:11px;color:var(--text-light)">${p.name}</div><div style="font-size:10px;color:var(--text-light)">${fmt(p.value)}</div></div>`).join(''):`<span style="font-size:12px;color:var(--text-light)">${lg?'لا توجد بيانات':'No data'}</span>`}</div>
+  </div>
+  <div class="card" style="margin-bottom:12px"><div class="flex-between mb-16"><h3><i class="fas fa-ban"></i> ${lg?'الإلغاءات':'Cancelled'} (${sales.length})</h3></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <div class="form-group"><label>${lg?'بحث':'Search'}</label><input type="text" id="cancelledSearch" placeholder="${lg?'عميل، كود، مشروع...':'Client, code, project...'}" oninput="filterCancelledSales()"></div>
+    <div class="form-group"><label>${lg?'المشروع':'Project'}</label><select id="cancelledProject" onchange="filterCancelledSales()"><option value="">${lg?'الكل':'All'}</option>${projects.map(p=>`<option value="${p}">${p}</option>`).join('')}</select></div>
+    <div class="form-group"><label>${lg?'نوع الوحدة':'Unit Type'}</label><select id="cancelledUnitType" onchange="filterCancelledSales()"><option value="">${lg?'الكل':'All'}</option>${[...new Set(sales.map(s=>s.unitType).filter(Boolean))].map(t=>`<option value="${t}">${t}</option>`).join('')}</select></div>
+    <div class="form-group"><label>${lg?'من تاريخ':'From Date'}</label><input type="date" id="cancelledDateFrom" onchange="filterCancelledSales()"></div>
+    <div class="form-group"><label>${lg?'إلى تاريخ':'To Date'}</label><input type="date" id="cancelledDateTo" onchange="filterCancelledSales()"></div>
+    <div class="form-group"><label>${lg?'السعر من':'Price From'}</label><input type="number" id="cancelledPriceFrom" placeholder="0" oninput="filterCancelledSales()"></div>
+    <div class="form-group"><label>${lg?'السعر إلى':'Price To'}</label><input type="number" id="cancelledPriceTo" placeholder="∞" oninput="filterCancelledSales()"></div>
+  </div>
+  <div id="cancelledSalesTable"></div></div>`;
+  filterCancelledSales();
+}
+
+function filterCancelledSales() {
+  let sales = STORAGE.get('sales',[]).filter(s=>s.status==='cancelled');
+  const employees = STORAGE.get('employees',[]);
+  const lg = lang==='ar';
+  const search = (document.getElementById('cancelledSearch')?.value||'').toLowerCase();
+  const project = document.getElementById('cancelledProject')?.value||'';
+  const unitType = document.getElementById('cancelledUnitType')?.value||'';
+  const dateFrom = document.getElementById('cancelledDateFrom')?.value||'';
+  const dateTo = document.getElementById('cancelledDateTo')?.value||'';
+  const priceFrom = parseFloat(document.getElementById('cancelledPriceFrom')?.value)||0;
+  const priceTo = parseFloat(document.getElementById('cancelledPriceTo')?.value)||Infinity;
+
+  if(search) sales = sales.filter(s=>(s.client||'').toLowerCase().includes(search)||(s.code||'').toLowerCase().includes(search)||(s.project||'').toLowerCase().includes(search)||(s.clientPhone||'').includes(search));
+  if(project) sales = sales.filter(s=>s.project===project);
+  if(unitType) sales = sales.filter(s=>s.unitType===unitType);
+  if(dateFrom) sales = sales.filter(s=>s.date>=dateFrom);
+  if(dateTo) sales = sales.filter(s=>s.date<=dateTo);
+  if(priceFrom) sales = sales.filter(s=>(s.unitPrice||0)>=priceFrom);
+  if(priceTo<Infinity) sales = sales.filter(s=>(s.unitPrice||0)<=priceTo);
+
+  let h = '';
+  if(sales.length===0) { h='<div class="empty-state"><p>'+(lg?'لا توجد إلغاءات':'No cancellations')+'</p></div>'; }
+  else {
+    h=`<div class="table-wrap"><table><thead><tr><th>${lg?'الكود':'Code'}</th><th>${lg?'التاريخ':'Date'}</th><th>${lg?'العميل':'Client'}</th><th>${lg?'المشروع':'Project'}</th><th>${lg?'النوع':'Type'}</th><th>${lg?'المساحة':'Area'}</th><th>${lg?'السعر':'Price'}</th><th>${lg?'المسوق':'Marketer'}</th><th>${lg?'إجراءات':'Actions'}</th></tr></thead><tbody>`;
+    sales.slice().reverse().forEach(s=>{
+      const emp = employees.find(e=>e.id===s.marketerId);
+      h+=`<tr><td><strong>${s.code||'-'}</strong></td><td>${fmtDate(s.date)}</td><td>${s.client||'-'}<br><small style="color:var(--text-light)">${s.clientPhone||''}</small></td><td>${s.project||'-'}</td><td>${s.unitType||'-'}</td><td>${s.area?s.area+' m²':'-'}</td><td>${fmt(s.unitPrice)}</td><td>${emp?emp.name:'-'}</td><td>`;
+      if(canEdit()) {
+        h+=`<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="openSaleForm('${s.id}')"><i class="fas fa-edit"></i></button>`;
+        h+=`<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#888;border-color:#ddd;margin-right:4px" onclick="viewSaleStatusHistory('${s.id}')"><i class="fas fa-history"></i></button>`;
+      }
+      h+=`</td></tr>`;
+    });
+    h+='</tbody></table></div>';
+  }
+  document.getElementById('cancelledSalesTable').innerHTML=h;
+}
+
+// ============================================================
+// COLLECTED SALES TAB
+// ============================================================
+function renderOpsCollectedSales(el) {
+  const sales = STORAGE.get('sales',[]).filter(s=>s.status==='collected');
+  const employees = STORAGE.get('employees',[]);
+  const lg = lang==='ar';
+  const totalValue = sales.reduce((s,x)=>s+(x.unitPrice||0),0);
+  const totalComm = sales.reduce((s,x)=>s+((x.unitPrice||0)*(x.commissionRate||0)/100),0);
+  const thisMonth = sales.filter(s=>s.date&&s.date.startsWith(today().slice(0,7)));
+  const monthValue = thisMonth.reduce((s,x)=>s+(x.unitPrice||0),0);
+  const projects = [...new Set(sales.map(s=>s.project).filter(Boolean))];
+  const topProjects = projects.map(p=>({name:p,count:sales.filter(s=>s.project===p).length,value:sales.filter(s=>s.project===p).reduce((s,x)=>s+(x.unitPrice||0),0)})).sort((a,b)=>b.count-a.count).slice(0,5);
+
+  el.innerHTML = `
+  <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:16px">
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #1976D2"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي التحصيل':'Total Collected'}</div><div style="font-size:22px;font-weight:800;color:#1976D2">${sales.length}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #27ae60"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي القيمة':'Total Value'}</div><div style="font-size:18px;font-weight:800;color:#27ae60">${fmt(totalValue)}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #E67E22"><div style="font-size:11px;color:var(--text-light)">${lg?'عمولات مدفوعة':'Paid Commissions'}</div><div style="font-size:18px;font-weight:800;color:#E67E22">${fmt(totalComm)}</div></div>
+    <div class="card" style="padding:14px;text-align:center;border-left:4px solid #EC4899"><div style="font-size:11px;color:var(--text-light)">${lg?'تحصيلات الشهر':'This Month'}</div><div style="font-size:22px;font-weight:800;color:#EC4899">${thisMonth.length}</div><div style="font-size:11px;color:var(--text-light)">${fmt(monthValue)}</div></div>
+  </div>
+  <div class="card" style="margin-bottom:16px"><h3 style="margin-bottom:10px"><i class="fas fa-trophy"></i> ${lg?'أبرز المشاريع':'Top Projects'}</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${topProjects.length?topProjects.map(p=>`<div style="flex:1;min-width:120px;padding:10px;background:var(--bg);border-radius:8px;text-align:center"><div style="font-size:16px;font-weight:800;color:var(--primary)">${p.count}</div><div style="font-size:11px;color:var(--text-light)">${p.name}</div><div style="font-size:10px;color:var(--text-light)">${fmt(p.value)}</div></div>`).join(''):`<span style="font-size:12px;color:var(--text-light)">${lg?'لا توجد بيانات':'No data'}</span>`}</div>
+  </div>
+  <div class="card" style="margin-bottom:12px"><div class="flex-between mb-16"><h3><i class="fas fa-money-check-alt"></i> ${lg?'التحصيلات':'Collection'} (${sales.length})</h3></div>
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+    <div class="form-group"><label>${lg?'بحث':'Search'}</label><input type="text" id="collectedSearch" placeholder="${lg?'عميل، كود، مشروع...':'Client, code, project...'}" oninput="filterCollectedSales()"></div>
+    <div class="form-group"><label>${lg?'المشروع':'Project'}</label><select id="collectedProject" onchange="filterCollectedSales()"><option value="">${lg?'الكل':'All'}</option>${projects.map(p=>`<option value="${p}">${p}</option>`).join('')}</select></div>
+    <div class="form-group"><label>${lg?'نوع الوحدة':'Unit Type'}</label><select id="collectedUnitType" onchange="filterCollectedSales()"><option value="">${lg?'الكل':'All'}</option>${[...new Set(sales.map(s=>s.unitType).filter(Boolean))].map(t=>`<option value="${t}">${t}</option>`).join('')}</select></div>
+    <div class="form-group"><label>${lg?'من تاريخ':'From Date'}</label><input type="date" id="collectedDateFrom" onchange="filterCollectedSales()"></div>
+    <div class="form-group"><label>${lg?'إلى تاريخ':'To Date'}</label><input type="date" id="collectedDateTo" onchange="filterCollectedSales()"></div>
+    <div class="form-group"><label>${lg?'السعر من':'Price From'}</label><input type="number" id="collectedPriceFrom" placeholder="0" oninput="filterCollectedSales()"></div>
+    <div class="form-group"><label>${lg?'السعر إلى':'Price To'}</label><input type="number" id="collectedPriceTo" placeholder="∞" oninput="filterCollectedSales()"></div>
+  </div>
+  <div id="collectedSalesTable"></div></div>`;
+  filterCollectedSales();
+}
+
+function filterCollectedSales() {
+  let sales = STORAGE.get('sales',[]).filter(s=>s.status==='collected');
+  const employees = STORAGE.get('employees',[]);
+  const lg = lang==='ar';
+  const search = (document.getElementById('collectedSearch')?.value||'').toLowerCase();
+  const project = document.getElementById('collectedProject')?.value||'';
+  const unitType = document.getElementById('collectedUnitType')?.value||'';
+  const dateFrom = document.getElementById('collectedDateFrom')?.value||'';
+  const dateTo = document.getElementById('collectedDateTo')?.value||'';
+  const priceFrom = parseFloat(document.getElementById('collectedPriceFrom')?.value)||0;
+  const priceTo = parseFloat(document.getElementById('collectedPriceTo')?.value)||Infinity;
+
+  if(search) sales = sales.filter(s=>(s.client||'').toLowerCase().includes(search)||(s.code||'').toLowerCase().includes(search)||(s.project||'').toLowerCase().includes(search)||(s.clientPhone||'').includes(search));
+  if(project) sales = sales.filter(s=>s.project===project);
+  if(unitType) sales = sales.filter(s=>s.unitType===unitType);
+  if(dateFrom) sales = sales.filter(s=>s.date>=dateFrom);
+  if(dateTo) sales = sales.filter(s=>s.date<=dateTo);
+  if(priceFrom) sales = sales.filter(s=>(s.unitPrice||0)>=priceFrom);
+  if(priceTo<Infinity) sales = sales.filter(s=>(s.unitPrice||0)<=priceTo);
+
+  let h = '';
+  if(sales.length===0) { h='<div class="empty-state"><p>'+(lg?'لا توجد تحصيلات':'No collections')+'</p></div>'; }
+  else {
+    h=`<div class="table-wrap"><table><thead><tr><th>${lg?'الكود':'Code'}</th><th>${lg?'التاريخ':'Date'}</th><th>${lg?'العميل':'Client'}</th><th>${lg?'المشروع':'Project'}</th><th>${lg?'النوع':'Type'}</th><th>${lg?'المساحة':'Area'}</th><th>${lg?'السعر':'Price'}</th><th>${lg?'العمولة':'Comm.'}</th><th>${lg?'المسوق':'Marketer'}</th></tr></thead><tbody>`;
+    sales.slice().reverse().forEach(s=>{
+      const emp = employees.find(e=>e.id===s.marketerId);
+      h+=`<tr><td><strong>${s.code||'-'}</strong></td><td>${fmtDate(s.date)}</td><td>${s.client||'-'}<br><small style="color:var(--text-light)">${s.clientPhone||''}</small></td><td>${s.project||'-'}</td><td>${s.unitType||'-'}</td><td>${s.area?s.area+' m²':'-'}</td><td>${fmt(s.unitPrice)}</td><td>${fmt((s.unitPrice||0)*(s.commissionRate||0)/100)}</td><td>${emp?emp.name:'-'}</td></tr>`;
+    });
+    h+='</tbody></table></div>';
+  }
+  document.getElementById('collectedSalesTable').innerHTML=h;
 }
 
 function getRulesHash() {
