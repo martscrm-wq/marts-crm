@@ -1,7 +1,7 @@
 const CACHE_NAME = 'marts-crm-v5.3';
 const ASSETS = [
   './Marts_System_Merged.html',
-  './LogoMarts.jpeg',
+  './LogoMarts.png',
   './manifest.json',
   './version.json',
   'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css',
