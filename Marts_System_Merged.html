@@ -1975,6 +1975,7 @@ const DEFAULT_COA = [
   {code:'3300',name_ar:'احتياطيات قانونية',name_en:'Statutory Reserve',type:'equity',parent:'3',level:2},
   {code:'3400',name_ar:'احتياطيات أخرى',name_en:'Other Reserves',type:'equity',parent:'3',level:2},
   {code:'3500',name_ar:'أرباح مرحلة',name_en:'Retained Earnings',type:'equity',parent:'3',level:2},
+  {code:'3501',name_ar:'جاري شركاء',name_en:'Partners Current Account',type:'equity',parent:'3',level:2},
   {code:'3600',name_ar:'أرباح العام الحالي',name_en:'Current Year Profit/Loss',type:'equity',parent:'3',level:2},
   {code:'3700',name_ar:'مسحوبات المالك',name_en:'Owner Drawings',type:'equity',parent:'3',level:2},
   {code:'3800',name_ar:'أرباح حافظة الاستثمارات',name_en:'Fair Value Reserve',type:'equity',parent:'3',level:2},
@@ -5046,6 +5047,7 @@ function saveOpContract(contractId) {
     contracts.push({id:uid(), clientName, clientPhone, unitId, unitName:unit?unit.name:'', totalAmount, paidAmount, date:today(), status, notes, createdAt:new Date().toISOString()});
   }
   STORAGE.set('op_contracts', contracts);
+  if(!contractId) addNotification({type:'sale_contracted',title:lang==='ar'?'عقد عمليات جديد':'New Operations Contract',message:(lang==='ar'?'العميل: ':'Client: ')+clientName+' - '+fmt(totalAmount),date:today(),department:'sales_marketing'});
   closeModal();
   wsToast(lang==='ar'?'تم الحفظ':'Saved');
   renderOpsContracts(document.getElementById('opsTabContent'));
@@ -6160,6 +6162,7 @@ function routeAttendanceToExpenses(month) {
 
   STORAGE.set('expenses', expenses);
   STORAGE.set('salaries', salaries);
+  addNotification({type:'attendance_sync',title:lg?'تحويل رواتب':'Payroll Routed',message:(lg?'تم تحويل رواتب شهر ':'Salaries routed for ')+month+' - '+fmt(totalPosted),date:today(),department:'accounting_finance'});
   wsToast((lg?'تم تحويل الرواتب للمصروفات: ':'Salaries routed to expenses: ') + fmt(totalPosted));
   renderTransactions(document.getElementById('pageContent'));
 }
@@ -6348,6 +6351,14 @@ function routeToTreasury(id) {
   };
   treasuries.push(entry);
   STORAGE.set('treasury', treasuries);
+  createAutoJournalEntry('commission_route', {
+    desc: lg ? 'عمولة ' + s.client + ' - ' + s.code : 'Commission from ' + s.client + ' - ' + s.code,
+    amount: commissionAmount,
+    date: new Date().toISOString().slice(0,10),
+    ref: 'TR-' + uid(),
+    franchiseId: s.franchiseId || '',
+    branchId: s.branchId || ''
+  });
   addNotification({type:'treasury_route',title:lg ? 'تحويل عمولة للخزينة' : 'Commission Routed to Treasury',message:(lg?'العميل: ':'Client: ')+(s.client||'')+' - '+fmt(commissionAmount),date:today(),department:'accounting_finance'});
   wsToast(lg ? 'تم تحويل عمولة المعاملة للخزينة' : 'Transaction commission routed to treasury');
   showTransTab(_transTab);
@@ -7243,6 +7254,9 @@ function createAutoJournalEntry(type, data) {
   } else if(type === 'treasury_income') {
     lines.push({code:'1120', debit: data.amount || 0, credit: 0});
     lines.push({code: data.accountCode || '4100', debit: 0, credit: data.amount || 0});
+  } else if(type === 'commission_route') {
+    lines.push({code:'1110', debit: data.amount || 0, credit: 0});
+    lines.push({code:'4300', debit: 0, credit: data.amount || 0});
   } else if(type === 'treasury_expense') {
     lines.push({code: data.accountCode || '5330', debit: data.amount || 0, credit: 0});
     lines.push({code:'1120', debit: 0, credit: data.amount || 0});
@@ -8427,6 +8441,7 @@ function saveVacation() {
 
   vacations.push({id:uid(),empId:empId,empName:emp?emp.name:'',typeId:typeId,from:from,to:to,days:days,reason:reason,status:'pending',requestedAt:new Date().toISOString(),approvedBy:null,approvedAt:null});
   STORAGE.set('vacations', vacations);
+  addNotification({type:'vacation_request',title:lang==='ar'?'طلب إجازة جديد':'New Vacation Request',message:(lang==='ar'?'إجازة ':'Vacation for ')+(emp?emp.name:'')+' - '+days+' '+(lang==='ar'?'يوم':'days')+' ('+from+' - '+to+')',date:today(),department:'hr'});
   closeModal();
   wsToast(lang==='ar'?'تم إرسال الطلب':'Request submitted');
   renderVacations(document.getElementById('hrTabContent'));
@@ -8441,6 +8456,7 @@ function approveVacation(id) {
   v.approvedBy = currentUser ? currentUser.username : 'system';
   v.approvedAt = new Date().toISOString();
   STORAGE.set('vacations', vacations);
+  addNotification({type:'vacation_approved',title:lang==='ar'?'تم اعتماد إجازة':'Vacation Approved',message:(lang==='ar'?'إجازة ':'Vacation for ')+(v.empName||'')+' - '+(v.days||0)+' '+(lang==='ar'?'يوم':'days'),date:today(),department:'hr'});
   wsToast(lang==='ar'?'تم الاعتماد':'Approved');
   renderVacations(document.getElementById('hrTabContent'));
 }
@@ -8453,6 +8469,7 @@ function rejectVacation(id) {
   v.approvedBy = currentUser ? currentUser.username : 'system';
   v.approvedAt = new Date().toISOString();
   STORAGE.set('vacations', vacations);
+  addNotification({type:'vacation_rejected',title:lang==='ar'?'تم رفض إجازة':'Vacation Rejected',message:(lang==='ar'?'إجازة ':'Vacation for ')+(v.empName||'')+' - '+(v.days||0)+' '+(lang==='ar'?'يوم':'days'),date:today(),department:'hr'});
   wsToast(lang==='ar'?'تم الرفض':'Rejected');
   renderVacations(document.getElementById('hrTabContent'));
 }
@@ -11871,7 +11888,7 @@ function _renderNotifList(list) {
   if(list.length === 0) {
     return '<div style="text-align:center;padding:32px 16px;color:var(--text-light)"><i class="fas fa-bell-slash" style="font-size:36px;display:block;margin-bottom:10px"></i>'+(L?'لا توجد إشعارات':'No notifications')+'</div>';
   }
-  const icons = {warning:'fa-exclamation-triangle',job_application:'fa-file-alt',job_status:'fa-check-circle',job_request:'fa-briefcase',job_request_approved:'fa-check',attendance_exception:'fa-clock',sale_new:'fa-file-invoice-dollar',sale_approved:'fa-check-circle',sale_rejected:'fa-times-circle',sale_contracted:'fa-file-signature',sale_cancelled:'fa-ban',treasury_route:'fa-coins',treasury_entry:'fa-coins',expense_new:'fa-money-bill-wave',journal_new:'fa-book',lead_new:'fa-user-plus',lead_converted:'fa-user-check',marketing_campaign:'fa-bullhorn',attendance_sync:'fa-clock'};
+  const icons = {warning:'fa-exclamation-triangle',job_application:'fa-file-alt',job_status:'fa-check-circle',job_request:'fa-briefcase',job_request_approved:'fa-check',attendance_exception:'fa-clock',vacation_request:'fa-calendar-plus',vacation_approved:'fa-calendar-check',vacation_rejected:'fa-calendar-times',sale_new:'fa-file-invoice-dollar',sale_approved:'fa-check-circle',sale_rejected:'fa-times-circle',sale_contracted:'fa-file-signature',sale_cancelled:'fa-ban',treasury_route:'fa-coins',treasury_entry:'fa-coins',expense_new:'fa-money-bill-wave',journal_new:'fa-book',lead_new:'fa-user-plus',lead_converted:'fa-user-check',marketing_campaign:'fa-bullhorn',attendance_sync:'fa-clock'};
   return list.map(n => {
     const ic = icons[n.type] || 'fa-bell';
     const time = n.timestamp ? new Date(n.timestamp).toLocaleString(L?'ar-EG':'en-US',{dateStyle:'short',timeStyle:'short'}) : (n.date||'');
@@ -11916,7 +11933,7 @@ function renderPageNotifStrip(page) {
   '</div>';
 }
 function iconsMap(type) {
-  const m = {warning:'fa-exclamation-triangle',job_application:'fa-file-alt',job_status:'fa-check-circle',job_request:'fa-briefcase',job_request_approved:'fa-check',attendance_exception:'fa-clock',sale_new:'fa-file-invoice-dollar',sale_approved:'fa-check-circle',sale_rejected:'fa-times-circle',sale_contracted:'fa-file-signature',sale_cancelled:'fa-ban',treasury_route:'fa-coins',treasury_entry:'fa-coins',expense_new:'fa-money-bill-wave',journal_new:'fa-book',lead_new:'fa-user-plus',lead_converted:'fa-user-check',marketing_campaign:'fa-bullhorn',attendance_sync:'fa-clock'};
+  const m = {warning:'fa-exclamation-triangle',job_application:'fa-file-alt',job_status:'fa-check-circle',job_request:'fa-briefcase',job_request_approved:'fa-check',attendance_exception:'fa-clock',vacation_request:'fa-calendar-plus',vacation_approved:'fa-calendar-check',vacation_rejected:'fa-calendar-times',sale_new:'fa-file-invoice-dollar',sale_approved:'fa-check-circle',sale_rejected:'fa-times-circle',sale_contracted:'fa-file-signature',sale_cancelled:'fa-ban',treasury_route:'fa-coins',treasury_entry:'fa-coins',expense_new:'fa-money-bill-wave',journal_new:'fa-book',lead_new:'fa-user-plus',lead_converted:'fa-user-check',marketing_campaign:'fa-bullhorn',attendance_sync:'fa-clock'};
   return m[type] || 'fa-bell';
 }
 function toggleNotifPanel() {
