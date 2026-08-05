@@ -4030,6 +4030,17 @@ function initData() {
       safeStorage.set(k, JSON.stringify([]));
     }
   });
+  try {
+    const storedCoa = STORAGE.get('chartOfAccounts');
+    if(Array.isArray(storedCoa) && storedCoa.length > 0) {
+      let coaChanged = false;
+      if(!storedCoa.find(a => a.code === '3501')) {
+        storedCoa.push({code:'3501',name_ar:'جاري شركاء',name_en:'Partners Current Account',type:'equity',parent:'3',level:2});
+        coaChanged = true;
+      }
+      if(coaChanged) STORAGE.set('chartOfAccounts', storedCoa);
+    }
+  } catch(e) { console.log('[Init] COA migration skipped: ', e); }
   console.log('[Init] All defaults set locally only � nothing synced to cloud');
 }
 
