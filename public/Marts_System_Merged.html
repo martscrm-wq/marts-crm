@@ -3753,7 +3753,7 @@ function t(key) {
 const uid = () => 'id_' + Date.now() + '_' + Math.random().toString(36).substr(2,5);
 const fmt = (n) => new Intl.NumberFormat('en-EG',{style:'currency',currency:'EGP',maximumFractionDigits:0}).format(n||0);
 const today = () => new Date().toISOString().slice(0,10);
-const fmtDate = (d) => { if(!d) return '-'; const dt=new Date(d); return dt.toLocaleDateString(lang==='ar'?'ar-EG':'en-EG'); };
+const fmtDate = (d) => { if(!d) return '-'; const dt=new Date(d); if(isNaN(dt.getTime())) return String(d); return dt.toLocaleDateString(lang==='ar'?'ar-EG':'en-EG'); };
 const daysBetween = (d1,d2) => Math.ceil((new Date(d2)-new Date(d1))/(1000*60*60*24));
 const addDays = (d,n) => { const dt=new Date(d); dt.setDate(dt.getDate()+n); return dt.toISOString().slice(0,10); };
 const getRoleLabel = (roleId) => { const r=getAllRoles().find(x=>x.id===roleId); return r?(lang==='ar'?r.ar:r.en):roleId; };
@@ -8909,6 +8909,19 @@ function parseFingerprintTime(raw) {
   return {hh: String(h).padStart(2,'0'), mm: mm, minutes: h*60+min};
 }
 
+function normalizeFpDate(datePart) {
+  if(!datePart) return '';
+  let s = String(datePart).trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
+  if(m) {
+    const d = m[1].padStart(2,'0'), mo = m[2].padStart(2,'0');
+    const y = m[3].length === 2 ? '20' + m[3] : m[3];
+    if(parseInt(d) <= 31 && parseInt(mo) <= 12) return y + '-' + mo + '-' + d;
+  }
+  return s.slice(0,10);
+}
+
 function normalizeNameKey(n) {
   return String(n||'').trim().toLowerCase().replace(/\s+/g,' ');
 }
@@ -9080,10 +9093,10 @@ function processFingerprintFile(data, month, nameMap) {
         id: uid(), empId: emp.id, violation: violationType,
         action: viAction.action, deductionPercent: viAction.deductionDays * 4,
         notes: (lang==='ar'?'تأخير ':'Late ') + lateMin + (lang==='ar'?' دقيقة - حضور ':' min - arrival: ') + checkIn,
-        date: day.date.slice(0,10), issuedBy: 'system_auto'
+        date: normalizeFpDate(day.date), issuedBy: 'system_auto'
       });
     }
-    const dateISO = day.date.split('/').reverse().join('-');
+    const dateISO = normalizeFpDate(day.date);
     rawRecords.push({
       id: uid(), month: month, empId: emp.id, empName: emp.name,
       checkIn: checkIn, checkOut: checkOut, absent: '', permission: '', absenceDays: 0,
