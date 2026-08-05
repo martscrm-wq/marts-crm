@@ -13816,13 +13816,13 @@ function filterTreasury(page) {
     const branches = STORAGE.get('branches',[]);
     const safes = getTreasurySafes();
     const lg = lang === 'ar';
-    h='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="selectAllTreasury" onchange="toggleSelectAllTreasury(this)" style="accent-color:var(--primary)"></th><th>'+t('acc_date')+'</th><th>'+t('acc_type')+'</th><th>'+t('acc_amount')+'</th><th>'+t('acc_journalFranchise')+'</th><th>'+t('acc_journalBranch')+'</th><th>'+lg?'الخزنة':'Safe'+'</th><th>'+t('acc_description')+'</th><th>'+(lg?'إجراءات':'Actions')+'</th></tr></thead><tbody>';
+    h='<div class="table-wrap"><table><thead><tr><th style="width:40px;text-align:center"><input type="checkbox" id="selectAllTreasury" onchange="toggleSelectAllTreasury(this)" style="accent-color:var(--primary)"></th><th>'+t('acc_date')+'</th><th>'+t('acc_type')+'</th><th>'+lg?'النوع':'Type'+'</th><th>'+t('acc_amount')+'</th><th>'+t('acc_journalFranchise')+'</th><th>'+t('acc_journalBranch')+'</th><th>'+lg?'الخزنة':'Safe'+'</th><th>'+t('acc_description')+'</th><th>'+(lg?'إجراءات':'Actions')+'</th></tr></thead><tbody>';
     paged.forEach(e=>{
       const f = franchises.find(fr=>fr.id===e.franchiseId);
       const b = branches.find(br=>br.id===e.branchId);
       const s = safes.find(sv=>sv.id===e.safeId);
       const _lk = e.locked;
-      h+=`<tr><td style="text-align:center"><input type="checkbox" class="treasury-select-cb" data-id="${e.id}" onchange="updateBulkTreasuryBtn()" style="accent-color:var(--primary)" ${_lk?'disabled':''}></td><td>${fmtDate(e.date)}</td><td><span class="badge ${e.type==='income'?'badge-green':'badge-red'}">${e.type==='income'?t('acc_income'):t('acc_expenseType')}</span></td><td>${fmt(e.amount)}</td><td>${f?(lg?f.name_ar:f.name_en):(e.franchiseId?t('acc_noFranchise'):'-')}</td><td>${b?(lg?b.name_ar:b.name_en):(e.branchId?'-':'-')}</td><td>${s?'<span class="badge badge-blue"><i class="fas fa-vault" style="margin-right:4px;font-size:10px"></i>'+s.name+'</span>':t('acc_noSafe')}</td><td>${e.desc}${_lk?' <i class="fas fa-lock" style="color:#f39c12;font-size:11px" title="'+(lg?'مقفل':'Locked')+'"></i>':''}</td><td>${canAccounting()?(_lk?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'treasury\',\''+e.id+'\')"><i class="fas fa-lock"></i></button>':'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editTreasuryEntry(\''+e.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12;margin-right:4px" onclick="toggleLockEntry(\'treasury\',\''+e.id+'\')"><i class="fas fa-lock-open"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteTreasuryEntry(\''+e.id+'\')"><i class="fas fa-trash"></i></button>'):''}</td></tr>`;
+      h+=`<tr><td style="text-align:center"><input type="checkbox" class="treasury-select-cb" data-id="${e.id}" onchange="updateBulkTreasuryBtn()" style="accent-color:var(--primary)" ${_lk?'disabled':''}></td><td>${fmtDate(e.date)}</td><td><span class="badge ${e.type==='income'?'badge-green':'badge-red'}">${e.type==='income'?t('acc_income'):t('acc_expenseType')}</span></td><td>${e.category||'-'}</td><td>${fmt(e.amount)}</td><td>${f?(lg?f.name_ar:f.name_en):(e.franchiseId?t('acc_noFranchise'):'-')}</td><td>${b?(lg?b.name_ar:b.name_en):(e.branchId?'-':'-')}</td><td>${s?'<span class="badge badge-blue"><i class="fas fa-vault" style="margin-right:4px;font-size:10px"></i>'+s.name+'</span>':t('acc_noSafe')}</td><td>${e.desc}${_lk?' <i class="fas fa-lock" style="color:#f39c12;font-size:11px" title="'+(lg?'مقفل':'Locked')+'"></i>':''}</td><td>${canAccounting()?(_lk?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'treasury\',\''+e.id+'\')"><i class="fas fa-lock"></i></button>':'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editTreasuryEntry(\''+e.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12;margin-right:4px" onclick="toggleLockEntry(\'treasury\',\''+e.id+'\')"><i class="fas fa-lock-open"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteTreasuryEntry(\''+e.id+'\')"><i class="fas fa-trash"></i></button>'):''}</td></tr>`;
     });
     h+='</tbody></table></div>';
     h += AccPagination.render('treasury', total, page, ps, 'filterTreasury');
@@ -13932,6 +13932,46 @@ function bulkDeleteTreasury() {
   filterTreasury();
 }
 
+const TREASURY_CATS = {
+  income: ['مبيعات وحدات','عمولة وساطة','إيراد تأجير','إيراد استشارات','تحصيل مستحقات'],
+  expense: ['رواتب وأجور','إيجار','كهرباء ومياه','تسويق وإعلان','وقود وسيارات','صيانة','ضرائب']
+};
+const TREASURY_CATS_EN = {
+  income: ['Unit Sales','Brokerage Fee','Rental Income','Consulting Income','Receivables Collection'],
+  expense: ['Salaries','Rent','Utilities','Marketing','Fuel & Cars','Maintenance','Taxes']
+};
+function treasuryCatOptions(type, selected) {
+  const lg = lang === 'ar';
+  const cats = (lg ? TREASURY_CATS : TREASURY_CATS_EN)[type] || [];
+  let o = cats.map(c => `<option value="${c}" ${selected === c ? 'selected' : ''}>${c}</option>`).join('');
+  o += `<option value="__custom__" ${(selected && cats.indexOf(selected) === -1) ? 'selected' : ''}>${lg ? 'أخرى (كتابة يدوية)' : 'Other (manual)'}</option>`;
+  return o;
+}
+function onTreasuryTypeChange() {
+  const t = document.getElementById('t_type').value;
+  const prev = document.getElementById('t_category').dataset.prevVal || '';
+  document.getElementById('t_category').innerHTML = treasuryCatOptions(t, prev);
+  onTreasuryCatChange();
+}
+function onTreasuryCatChange() {
+  const custom = document.getElementById('t_category').value === '__custom__';
+  const input = document.getElementById('t_categoryCustom');
+  if(input) input.style.display = custom ? '' : 'none';
+}
+function treasuryCatValue() {
+  const sel = document.getElementById('t_category');
+  if(!sel) return '';
+  const v = sel.value;
+  if(v === '__custom__') return (document.getElementById('t_categoryCustom')?.value || '').trim();
+  return v;
+}
+function treasuryCatIsPreset(type, cat) {
+  if(!cat) return false;
+  const lg = lang === 'ar';
+  const cats = (lg ? TREASURY_CATS : TREASURY_CATS_EN)[type] || [];
+  return cats.indexOf(cat) !== -1;
+}
+
 function openTreasuryModal() {
   const franchises = STORAGE.get('franchises',[]);
   const branches = STORAGE.get('branches',[]);
@@ -13945,9 +13985,10 @@ function openTreasuryModal() {
   safes.forEach(s => { sOpts += `<option value="${s.id}" ${_activeSafeFilter===s.id?'selected':''}>${s.name}</option>`; });
   document.getElementById('modalContainer').innerHTML=`<h3>${t('acc_addEntry')}</h3>
   <div class="form-row"><div class="form-group"><label>${t('acc_date')}</label><input type="date" id="t_date" value="${today()}"></div>
-  <div class="form-group"><label>${t('acc_type')}</label><select id="t_type"><option value="income">${t('acc_income')}</option><option value="expense">${t('acc_expenseType')}</option></select></div></div>
-  <div class="form-row"><div class="form-group"><label>${t('acc_amount')}</label><input type="number" id="t_amount" min="0"></div>
-  <div class="form-group"><label>${t('acc_description')}</label><input type="text" id="t_desc"></div></div>
+  <div class="form-group"><label>${t('acc_type')}</label><select id="t_type" onchange="onTreasuryTypeChange()"><option value="income">${t('acc_income')}</option><option value="expense">${t('acc_expenseType')}</option></select></div></div>
+  <div class="form-row"><div class="form-group"><label>${lg?'نوع الدخل/المصروف':'Income/Expense Type'}</label><select id="t_category" onchange="onTreasuryCatChange()">${treasuryCatOptions('income', '')}</select><input type="text" id="t_categoryCustom" style="margin-top:6px;display:none" placeholder="${lg?'اكتب النوع يدوياً...':'Type manually...'}"></div>
+  <div class="form-group"><label>${t('acc_amount')}</label><input type="number" id="t_amount" min="0"></div></div>
+  <div class="form-row"><div class="form-group"><label>${t('acc_description')}</label><input type="text" id="t_desc"></div></div>
   <div class="form-row"><div class="form-group"><label>${lg?'الخزنة':'Safe'}</label><select id="t_safe">${sOpts}</select></div>
   <div class="form-group"><label>${t('acc_journalFranchise')}</label><select id="t_franchise">${fOpts}</select></div></div>
   <div class="form-row"><div class="form-group"><label>${t('acc_journalBranch')}</label><select id="t_branch">${bOpts}</select></div></div>
@@ -13958,16 +13999,17 @@ function openTreasuryModal() {
 function saveTreasury() {
   const entries = STORAGE.get('treasury',[]);
   const type = document.getElementById('t_type').value;
+  const cat = treasuryCatValue();
   const amt = parseFloat(document.getElementById('t_amount').value)||0;
   const desc = document.getElementById('t_desc').value.trim();
   const date = document.getElementById('t_date').value;
   const franchiseId = document.getElementById('t_franchise').value||'';
   const branchId = document.getElementById('t_branch').value||'';
   const safeId = document.getElementById('t_safe')?.value || '';
-  entries.push({id:uid(),date:date,type:type,amount:amt,desc:desc,franchiseId:franchiseId,branchId:branchId,safeId:safeId});
+  entries.push({id:uid(),date:date,type:type,category:cat,amount:amt,desc:desc,franchiseId:franchiseId,branchId:branchId,safeId:safeId});
   STORAGE.set('treasury',entries);
   createAutoJournalEntry('treasury_' + type, {
-    desc: (type === 'income' ? 'إيراد خزينة: ' : 'مصروف خزينة: ') + desc,
+    desc: (type === 'income' ? 'إيراد خزينة: ' : 'مصروف خزينة: ') + (cat ? cat + ' - ' : '') + desc,
     amount: amt,
     date: date,
     ref: 'TR-' + uid(),
@@ -14002,13 +14044,15 @@ function editTreasuryEntry(id) {
   safes.forEach(s => { sOpts += `<option value="${s.id}" ${entry.safeId===s.id?'selected':''}>${s.name}</option>`; });
   document.getElementById('modalContainer').innerHTML=`<h3>${lg?'تعديل قيد الخزينة':'Edit Treasury Entry'}</h3>
   <div class="form-row"><div class="form-group"><label>${t('acc_date')}</label><input type="date" id="t_date" value="${entry.date}"></div>
-  <div class="form-group"><label>${t('acc_type')}</label><select id="t_type"><option value="income" ${entry.type==='income'?'selected':''}>${t('acc_income')}</option><option value="expense" ${entry.type==='expense'?'selected':''}>${t('acc_expenseType')}</option></select></div></div>
-  <div class="form-row"><div class="form-group"><label>${t('acc_amount')}</label><input type="number" id="t_amount" min="0" value="${entry.amount}"></div>
-  <div class="form-group"><label>${t('acc_description')}</label><input type="text" id="t_desc" value="${entry.desc}"></div></div>
+  <div class="form-group"><label>${t('acc_type')}</label><select id="t_type" onchange="onTreasuryTypeChange()"><option value="income" ${entry.type==='income'?'selected':''}>${t('acc_income')}</option><option value="expense" ${entry.type==='expense'?'selected':''}>${t('acc_expenseType')}</option></select></div></div>
+  <div class="form-row"><div class="form-group"><label>${lg?'نوع الدخل/المصروف':'Income/Expense Type'}</label><select id="t_category" data-prev-val="${entry.category||''}" onchange="onTreasuryCatChange()">${treasuryCatOptions(entry.type||'income', entry.category||'')}</select><input type="text" id="t_categoryCustom" style="margin-top:6px;display:none" value="${treasuryCatIsPreset(entry.type||'income', entry.category||'') ? '' : (entry.category||'')}" placeholder="${lg?'اكتب النوع يدوياً...':'Type manually...'}"></div>
+  <div class="form-group"><label>${t('acc_amount')}</label><input type="number" id="t_amount" min="0" value="${entry.amount}"></div></div>
+  <div class="form-row"><div class="form-group"><label>${t('acc_description')}</label><input type="text" id="t_desc" value="${entry.desc}"></div></div>
   <div class="form-row"><div class="form-group"><label>${lg?'الخزنة':'Safe'}</label><select id="t_safe">${sOpts}</select></div>
   <div class="form-group"><label>${t('acc_journalFranchise')}</label><select id="t_franchise">${fOpts}</select></div></div>
   <div class="form-row"><div class="form-group"><label>${t('acc_journalBranch')}</label><select id="t_branch">${bOpts}</select></div></div>
   <div class="modal-actions"><button class="btn btn-primary" onclick="updateTreasury('${id}')"><i class="fas fa-save"></i> ${t('save')}</button><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  onTreasuryCatChange();
   document.getElementById('modalOverlay').classList.add('active');
 }
 
@@ -14021,6 +14065,7 @@ function updateTreasury(id) {
   entries[idx] = { ...entries[idx],
     date: document.getElementById('t_date').value,
     type: document.getElementById('t_type').value,
+    category: treasuryCatValue(),
     amount: amt,
     desc: document.getElementById('t_desc').value.trim(),
     franchiseId: document.getElementById('t_franchise').value||'',
