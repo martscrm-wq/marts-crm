@@ -8,7 +8,7 @@ crm-app/
 ├── leads.html                     # /leads
 ├── lead-add.html                  # /leads/add
 ├── lead-bulk-import.html          # /leads/bulk-import
-├── lead-detail.html               # /leads/:id  (?id=LD-000001)
+├── (لا صفحة منفصلة لتفاصيل Lead — تُفتح عبر Drawer منزلق REQ-207)   # lead-drawer.js
 ├── deals.html                     # /deals
 ├── deal-insights.html             # /deals/insights
 ├── marketing.html                 # /marketing
@@ -45,13 +45,13 @@ crm-app/
 │   │   ├── modal.js
 │   │   ├── date-range.js           # مكوّن نطاق التاريخ القابل لإعادة الاستخدام
 │   │   ├── data-table.js           # جدول عام: فرز، صفحات، تحديد صفوف
-│   │   └── filter-bar.js
+│   │   ├── filter-bar.js
+│   │   └── lead-drawer.js          # REQ-207: Slide-over Drawer لتفاصيل Lead (يُفتح فوق leads.html/الجدول)
 │   └── pages/
 │       ├── dashboard.js
 │       ├── leads.js
 │       ├── lead-add.js
 │       ├── lead-bulk-import.js
-│       ├── lead-detail.js
 │       ├── deals.js
 │       ├── deal-insights.js
 │       ├── marketing.js

@@ -57,13 +57,28 @@ const PERMISSIONS_LIST = [
   {id:'dashboard_view'},{id:'sales_view'},{id:'sales_add'},{id:'sales_edit'},{id:'sales_delete'},
   {id:'employees_view'},{id:'employees_add'},{id:'employees_edit'},{id:'employees_delete'},
   {id:'accounts_view'},{id:'accounts_treasury'},{id:'accounts_salaries'},{id:'accounts_partners'},
-  {id:'reports_view'},{id:'reports_export'},{id:'crm_view'},{id:'crm_add'},{id:'crm_edit'},
+  {id:'accounts_expenses'},{id:'accounts_journal_add'},{id:'accounts_journal_edit'},{id:'accounts_journal_delete'},
+  {id:'accounts_expense_add'},{id:'accounts_expense_edit'},{id:'accounts_expense_delete'},
+  {id:'accounts_salary_add'},{id:'accounts_salary_edit'},{id:'accounts_salary_delete'},
+  {id:'accounts_partners_add'},{id:'accounts_partners_edit'},{id:'accounts_partners_delete'},
+  {id:'accounts_intercompany'},
+  {id:'reports_view'},{id:'reports_export'},{id:'reports_print'},
+  {id:'crm_view'},{id:'crm_add'},{id:'crm_edit'},
   {id:'crm_delete'},{id:'crm_manage_accounts'},{id:'settings_view'},{id:'settings_manage_users'}
 ];
 
 const DEFAULT_PERMS_OWNER = PERMISSIONS_LIST.map(p=>p.id);
+const DEFAULT_PERMS_SUPER_ADMIN = DEFAULT_PERMS_OWNER.slice();
+const DEFAULT_PERMS_HEAD_OF_SALES = ['crm_view','crm_add','crm_edit','crm_delete'];
+const DEFAULT_PERMS_SALES_MANAGER = ['crm_view','crm_add','crm_edit','crm_manage_accounts'];
+const DEFAULT_PERMS_TEAM_LEADER = ['crm_view','crm_add','crm_edit'];
 const DEFAULT_PERMS_SALES = ['crm_view','crm_add'];
-const DEFAULT_PERMS_ACCOUNTING = ['dashboard_view','accounts_view','accounts_treasury','accounts_salaries','accounts_partners','accounts_expenses','reports_view'];
+const DEFAULT_PERMS_MARKETING_DIRECTOR = ['crm_view','crm_add','crm_edit','crm_delete'];
+const DEFAULT_PERMS_MARKETING_ASSISTANT = ['crm_view','crm_add'];
+const DEFAULT_PERMS_MARKETER = ['crm_view','crm_add'];
+const DEFAULT_PERMS_OPERATIONS = ['dashboard_view','employees_view','employees_add','employees_edit','orgchart_view','commissions_view','reports_view'];
+const DEFAULT_PERMS_ACCOUNTING = ['dashboard_view','accounts_view','accounts_treasury','accounts_salaries','accounts_partners','accounts_expenses','accounts_journal_add','accounts_journal_edit','accounts_journal_delete','accounts_expense_add','accounts_expense_edit','accounts_expense_delete','accounts_salary_add','accounts_salary_edit','accounts_salary_delete','accounts_partners_add','accounts_partners_edit','accounts_partners_delete','reports_view','reports_export','reports_print'];
+const DEFAULT_PERMS_HR_MANAGER = ['hr_view','hr_add','hr_edit','hr_orgchart','hr_vacations','hr_requests','employees_view','employees_add','employees_edit','reports_view'];
 
 const DEFAULT_ROLES = [
   {id:'owner',en:'Owner',ar:'المالك',type:'management'},
@@ -182,6 +197,80 @@ function toggleLockEntry(storageKey, id, idField) {
   }
 }
 
+// ============================================================
+// AUTO CRM ACCOUNT FOR EMPLOYEES (from saveEmp flow)
+// ============================================================
+const EMP_ROLE_TO_USER_ROLE = {
+  ceo:'owner',
+  sales_director:'head_of_sales',
+  sales_manager:'sm',
+  team_leader:'tl',
+  senior_property_consultant:'sales',
+  property_consultant:'sales',
+  property_advisor:'sales',
+  sales_admin:'sales',
+  hr_manager:'hr_manager',
+  hr_agent:'operations',
+  operation_director:'operations',
+  operation:'operations',
+  marketing_director:'md',
+  marketing_assistant:'ma',
+  accountant:'accounting',
+  collector:'accounting',
+  office_boy:'sales',
+  quality_control:'sales'
+};
+function empToUserRole(role){ return EMP_ROLE_TO_USER_ROLE[role] || 'sales'; }
+
+const AR_TO_LATIN = {
+  'ا':'a','أ':'a','إ':'e','آ':'a','ء':'a','ب':'b','ت':'t','ث':'th','ج':'g','ح':'h','خ':'kh','د':'d','ذ':'th',
+  'ر':'r','ز':'z','س':'s','ش':'sh','ص':'s','ض':'d','ط':'t','ظ':'z','ع':'a','غ':'gh','ف':'f','ق':'q','ك':'k',
+  'ل':'l','م':'m','ن':'n','ه':'h','و':'w','ي':'y','ى':'a','ة':'a','ؤ':'o','ئ':'e'
+};
+function arabicToLatin(s){
+  return String(s||'').split('').map(ch=>AR_TO_LATIN[ch]||ch).join('');
+}
+function empDefaultPerms(role){
+  if(role==='owner') return DEFAULT_PERMS_OWNER;
+  if(role==='super_admin') return DEFAULT_PERMS_SUPER_ADMIN;
+  if(role==='head_of_sales') return DEFAULT_PERMS_HEAD_OF_SALES;
+  if(role==='sm') return DEFAULT_PERMS_SALES_MANAGER;
+  if(role==='tl') return DEFAULT_PERMS_TEAM_LEADER;
+  if(role==='sales') return DEFAULT_PERMS_SALES;
+  if(role==='md') return DEFAULT_PERMS_MARKETING_DIRECTOR;
+  if(role==='ma') return DEFAULT_PERMS_MARKETING_ASSISTANT;
+  if(role==='marketer') return DEFAULT_PERMS_MARKETER;
+  if(role==='operations') return DEFAULT_PERMS_OPERATIONS;
+  if(role==='accounting') return DEFAULT_PERMS_ACCOUNTING;
+  if(role==='hr_manager') return DEFAULT_PERMS_HR_MANAGER;
+  return [];
+}
+function empAutoCreateUser(emp){
+  if(!emp || !emp.name) return null;
+  const users = STORAGE.get('users', defaultUsers);
+  if(users.some(u=>u.empId===emp.id)) return null;
+  const role = empToUserRole(emp.role);
+  let base = arabicToLatin(emp.name).toLowerCase().trim()
+    .replace(/[^a-z0-9]+/g,'.')
+    .replace(/^\.+|\.+$/g,'')
+    .replace(/\.{2,}/g,'.');
+  if(!base) base = 'emp' + emp.id;
+  let username = base, i = 2;
+  while(users.some(u=>u.username.toLowerCase()===username.toLowerCase())){ username = base + '.' + (i++); }
+  const password = 'Marts@123';
+  const user = {
+    username, password, role,
+    fullName: emp.name,
+    email: username + '@marts-eg.com',
+    permissions: empDefaultPerms(role),
+    accountType: 'system',
+    empId: emp.id
+  };
+  users.push(user);
+  STORAGE.set('users', users);
+  return user;
+}
+
 module.exports = {
   uid, fmt, today, fmtDate, daysBetween, addDays, getInitials,
   getAllRoles, getResaleTeam, getRoleLabel, getRoleType, getRoleConfig,
@@ -190,6 +279,7 @@ module.exports = {
   getAllUsers, getUserByUsername, getChildren, getTeamUserIds, getDirectReports,
   isSalesSide, isMarketingSide,
   isLocked, toggleLockEntry,
+  empToUserRole, arabicToLatin, empDefaultPerms, empAutoCreateUser,
   STORAGE, safeStorage, ActivityLog,
   PERMISSIONS_LIST, DEFAULT_PERMS_OWNER, DEFAULT_PERMS_SALES, DEFAULT_PERMS_ACCOUNTING,
   DEFAULT_ROLES, DEFAULT_RESALE_TEAM,

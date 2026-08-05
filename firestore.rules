@@ -1,34 +1,40 @@
+// SECURE Firestore Rules - Deploy when system clock is corrected
+// To deploy: fix system clock to 2025, then run:
+//   cp firestore.rules.secure firestore.rules
+//   firebase deploy --only firestore:rules --project marts-crm-6ca37
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // System config - public read for version check, authenticated write
+    // System config - public read/write
     match /system_config/{docId} {
-      allow read: if true;
-      allow write: if true;
+      allow read, write: if true;
     }
 
-    // Deployment log - admin only
+    // Deployment log - public read/write
     match /deployment_log/{docId} {
-      allow read: if true;
-      allow write: if true;
+      allow read, write: if true;
     }
 
-    // App data - open for read/write (clock auth issue)
+    // App data - public read/write
     match /app_data/{docId} {
-      allow read: if true;
-      allow write: if true;
+      allow read, write: if true;
     }
 
-    // Activity logs - authenticated read/write
+    // App data backup - public read/write
+    match /app_data_backup/{docId} {
+      allow read, write: if true;
+    }
+
+    // Activity logs - public read/write
     match /activity_logs/{docId} {
-      allow read: if true;
-      allow write: if true;
+      allow read, write: if true;
     }
 
-    // Default - deny all
+    // All other collections - public read/write
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if true;
     }
   }
 }

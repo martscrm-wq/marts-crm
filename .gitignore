@@ -32,4 +32,8 @@ tmp/
 # Secrets
 sa-key.json
 
+# Cloud backups (kept locally, not in git)
+backups/
+test-results/
+
 .vercel

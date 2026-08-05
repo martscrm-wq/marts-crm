@@ -1,0 +1,4 @@
+{
+  "version": "2.8.0",
+  "notes": "Fixed Arabic encoding - SW now network-first for HTML, cache cleared"
+}
