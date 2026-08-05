@@ -9155,6 +9155,10 @@ function importFingerprintAttendance(event) {
 let _payrollSubTab = 'salaries';
 let _payrollEmpFilter = '';
 let _payrollStatusFilter = '';
+let _payrollDateFilter = '';
+let _payrollTypeFilter = '';
+let _payrollReasonFilter = '';
+let _payrollChainFilter = '';
 let _attSumFilter = '';
 let _payrollSalSumFilter = '';
 
@@ -9183,13 +9187,29 @@ function renderPayrollFilterBar() {
     statusOpts += `<option value="rejected" ${_payrollStatusFilter==='rejected'?'selected':''}>${lang==='ar'?'مرفوض':'Rejected'}</option>`;
     statusOpts += `<option value="reverted" ${_payrollStatusFilter==='reverted'?'selected':''}>${lang==='ar'?'تم التراجع':'Reverted'}</option>`;
   }
+  let exOpts = '';
+  if(_payrollSubTab === 'exceptions') {
+    const typeOpts = `<option value="">${lang==='ar'?'كل الأنواع':'All Types'}</option>` + EXCEPTION_TYPES.map(t => `<option value="${t.id}" ${_payrollTypeFilter===t.id?'selected':''}>${lang==='ar'?t.ar:t.en}</option>`).join('');
+    const chainOpts = `<option value="">${lang==='ar'?'الكل':'All'}</option>` +
+      `<option value="1-pending" ${_payrollChainFilter==='1-pending'?'selected':''}>${lang==='ar'?'المدير المباشر - قيد الانتظار':'Supervisor - Pending'}</option>` +
+      `<option value="1-approved" ${_payrollChainFilter==='1-approved'?'selected':''}>${lang==='ar'?'المدير المباشر - موافق':'Supervisor - Approved'}</option>` +
+      `<option value="1-rejected" ${_payrollChainFilter==='1-rejected'?'selected':''}>${lang==='ar'?'المدير المباشر - مرفوض':'Supervisor - Rejected'}</option>` +
+      `<option value="2-pending" ${_payrollChainFilter==='2-pending'?'selected':''}>${lang==='ar'?'HR - قيد الانتظار':'HR - Pending'}</option>` +
+      `<option value="2-approved" ${_payrollChainFilter==='2-approved'?'selected':''}>${lang==='ar'?'HR - موافق':'HR - Approved'}</option>` +
+      `<option value="2-rejected" ${_payrollChainFilter==='2-rejected'?'selected':''}>${lang==='ar'?'HR - مرفوض':'HR - Rejected'}</option>`;
+    exOpts += `<label style="font-size:12px;color:var(--text-light);font-weight:600">${lang==='ar'?'التاريخ':'Date'}</label><input type="date" id="payrollDateFilter" value="${_payrollDateFilter}" onchange="_payrollDateFilter=this.value;renderPayrollSubSearch()" style="min-width:150px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);font-size:13px">`;
+    exOpts += `<label style="font-size:12px;color:var(--text-light);font-weight:600">${lang==='ar'?'النوع':'Type'}</label><select id="payrollTypeFilter" onchange="_payrollTypeFilter=this.value;renderPayrollSubSearch()" style="min-width:140px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);font-size:13px">${typeOpts}</select>`;
+    exOpts += `<label style="font-size:12px;color:var(--text-light);font-weight:600">${lang==='ar'?'السبب':'Reason'}</label><input type="text" id="payrollReasonFilter" value="${String(_payrollReasonFilter||'').replace(/"/g,'&quot;')}" oninput="_payrollReasonFilter=this.value;renderPayrollSubSearch()" placeholder="${lang==='ar'?'بحث...':'Search...'}" style="min-width:140px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);font-size:13px">`;
+    exOpts += `<label style="font-size:12px;color:var(--text-light);font-weight:600">${lang==='ar'?'سلسلة الموافقة':'Approval Chain'}</label><select id="payrollChainFilter" onchange="_payrollChainFilter=this.value;renderPayrollSubSearch()" style="min-width:160px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);font-size:13px">${chainOpts}</select>`;
+  }
   let h = `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:center">`;
   h += `<label style="font-size:12px;color:var(--text-light);font-weight:600">${lang==='ar'?'الموظف':'Employee'}</label><select id="payrollEmpFilter" onchange="_payrollEmpFilter=this.value;renderPayrollSubSearch()" style="min-width:200px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);font-size:13px">${empOpts}</select>`;
   if(statusOpts) {
     h += `<label style="font-size:12px;color:var(--text-light);font-weight:600">${lang==='ar'?'الحالة':'Status'}</label><select id="payrollStatusFilter" onchange="_payrollStatusFilter=this.value;renderPayrollSubSearch()" style="min-width:150px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);font-size:13px">${statusOpts}</select>`;
   }
-  if(_payrollEmpFilter || _payrollStatusFilter) {
-    h += `<button class="btn btn-sm" onclick="_payrollEmpFilter='';_payrollStatusFilter='';_attSumFilter='';_payrollSalSumFilter='';renderPayroll(document.getElementById('hrTabContent'))"><i class="fas fa-undo"></i> ${lang==='ar'?'إعادة تعيين':'Reset'}</button>`;
+  h += exOpts;
+  if(_payrollEmpFilter || _payrollStatusFilter || _payrollDateFilter || _payrollTypeFilter || _payrollReasonFilter || _payrollChainFilter) {
+    h += `<button class="btn btn-sm" onclick="_payrollEmpFilter='';_payrollStatusFilter='';_payrollDateFilter='';_payrollTypeFilter='';_payrollReasonFilter='';_payrollChainFilter='';_attSumFilter='';_payrollSalSumFilter='';renderPayroll(document.getElementById('hrTabContent'))"><i class="fas fa-undo"></i> ${lang==='ar'?'إعادة تعيين':'Reset'}</button>`;
   }
   h += `</div>`;
   return h;
@@ -12652,6 +12672,13 @@ function renderExceptionsTab(el) {
     if(e.month && e.month !== today().slice(0, 7)) return false;
     if(_payrollEmpFilter && e.empId !== _payrollEmpFilter && e.empName !== _payrollEmpFilter) return false;
     if(_payrollStatusFilter && e.status !== _payrollStatusFilter) return false;
+    if(_payrollDateFilter && e.date !== _payrollDateFilter && fmtDate(e.date) !== fmtDate(_payrollDateFilter)) return false;
+    if(_payrollTypeFilter && e.type !== _payrollTypeFilter) return false;
+    if(_payrollReasonFilter && !(e.reason || '').toLowerCase().includes(String(_payrollReasonFilter).toLowerCase())) return false;
+    if(_payrollChainFilter) {
+      const parts = _payrollChainFilter.split('-');
+      if(!(e.approvals || []).some(a => String(a.level) === parts[0] && a.status === parts[1])) return false;
+    }
     return true;
   });
   let h = `<div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#5B4A9E,#6C63FF);color:#fff;padding:20px 24px">
@@ -12664,7 +12691,8 @@ function renderExceptionsTab(el) {
     <th>${lang==='ar'?'الموظف':'Employee'}</th><th>${lang==='ar'?'التاريخ':'Date'}</th><th>${lang==='ar'?'النوع':'Type'}</th><th>${lang==='ar'?'السبب':'Reason'}</th><th>${lang==='ar'?'الحالة':'Status'}</th><th>${lang==='ar'?'سلسلة الموافقة':'Approval Chain'}</th><th></th>
     </tr></thead><tbody>`;
   if(monthExceptions.length === 0) {
-    h += `<tr><td colspan="7"><div class="empty-state"><p>${lang==='ar'?'لا توجد استثناءات لهذا الشهر':'No exceptions for this month'}</p></div></td></tr>`;
+    const hasFilter = _payrollEmpFilter || _payrollStatusFilter || _payrollDateFilter || _payrollTypeFilter || _payrollReasonFilter || _payrollChainFilter;
+    h += `<tr><td colspan="7"><div class="empty-state"><p>${hasFilter ? (lang==='ar'?'لا توجد نتائج مطابقة للفلاتر':'No results match the filters') : (lang==='ar'?'لا توجد استثناءات لهذا الشهر':'No exceptions for this month')}</p></div></td></tr>`;
   } else {
     monthExceptions.forEach(exc => {
       const emp = allEmployees.find(e => e.id === exc.empId);
