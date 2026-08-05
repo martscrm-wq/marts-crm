@@ -9176,6 +9176,12 @@ function renderPayrollFilterBar() {
     statusOpts += `<option value="approved" ${_payrollStatusFilter==='approved'?'selected':''}>${lang==='ar'?'معتمدة':'Approved'}</option>`;
     statusOpts += `<option value="pending" ${_payrollStatusFilter==='pending'?'selected':''}>${lang==='ar'?'قيد المراجعة':'Pending'}</option>`;
     statusOpts += `<option value="rejected" ${_payrollStatusFilter==='rejected'?'selected':''}>${lang==='ar'?'مرفوضة':'Rejected'}</option>`;
+  } else if(_payrollSubTab === 'exceptions') {
+    statusOpts = `<option value="">${lang==='ar'?'كل الحالات':'All Status'}</option>`;
+    statusOpts += `<option value="approved" ${_payrollStatusFilter==='approved'?'selected':''}>${lang==='ar'?'معتمد':'Approved'}</option>`;
+    statusOpts += `<option value="pending" ${_payrollStatusFilter==='pending'?'selected':''}>${lang==='ar'?'قيد الانتظار':'Pending'}</option>`;
+    statusOpts += `<option value="rejected" ${_payrollStatusFilter==='rejected'?'selected':''}>${lang==='ar'?'مرفوض':'Rejected'}</option>`;
+    statusOpts += `<option value="reverted" ${_payrollStatusFilter==='reverted'?'selected':''}>${lang==='ar'?'تم التراجع':'Reverted'}</option>`;
   }
   let h = `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:16px;align-items:center">`;
   h += `<label style="font-size:12px;color:var(--text-light);font-weight:600">${lang==='ar'?'الموظف':'Employee'}</label><select id="payrollEmpFilter" onchange="_payrollEmpFilter=this.value;renderPayrollSubSearch()" style="min-width:200px;padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);font-size:13px">${empOpts}</select>`;
@@ -12642,7 +12648,12 @@ function applyApprovedException(exc) {
 function renderExceptionsTab(el) {
   const allEmployees = STORAGE.get('employees', []);
   const exceptions = STORAGE.get('attendanceExceptions', []);
-  const monthExceptions = exceptions.filter(e => !e.month || e.month === today().slice(0, 7));
+  const monthExceptions = exceptions.filter(e => {
+    if(e.month && e.month !== today().slice(0, 7)) return false;
+    if(_payrollEmpFilter && e.empId !== _payrollEmpFilter && e.empName !== _payrollEmpFilter) return false;
+    if(_payrollStatusFilter && e.status !== _payrollStatusFilter) return false;
+    return true;
+  });
   let h = `<div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#5B4A9E,#6C63FF);color:#fff;padding:20px 24px">
     <div class="flex-between">
       <div><h3 style="margin:0;color:#fff"><i class="fas fa-shield-alt"></i> ${lang==='ar'?'استثناءات الحضور - الموافقات حسب التسلسل الوظيفي':'Attendance Exceptions - Hierarchical Approval'}</h3>
