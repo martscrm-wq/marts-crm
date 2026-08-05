@@ -3042,6 +3042,7 @@ const tr = {
     sale_code:'كود البيع',sale_company:'اسم الشركة',sale_project:'المشروع',sale_unitType:'نوع الوحدة',
     sale_area:'المساحة (م�)',sale_unitNum:'رقم الوحدة',sale_price:'سعر البيع (ج.م)',
     sale_commissionRate:'نسبة العمولة (%)',sale_commissionAmount:'مبلغ العمولة',sale_commission:'العمولة',sale_unitPrice:'سعر الوحدة (ج.م)',
+    sale_vatRate:'ضريبة القيمة المضافة (%)',sale_vatAmount:'قيمة الضريبة (14%)',sale_netCommission:'صافي العمولة (بعد الضريبة)',
     sale_bookingType:'نوع الحجز',sale_booking:'حجز',sale_contract:'عقد',sale_date:'التاريخ',
     sale_payoutDays:'مدة صرف العمولة (يوم)',sale_expiry:'تاريخ الاستحقاق',
     sale_client:'اسم العميل',sale_clientPhone:'هاتف العميل',sale_saleType:'نوع البيعة',
@@ -3390,6 +3391,7 @@ const tr = {
     sale_code:'Sale Code',sale_company:'Company',sale_project:'Project',sale_unitType:'Unit Type',
     sale_area:'Area (m�)',sale_unitNum:'Unit Number',sale_price:'Sale Price (EGP)',
     sale_commissionRate:'Commission Rate (%)',sale_commissionAmount:'Commission Amount',
+    sale_vatRate:'Value Added Tax (%)',sale_vatAmount:'VAT Amount (14%)',sale_netCommission:'Net Commission (after VAT)',
     sale_bookingType:'Booking Type',sale_booking:'Booking',sale_contract:'Contract',sale_date:'Date',
     sale_payoutDays:'Payout Period (days)',sale_expiry:'Expiry Date',
     sale_client:'Client Name',sale_clientPhone:'Client Phone',sale_saleType:'Sale Type',
@@ -5352,6 +5354,11 @@ function openSaleForm(saleId) {
     <div class="form-group"><label>${t('sale_commissionAmount')}</label><input type="text" id="s_commAmount" value="${fmt(commAmount)}" class="readonly-input" readonly></div>
   </div>
   <div class="form-row-3">
+    <div class="form-group"><label>${t('sale_vatRate')}</label><input type="number" id="s_vatRate" value="${sale?sale.vatRate:14}" min="0" max="100" step="0.1" oninput="calcSaleCommission()"></div>
+    <div class="form-group"><label>${t('sale_vatAmount')}</label><input type="text" id="s_vatAmount" value="${sale?sale.vatAmount?fmt(sale.vatAmount):'':''}" class="readonly-input" readonly></div>
+    <div class="form-group"><label>${t('sale_netCommission')}</label><input type="text" id="s_netCommission" value="${sale?(sale.netCommission!==undefined?fmt(sale.netCommission):''):''}" class="readonly-input" readonly></div>
+  </div>
+  <div class="form-row-3">
     <div class="form-group"><label>${t('sale_bookingType')}</label><select id="s_bookingType"><option value="contract" ${sale&&sale.bookingType==='contract'?'selected':''}>${t('sale_contract')}</option><option value="booking" ${sale&&sale.bookingType==='booking'?'selected':''}>${t('sale_booking')}</option></select></div>
     <div class="form-group"><label>${t('sale_payoutDays')}</label><input type="number" id="s_payoutDays" value="${sale?sale.payoutDays:30}" min="1" oninput="calcSaleCommission()"></div>
     <div class="form-group"><label>${t('sale_expiry')}</label><input type="text" id="s_expiry" value="" class="readonly-input" readonly></div>
@@ -5442,9 +5449,16 @@ function calcNewRate(sale) {
 function calcSaleCommission() {
   const price = parseFloat(document.getElementById('s_price').value)||0;
   const rate = parseFloat(document.getElementById('s_commRate').value)||0;
+  const vatRate = parseFloat(document.getElementById('s_vatRate')?.value)||0;
   const payoutDays = parseInt(document.getElementById('s_payoutDays').value)||30;
   const comm = price * rate / 100;
+  const vatAmount = comm * vatRate / 100;
+  const netComm = comm - vatAmount;
   document.getElementById('s_commAmount').value = fmt(comm);
+  const vatEl = document.getElementById('s_vatAmount');
+  if(vatEl) vatEl.value = fmt(vatAmount);
+  const netEl = document.getElementById('s_netCommission');
+  if(netEl) netEl.value = fmt(netComm);
 
   const dateVal = document.getElementById('s_date').value || today();
   const expiry = addDays(dateVal, payoutDays);
@@ -5490,6 +5504,8 @@ function calcSaleCommission() {
   document.getElementById('commPreviewBox').innerHTML =
     `<b>${t('sale_commissionCondition')}:</b> <span class="badge ${isFull?'badge-green':'badge-red'}">${condText}</span><br>` +
     `<b>${t('comm_companyAmount')}:</b> ${fmt(comm)} | ` +
+    `<b>${t('sale_vatAmount')}:</b> ${fmt(vatAmount)} | ` +
+    `<b style="color:#C75B4A">${t('sale_netCommission')}:</b> ${fmt(netComm)} | ` +
     `<b>${t('sale_expiry')}:</b> ${fmtDate(expiry)}` + achievementText + resaleText;
 }
 
@@ -5504,6 +5520,9 @@ function saveSale(saleId) {
     unitNum: document.getElementById('s_unitNum').value.trim(),
     unitPrice: parseFloat(document.getElementById('s_price').value)||0,
     commissionRate: parseFloat(document.getElementById('s_commRate').value)||0,
+    vatRate: parseFloat(document.getElementById('s_vatRate')?.value)||0,
+    vatAmount: (parseFloat(document.getElementById('s_price').value)||0) * (parseFloat(document.getElementById('s_commRate').value)||0) / 100 * ((parseFloat(document.getElementById('s_vatRate')?.value)||0)/100),
+    netCommission: (parseFloat(document.getElementById('s_price').value)||0) * (parseFloat(document.getElementById('s_commRate').value)||0) / 100 * (1 - (parseFloat(document.getElementById('s_vatRate')?.value)||0)/100),
     bookingType: document.getElementById('s_bookingType').value,
     payoutDays: parseInt(document.getElementById('s_payoutDays').value)||30,
     client: document.getElementById('s_client').value.trim(),
