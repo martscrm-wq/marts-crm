@@ -14063,9 +14063,17 @@ function treasuryCoaAccounts(type) {
   const t = type === 'income' ? 'revenue' : 'expense';
   return coa.filter(a => a.type === t);
 }
+function treasuryBalanceAccounts() {
+  const coa = STORAGE.get('chartOfAccounts', DEFAULT_COA);
+  return coa.filter(a => a.type === 'equity');
+}
+function treasuryAllAccounts() {
+  const coa = STORAGE.get('chartOfAccounts', DEFAULT_COA);
+  return coa;
+}
 function treasuryCatToCode(type, cat) {
   if(!cat || cat === '__custom__') return '';
-  const accs = treasuryCoaAccounts(type);
+  const accs = treasuryAllAccounts();
   const byCode = accs.find(a => a.code === cat);
   if(byCode) return byCode.code;
   const byName = accs.find(a => a.name_ar === cat || a.name_en === cat);
@@ -14074,8 +14082,14 @@ function treasuryCatToCode(type, cat) {
 function treasuryCatOptions(type, selected) {
   const lg = lang === 'ar';
   const accs = treasuryCoaAccounts(type);
+  const bal = treasuryBalanceAccounts();
   const selCode = treasuryCatToCode(type, selected);
   let o = accs.map(a => `<option value="${a.code}" ${selCode === a.code ? 'selected' : ''}>${a.code} - ${lg ? a.name_ar : a.name_en}</option>`).join('');
+  if(bal.length > 0) {
+    o += `<optgroup label="${lg ? 'حسابات جارية (الميزانية)' : 'Balance Sheet (Current)'}">` +
+      bal.map(a => `<option value="${a.code}" ${selCode === a.code ? 'selected' : ''}>${a.code} - ${lg ? a.name_ar : a.name_en}</option>`).join('') +
+      `</optgroup>`;
+  }
   if(!o) o = `<option value="">${lg ? 'لا توجد حسابات' : 'No accounts'}</option>`;
   o += `<option value="__custom__" ${(selected && !selCode) ? 'selected' : ''}>${lg ? 'أخرى (كتابة يدوية)' : 'Other (manual)'}</option>`;
   return o;
@@ -14103,8 +14117,7 @@ function treasuryCatValue() {
   if(!sel) return '';
   const v = sel.value;
   if(v === '__custom__') return (document.getElementById('t_categoryCustom')?.value || '').trim();
-  const type = document.getElementById('t_type')?.value || 'income';
-  const acc = treasuryCoaAccounts(type).find(x => x.code === v);
+  const acc = treasuryAllAccounts().find(x => x.code === v);
   return acc ? (lang === 'ar' ? acc.name_ar : acc.name_en) : v;
 }
 function treasuryCatIsPreset(type, cat) {
