@@ -12565,6 +12565,54 @@ function rejectException(excId) {
   wsToast(lang==='ar'?'تم الرفض':'Rejected');
 }
 
+function revertException(excId) {
+  if(!confirm(lang==='ar'?'هل تريد التراجع عن هذا الاستثناء؟ سيتم إلغاء الإذن/الإعفاء وإعادة الخصومات التلقائية':'Revert this exception? The permission/excuse will be removed and auto deductions restored')) return;
+  const exceptions = STORAGE.get('attendanceExceptions', []);
+  const exc = exceptions.find(e => e.id === excId);
+  if(!exc) return;
+  if(exc.status !== 'approved') { alert(lang==='ar'?'يمكن التراجع عن الاستثناءات المعتمدة فقط':'Only approved exceptions can be reverted'); return; }
+  const attendance = STORAGE.get('attendance', []);
+  const penalties = STORAGE.get('employeePenalties', []);
+  attendance.forEach(a => {
+    if(a.empId === exc.empId && (!exc.date || a.date === exc.date)) {
+      if(exc.type === 'late') a.excusedLate = false;
+      else if(exc.type === 'absence') a.excusedAbsence = false;
+      else if(exc.type === 'permission') a.permission = '';
+      else if(exc.type === 'early') a.excusedEarly = false;
+      else a.excusedOther = false;
+      a.excused = !!(a.excusedLate || a.excusedAbsence || a.excusedEarly || a.excusedOther);
+      if(!a.excused) { delete a.excusedAt; delete a.excusedBy; }
+    }
+  });
+  penalties.forEach(p => {
+    if(p.empId === exc.empId && p.issuedBy === 'system_auto' && (!exc.date || p.date === exc.date)) {
+      const isLatePen = p.violation && (String(p.violation).includes('تأخير') || String(p.violation).includes('12 ظهر'));
+      const isAbsencePen = p.violation && String(p.violation).includes('الغياب');
+      if((exc.type === 'late' && isLatePen) || (exc.type === 'absence' && isAbsencePen) || exc.type === 'permission' || exc.type === 'other') p.exempted = false;
+    }
+  });
+  exc.status = 'reverted';
+  exc.revertedAt = Date.now();
+  exc.revertedBy = currentUser ? currentUser.username : '';
+  STORAGE.set('attendance', attendance);
+  STORAGE.set('employeePenalties', penalties);
+  STORAGE.set('attendanceExceptions', exceptions);
+  renderPayrollSubSearch();
+  wsToast(lang==='ar'?'تم التراجع عن الاستثناء':'Exception reverted');
+}
+
+function deleteException(excId) {
+  if(!confirm(lang==='ar'?'هل تريد حذف هذا الاستثناء نهائياً؟':'Delete this exception permanently?')) return;
+  const exceptions = STORAGE.get('attendanceExceptions', []);
+  const exc = exceptions.find(e => e.id === excId);
+  if(!exc) return;
+  const canDel = canManageAttendance() || isOwner() || (currentUser && exc.requestedBy === currentUser.username);
+  if(!canDel) { alert(lang==='ar'?'لا تملك صلاحية الحذف':'No permission to delete'); return; }
+  STORAGE.set('attendanceExceptions', exceptions.filter(e => e.id !== excId));
+  renderPayrollSubSearch();
+  wsToast(lang==='ar'?'تم حذف الاستثناء':'Exception deleted');
+}
+
 function applyApprovedException(exc) {
   const attendance = STORAGE.get('attendance', []);
   const penalties = STORAGE.get('employeePenalties', []);
@@ -12614,6 +12662,7 @@ function renderExceptionsTab(el) {
       let statusColor = '#f39c12', statusLabel = lang==='ar'?'قيد الانتظار':'Pending';
       if(exc.status === 'approved') { statusColor = '#27ae60'; statusLabel = lang==='ar'?'معتمد':'Approved'; }
       if(exc.status === 'rejected') { statusColor = '#C75B4A'; statusLabel = lang==='ar'?'مرفوض':'Rejected'; }
+      if(exc.status === 'reverted') { statusColor = '#6C63FF'; statusLabel = lang==='ar'?'تم التراجع':'Reverted'; }
       const chainHtml = (exc.approvals || []).map(a => {
         let c = '#f39c12', lbl = lang==='ar'?'قيد الانتظار':'Pending';
         if(a.status === 'approved') { c = '#27ae60'; lbl = lang==='ar'?'موافق':'Approved'; }
@@ -12622,11 +12671,17 @@ function renderExceptionsTab(el) {
       }).join('');
       let actions = '';
       if(exc.status === 'pending' && canAct) {
-        actions = `<div style="display:flex;gap:4px">
-          <button class="btn btn-success btn-sm" onclick="approveException('${exc.id}')"><i class="fas fa-check"></i> ${lang==='ar'?'موافقة':'Approve'}</button>
-          <button class="btn btn-danger btn-sm" onclick="rejectException('${exc.id}')"><i class="fas fa-times"></i> ${lang==='ar'?'رفض':'Reject'}</button>
-        </div>`;
+        actions += `<button class="btn btn-success btn-sm" onclick="approveException('${exc.id}')"><i class="fas fa-check"></i> ${lang==='ar'?'موافقة':'Approve'}</button>
+          <button class="btn btn-danger btn-sm" onclick="rejectException('${exc.id}')"><i class="fas fa-times"></i> ${lang==='ar'?'رفض':'Reject'}</button>`;
       }
+      if(exc.status === 'approved') {
+        actions += `<button class="btn btn-outline btn-sm" onclick="revertException('${exc.id}')" title="${lang==='ar'?'التراجع عن الإذن/الإعفاء وإعادة الخصومات':'Revert permission/excuse and restore deductions'}"><i class="fas fa-undo-alt"></i> ${lang==='ar'?'تراجع':'Revert'}</button>`;
+      }
+      const canDel = canManageAttendance() || isOwner() || (currentUser && exc.requestedBy === currentUser.username);
+      if(canDel) {
+        actions += `<button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deleteException('${exc.id}')" title="${lang==='ar'?'حذف':'Delete'}"><i class="fas fa-trash"></i></button>`;
+      }
+      if(actions) actions = `<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center">${actions}</div>`;
       h += `<tr>
         <td><strong>${emp ? emp.name : exc.empName}</strong></td>
         <td style="font-size:12px">${exc.date ? fmtDate(exc.date) : '-'}</td>
