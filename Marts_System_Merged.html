@@ -4277,6 +4277,8 @@ function renderPage(page) {
     document.getElementById('adAccountsBtn') && document.getElementById('adAccountsBtn').click();
   }
   if(pages[page]) pages[page](main);
+  const notifStrip = renderPageNotifStrip(page);
+  if(notifStrip && main) main.insertAdjacentHTML('afterbegin', notifStrip);
 }
 
 // ============================================================
@@ -5537,6 +5539,7 @@ function saveSale(saleId) {
     data.approvalStatus = 'pending';
     data.statusHistory = [{status:'pending',date:new Date().toISOString(),note:'إنشاء الحركة'}];
     sales.push(data);
+    addNotification({type:'sale_new',title:lang==='ar'?'حركة مبيعات جديدة':'New Sales Transaction',message:(lang==='ar'?'العميل: ':'Client: ')+data.client+' - '+(data.project||''),date:today(),department:'sales_marketing'});
   }
   STORAGE.set('sales', sales);
   closeModal();
@@ -5562,6 +5565,7 @@ function convertSaleToContract(saleId) {
   s.statusHistory = s.statusHistory || [];
   s.statusHistory.push({status:'contracted',date:new Date().toISOString(),note:'تحويل لعقد'});
   STORAGE.set('sales', sales);
+  addNotification({type:'sale_contracted',title:lang==='ar'?'تم تحويل لعقد':'Converted to Contract',message:(lang==='ar'?'العميل: ':'Client: ')+(s.client||'')+' - '+(s.code||''),date:today(),department:'sales_marketing'});
   wsToast(lang==='ar'?'تم التحويل لعقد':'Converted to contract');
   renderOpsSales(document.getElementById('mainContent'));
 }
@@ -5575,6 +5579,7 @@ function cancelSale(saleId) {
   s.statusHistory = s.statusHistory || [];
   s.statusHistory.push({status:'cancelled',date:new Date().toISOString(),note:'إلغاء الحجز'});
   STORAGE.set('sales', sales);
+  addNotification({type:'sale_cancelled',title:lang==='ar'?'إلغاء حجز':'Reservation Cancelled',message:(lang==='ar'?'العميل: ':'Client: ')+(s.client||'')+' - '+(s.code||''),date:today(),department:'sales_marketing'});
   wsToast(lang==='ar'?'تم الإلغاء':'Cancelled');
   renderOpsSales(document.getElementById('mainContent'));
 }
@@ -6286,6 +6291,7 @@ function approveTransaction(id) {
   delete sales[idx].unapprovedAt;
   delete sales[idx].unapprovedBy;
   STORAGE.set('sales', sales);
+  addNotification({type:'sale_approved',title:lg ? 'تمت الموافقة على المعاملة' : 'Transaction Approved',message:(lg?'العميل: ':'Client: ')+(sales[idx].client||'')+' - '+(sales[idx].code||''),date:today(),department:'sales_marketing'});
   wsToast(lg ? 'تمت الموافقة على المعاملة' : 'Transaction approved');
   showTransTab(_transTab);
 }
@@ -6315,6 +6321,7 @@ function rejectTransaction(id) {
   sales[idx].rejectedAt = Date.now();
   sales[idx].rejectedBy = currentUser ? currentUser.username : 'system';
   STORAGE.set('sales', sales);
+  addNotification({type:'sale_rejected',title:lg ? 'تم رفض المعاملة' : 'Transaction Rejected',message:(lg?'العميل: ':'Client: ')+(sales[idx].client||'')+' - '+(sales[idx].code||''),date:today(),department:'sales_marketing'});
   wsToast(lg ? 'تم رفض المعاملة' : 'Transaction rejected');
   showTransTab(_transTab);
 }
@@ -6341,6 +6348,7 @@ function routeToTreasury(id) {
   };
   treasuries.push(entry);
   STORAGE.set('treasury', treasuries);
+  addNotification({type:'treasury_route',title:lg ? 'تحويل عمولة للخزينة' : 'Commission Routed to Treasury',message:(lg?'العميل: ':'Client: ')+(s.client||'')+' - '+fmt(commissionAmount),date:today(),department:'accounting_finance'});
   wsToast(lg ? 'تم تحويل عمولة المعاملة للخزينة' : 'Transaction commission routed to treasury');
   showTransTab(_transTab);
 }
@@ -10250,7 +10258,7 @@ function saveJobOffer(appId, silent) {
   if(apps[idx].status === 'accepted') apps[idx].status = 'offered';
   STORAGE.set('jobApplications', apps);
   if(!silent) {
-    addNotification({type:'job_status',title:(L?'تم إنشاء عرض وظيفي':'Job Offer Created'),message:(L?'عرض وظيفي لـ ':'Job offer for ')+apps[idx].name+' ('+apps[idx].position+')',date:today()});
+    addNotification({type:'job_status',title:(L?'تم إنشاء عرض وظيفي':'Job Offer Created'),message:(L?'عرض وظيفي لـ ':'Job offer for ')+apps[idx].name+' ('+apps[idx].position+')',date:today(),department:'hr'});
     closeModal();
     renderHrTabContent();
     alert(L?'تم حفظ العرض الوظيفي بنجاح':'Job offer saved successfully');
@@ -10710,7 +10718,7 @@ function saveJaReview(appId) {
   apps[idx].interviewNotes = document.getElementById('ja_rNotes').value.trim();
   if(apps[idx].status !== oldStatus) {
     const sl = {accepted:(lang==='ar'?'مقبول':'Accepted'),rejected:(lang==='ar'?'مرفوض':'Rejected'),interview:(lang==='ar'?'تم جدولة مقابلة':'Interview Scheduled')};
-    addNotification({type:'job_status',title:(lang==='ar'?'تحديث حالة الطلب':'Application Status Update'),message:apps[idx].name+': '+(sl[apps[idx].status]||apps[idx].status),date:today()});
+    addNotification({type:'job_status',title:(lang==='ar'?'تحديث حالة الطلب':'Application Status Update'),message:apps[idx].name+': '+(sl[apps[idx].status]||apps[idx].status),date:today(),department:'hr'});
   }
   if(apps[idx].status === 'interview' && !apps[idx].managerPool) {
     assignJaManagers(apps[idx]);
@@ -11132,7 +11140,7 @@ function approveJobRequest(reqId) {
   rq.approvedBy = currentUser ? currentUser.username : '';
   STORAGE.set('jobRequests', jobRequests);
 
-  addNotification({type:'job_request_approved',title:(lang==='ar'?'تم اعتماد طلب التوظيف':'Job Request Approved'),message:(lang==='ar'?'المنصب: '+rq.position+' - '+rq.department:'Position: '+rq.position+' - '+rq.department),date:today()});
+  addNotification({type:'job_request_approved',title:(lang==='ar'?'تم اعتماد طلب التوظيف':'Job Request Approved'),message:(lang==='ar'?'المنصب: '+rq.position+' - '+rq.department:'Position: '+rq.position+' - '+rq.department),date:today(),department:'hr'});
   renderHrTabContent();
 }
 
@@ -11828,9 +11836,17 @@ function _notifTargetIds() {
   if(emp) { ids.add(emp.id); if(emp.name) ids.add(emp.name); }
   return ids;
 }
+function _notifMyDept() {
+  return currentUser ? getDepartment(currentUser.role) : null;
+}
 function _notifIsMine(n) {
-  if(!n.targetUser) return true;
-  return _notifTargetIds().has(n.targetUser);
+  if(n.targetUser) return _notifTargetIds().has(n.targetUser);
+  if(n.department) {
+    const myDept = _notifMyDept();
+    if(myDept === null) return true;
+    return myDept === n.department;
+  }
+  return true;
 }
 function getMyNotifications() {
   return STORAGE.get('notifications', []).filter(n => _notifIsMine(n));
@@ -11855,7 +11871,7 @@ function _renderNotifList(list) {
   if(list.length === 0) {
     return '<div style="text-align:center;padding:32px 16px;color:var(--text-light)"><i class="fas fa-bell-slash" style="font-size:36px;display:block;margin-bottom:10px"></i>'+(L?'لا توجد إشعارات':'No notifications')+'</div>';
   }
-  const icons = {warning:'fa-exclamation-triangle',job_application:'fa-file-alt',job_status:'fa-check-circle',job_request:'fa-briefcase',job_request_approved:'fa-check',attendance_exception:'fa-clock'};
+  const icons = {warning:'fa-exclamation-triangle',job_application:'fa-file-alt',job_status:'fa-check-circle',job_request:'fa-briefcase',job_request_approved:'fa-check',attendance_exception:'fa-clock',sale_new:'fa-file-invoice-dollar',sale_approved:'fa-check-circle',sale_rejected:'fa-times-circle',sale_contracted:'fa-file-signature',sale_cancelled:'fa-ban',treasury_route:'fa-coins',treasury_entry:'fa-coins',expense_new:'fa-money-bill-wave',journal_new:'fa-book',lead_new:'fa-user-plus',lead_converted:'fa-user-check',marketing_campaign:'fa-bullhorn',attendance_sync:'fa-clock'};
   return list.map(n => {
     const ic = icons[n.type] || 'fa-bell';
     const time = n.timestamp ? new Date(n.timestamp).toLocaleString(L?'ar-EG':'en-US',{dateStyle:'short',timeStyle:'short'}) : (n.date||'');
@@ -11869,6 +11885,39 @@ function _renderNotifList(list) {
       (n.read?'':'<span style="width:8px;height:8px;border-radius:50%;background:#EF4444;flex-shrink:0;margin-top:4px"></span>') +
     '</div>';
   }).join('');
+}
+const PAGE_DEPT_MAP = {
+  sales:'sales_marketing', commissions:'sales_marketing', marketing:'sales_marketing', crm:'sales_marketing',
+  employees:'hr', orgChart:'hr', hiring:'hr',
+  accounting:'accounting_finance'
+};
+function pageDept(page) {
+  return PAGE_DEPT_MAP[page] || null;
+}
+function renderPageNotifStrip(page) {
+  const L = lang==='ar';
+  const dept = pageDept(page);
+  if(!dept) return '';
+  const myDept = _notifMyDept();
+  if(myDept !== null && myDept !== dept) return '';
+  const all = STORAGE.get('notifications', []);
+  const list = all.filter(n => n.department === dept && !n.read && _notifIsMine(n)).slice(0, 4);
+  if(list.length === 0) return '';
+  const labels = DEPT_LABELS[dept] || {ar:dept,en:dept};
+  const color = (DEPT_MOBILE_THEME[dept] || {}).accent || 'var(--primary)';
+  const rows = list.map(n =>
+    '<div style="display:flex;gap:8px;align-items:center;padding:6px 10px;border-bottom:1px solid var(--border);font-size:12px;cursor:pointer" onclick="markNotifRead(\''+n.id+'\')">' +
+      '<i class="fas '+(iconsMap(n.type))+'"></i>' +
+      '<div style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">'+(n.title||'')+(n.message?' - '+n.message:'')+'</div>' +
+    '</div>').join('');
+  return '<div style="border:1px solid '+color+';border-left:4px solid '+color+';border-radius:10px;margin-bottom:16px;overflow:hidden;background:rgba(255,255,255,.6);box-shadow:0 1px 3px rgba(0,0,0,.06)">' +
+    '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 12px;background:'+color+';color:#fff;font-size:12px;font-weight:700"><span><i class="fas fa-bell"></i> '+labels[L?'ar':'en']+' - '+(L?'إشعارات جديدة':'New notifications')+'</span><button class="btn btn-sm" style="background:rgba(255,255,255,.2);color:#fff;border:1px solid rgba(255,255,255,.4)" onclick="toggleNotifPanel()">'+(L?'عرض الكل':'View all')+'</button></div>' +
+    rows +
+  '</div>';
+}
+function iconsMap(type) {
+  const m = {warning:'fa-exclamation-triangle',job_application:'fa-file-alt',job_status:'fa-check-circle',job_request:'fa-briefcase',job_request_approved:'fa-check',attendance_exception:'fa-clock',sale_new:'fa-file-invoice-dollar',sale_approved:'fa-check-circle',sale_rejected:'fa-times-circle',sale_contracted:'fa-file-signature',sale_cancelled:'fa-ban',treasury_route:'fa-coins',treasury_entry:'fa-coins',expense_new:'fa-money-bill-wave',journal_new:'fa-book',lead_new:'fa-user-plus',lead_converted:'fa-user-check',marketing_campaign:'fa-bullhorn',attendance_sync:'fa-clock'};
+  return m[type] || 'fa-bell';
 }
 function toggleNotifPanel() {
   if(document.getElementById('modalOverlay').classList.contains('active') && document.getElementById('notifPanel')) {
@@ -14067,6 +14116,7 @@ function saveTreasury() {
     franchiseId: franchiseId,
     branchId: branchId
   });
+  addNotification({type:'treasury_entry',title:lang==='ar'?(type==='income'?'إيراد خزينة جديد':'مصروف خزينة جديد'):(type==='income'?'New Treasury Income':'New Treasury Expense'),message:(cat?cat+' - ':'')+fmt(amt)+(desc?' - '+desc:''),date:today(),department:'accounting_finance'});
   closeModal(); renderTreasury();
 }
 
@@ -14805,6 +14855,7 @@ function saveExpense() {
     branchId: branchId
   });
   closeModal(); renderExpenses();
+  addNotification({type:'expense_new',title:lg?'مصروف جديد':'New Expense',message:cat+' - '+fmt(amt),date:today(),department:'accounting_finance'});
 }
 
 // ============================================================
@@ -15313,6 +15364,7 @@ function saveJournalEntry(editId) {
     const newId = uid();
     entries.push({id: newId, date, ref, desc, franchiseId, branchId, lines});
     govAuditLog('journal_create', 'journal', {id: newId, amount: totalDr, ref});
+    addNotification({type:'journal_new',title:lang==='ar'?'قيد يومي جديد':'New Journal Entry',message:(ref||desc||'')+' - '+fmt(totalDr),date:today(),department:'accounting_finance'});
   }
   STORAGE.set('journalEntries', entries);
   closeModal(); renderJournal();
@@ -26594,6 +26646,7 @@ function mktSaveLead(){
   const leads=STORAGE.get('marketingLeads',[]);
   leads.push({id:'mlead_'+Date.now(),name,phone,email:document.getElementById('mktLeadEmail')?.value?.trim()||'',source:document.getElementById('mktLeadSource')?.value||'other',campaignId:document.getElementById('mktLeadCampaign')?.value||'',marketerId:document.getElementById('mktLeadMarketer')?.value||'',notes:document.getElementById('mktLeadNotes')?.value?.trim()||'',status:'new',createdAt:new Date().toISOString()});
   STORAGE.set('marketingLeads',leads);
+  addNotification({type:'lead_new',title:lg?'عميل محتمل جديد':'New Lead',message:name+' ('+phone+')',date:today(),department:'sales_marketing'});
   mktAddLog('lead',lg?'أضاف عميل '+name:'Added lead '+name);
   closeModal();wsToast((lg?'تمت إضافة العميل ':'Lead added: ')+name);mktRenderTab();
 }
@@ -26646,6 +26699,7 @@ function mktConvertLead(id){
   const salesLeads=STORAGE.get('salesLeads',[]);
   salesLeads.push({id:'sale_'+Date.now(),name:l.name,phone:l.phone,email:l.email,source:'marketing',originalLeadId:l.id,marketerId:l.marketerId,status:'new',createdAt:new Date().toISOString()});
   STORAGE.set('salesLeads',salesLeads);
+  addNotification({type:'lead_converted',title:lg?'تحويل عميل للمبيعات':'Lead Converted to Sales',message:l.name,date:today(),department:'sales_marketing'});
   mktAddLog('convert',lg?'حول العميل '+l.name+' للمبيعات':'Converted '+l.name+' to sales');
   wsToast((lg?'تم تحويل ':'Converted ')+l.name);mktRenderTab();
 }
