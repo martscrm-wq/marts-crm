@@ -10417,6 +10417,8 @@ function exportHiringDb() {
   XLSX.writeFile(wb, 'marts_hiring_database_' + today() + '.xlsx');
 }
 
+const JA_STATUS_COLORS = {pending:'#E8A07C',accepted:'#A5AF79',offered:'#10B981',rejected:'#C75B4A',interview:'#827148'};
+const JA_STATUS_LABELS = {pending:(lang==='ar'?'قيد المراجعة':'Pending'),accepted:(lang==='ar'?'مقبول':'Accepted'),offered:(lang==='ar'?'عرض وظيفي':'Offered'),rejected:(lang==='ar'?'مرفوض':'Rejected'),interview:(lang==='ar'?'مقابلة':'Interview')};
 function renderJobApplications(el) {
   const applications = STORAGE.get('jobApplications', []);
   const jobRequests = STORAGE.get('jobRequests', []);
@@ -10459,21 +10461,42 @@ function renderJaForm(el) {
       <div style="background:rgba(130,113,72,0.06);padding:10px 16px;font-weight:700;font-size:16px;color:#827148;border-bottom:1px solid var(--border);display:flex;justify-content:space-between"><span><i class="fas fa-user"></i> ${lang==='ar'?'المعلومات الشخصية':'Personal Information'}</span></div>
       <div style="padding:16px 20px">
         <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px">
-          <div style="flex:1 1 100%"><label style="font-weight:600;font-size:14px;color:var(--text);margin-bottom:4px;display:block">${lang==='ar'?'الوظيفة المتقدم لها':'Position Applied For'} <span style="color:#C75B4A">*</span></label><select name="position" required style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:#fff"><option value="">${lang==='ar'?'اختر...':'Select...'}</option>${posOpts}</select></div>
+          <div style="flex:1 1 100%"><label style="font-weight:600;font-size:14px;color:var(--text);margin-bottom:4px;display:block">${lang==='ar'?'الوظيفة المتقدم لها':'Position Applied For'} <span style="color:#C75B4A">*</span></label><select name="position" required onchange="toggleJaRoleSections()" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:#fff"><option value="">${lang==='ar'?'اختر...':'Select...'}</option>${draft.position?`<option value="${draft.position}" selected>${draft.position}</option>`:''}${posOpts}</select></div>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px">
           <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'الاسم الثلاثي':'Full Name'} <span style="color:#C75B4A">*</span></label><input type="text" name="fullName" required value="${draft.fullName||''}" placeholder="${lang==='ar'?'الأول الأوسط الأخير':''}"></div>
-          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'العنوان':'Address'} <span style="color:#C75B4A">*</span></label><input type="text" name="address" required value="${draft.address||''}" placeholder="${lang==='ar'?'المدينة - المنطقة':''}"></div>
+          <div style="flex:1 1 150px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'النوع':'Gender'}</label><select name="gender" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:#fff"><option value="">${lang==='ar'?'اختر...':'Select...'}</option><option value="male" ${draft.gender==='male'?'selected':''}>${lang==='ar'?'ذكر':'Male'}</option><option value="female" ${draft.gender==='female'?'selected':''}>${lang==='ar'?'أنثى':'Female'}</option></select></div>
+          <div style="flex:1 1 150px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'الجنسية':'Nationality'}</label><input type="text" name="nationality" value="${draft.nationality||''}"></div>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px">
+          <div style="flex:1 1 150px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'الحالة الاجتماعية':'Marital Status'}</label><select name="maritalStatus" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:#fff"><option value="">${lang==='ar'?'اختر...':'Select...'}</option><option value="single" ${draft.maritalStatus==='single'?'selected':''}>${lang==='ar'?'أعزب':'Single'}</option><option value="married" ${draft.maritalStatus==='married'?'selected':''}>${lang==='ar'?'متزوج':'Married'}</option><option value="divorced" ${draft.maritalStatus==='divorced'?'selected':''}>${lang==='ar'?'مطلق':'Divorced'}</option><option value="widowed" ${draft.maritalStatus==='widowed'?'selected':''}>${lang==='ar'?'أرمل':'Widowed'}</option></select></div>
           <div style="flex:1 1 150px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'تاريخ الميلاد':'Date of Birth'} <span style="color:#C75B4A">*</span></label><input type="date" name="dob" id="jaDob" required value="${draft.dob||''}" onchange="calculateJaAge()"></div>
-          <div style="flex:1 1 100px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'العمر':'Age'}</label><input type="number" id="jaAge" readonly placeholder="-" style="background:#f5f5f5"></div>
+          <div style="flex:1 1 100px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'العمر':'Age'}</label><input type="number" id="jaAge" name="age" readonly placeholder="-" style="background:#f5f5f5"></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px">
           <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'البريد الإلكتروني':'Email'} <span style="color:#C75B4A">*</span></label><input type="email" name="email" required value="${draft.email||''}"></div>
           <div style="flex:1 1 180px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'رقم الهاتف':'Phone'} <span style="color:#C75B4A">*</span></label><input type="tel" name="phone" required value="${draft.phone||''}" placeholder="01xxxxxxxxx"></div>
+          <div style="flex:1 1 180px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'رقم بديل':'Alternative Number'}</label><input type="tel" name="altPhone" value="${draft.altPhone||''}"></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px">
+          <div style="flex:1 1 250px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'العنوان الحالي':'Current Address'} <span style="color:#C75B4A">*</span></label><input type="text" name="address" required value="${draft.address||''}" placeholder="${lang==='ar'?'الشارع - المنطقة':''}"></div>
+          <div style="flex:1 1 150px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'المدينة':'City'}</label><input type="text" name="city" value="${draft.city||''}"></div>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:16px">
-          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'هل تمتلك سيارة؟':'Has Car?'}</label><div style="display:flex;gap:16px;padding-top:4px"><label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer"><input type="radio" name="hasCar" value="yes" ${draft.hasCar==='yes'?'checked':''}> ${lang==='ar'?'نعم':'Yes'}</label><label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer"><input type="radio" name="hasCar" value="no" ${draft.hasCar!=='yes'?'checked':''}> ${lang==='ar'?'لا':'No'}</label></div></div>
           <div style="flex:1 1 300px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'رفع السيرة الذاتية (CV)':'Upload CV'}</label><input type="file" name="cvFile" accept=".pdf,.doc,.docx" style="padding:8px;border:1px dashed var(--border);border-radius:8px;width:100%;background:rgba(130,113,72,0.03)"><small style="color:var(--text-light)">${lang==='ar'?'PDF أو Word - حد أقصى 5MB':'PDF or Word - Max 5MB'}</small></div>
+          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'الصورة الشخصية':'Applicant Photo'}</label><input type="file" name="photoFile" accept="image/*" style="padding:8px;border:1px dashed var(--border);border-radius:8px;width:100%;background:rgba(130,113,72,0.03)"><small style="color:var(--text-light)">${lang==='ar'?'صورة حديثة (JPG/PNG)':'Recent photo (JPG/PNG)'}</small></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 1b. Position Details -->
+    <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px">
+      <div style="background:rgba(165,175,121,0.08);padding:10px 16px;font-weight:700;font-size:16px;color:#827148;border-bottom:1px solid var(--border)"><i class="fas fa-briefcase"></i> ${lang==='ar'?'تفاصيل الوظيفة':'Position Details'}</div>
+      <div style="padding:16px 20px">
+        <div style="display:flex;flex-wrap:wrap;gap:16px">
+          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'القسم':'Department'}</label><input type="text" name="department" value="${draft.department||''}" placeholder="${lang==='ar'?'مثال: مبيعات':'e.g. Sales'}"></div>
+          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'نوع الوظيفة':'Employment Type'}</label><select name="employmentType" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:#fff"><option value="">${lang==='ar'?'اختر...':'Select...'}</option><option value="full-time" ${draft.employmentType==='full-time'?'selected':''}>${lang==='ar'?'دوام كامل':'Full-Time'}</option><option value="part-time" ${draft.employmentType==='part-time'?'selected':''}>${lang==='ar'?'دوام جزئي':'Part-Time'}</option><option value="internship" ${draft.employmentType==='internship'?'selected':''}>${lang==='ar'?'تدريب':'Internship'}</option></select></div>
+          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'موقع العمل المفضل':'Preferred Work Location'}</label><input type="text" name="preferredLocation" value="${draft.preferredLocation||''}"></div>
         </div>
       </div>
     </div>
@@ -10488,9 +10511,14 @@ function renderJaForm(el) {
         <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px">
           <div style="flex:1 1 150px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'من تاريخ':'From'}</label><input type="date" name="eduFrom" value="${draft.eduFrom||''}"></div>
           <div style="flex:1 1 150px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'إلى تاريخ':'To'}</label><input type="date" name="eduTo" value="${draft.eduTo||''}"></div>
+          <div style="flex:1 1 140px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'سنة التخرج':'Graduation Year'}</label><input type="number" name="gradYear" min="1950" max="2100" value="${draft.gradYear||''}"></div>
           <div style="flex:1 1 150px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'هل تخرجت؟':'Graduated?'}</label><div style="display:flex;gap:16px;padding-top:4px"><label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer"><input type="radio" name="graduated" value="yes" ${draft.graduated==='yes'?'checked':''}> ${lang==='ar'?'نعم':'Yes'}</label><label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer"><input type="radio" name="graduated" value="no" ${draft.graduated!=='yes'?'checked':''}> ${lang==='ar'?'لا':'No'}</label></div></div>
         </div>
-        <div><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'الدرجة العلمية / التخصص':'Degree / Major'} <span style="color:#C75B4A">*</span></label><input type="text" name="degree" required value="${draft.degree||''}"></div>
+        <div style="display:flex;flex-wrap:wrap;gap:16px">
+          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'الدرجة العلمية':'Degree'} <span style="color:#C75B4A">*</span></label><input type="text" name="degree" required value="${draft.degree||''}" placeholder="${lang==='ar'?'مثال: بكالوريوس':'e.g. Bachelor'}"></div>
+          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'التخصص':'Major'}</label><input type="text" name="major" value="${draft.major||''}"></div>
+          <div style="flex:1 1 120px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">GPA <small>(${lang==='ar'?'اختياري':'Optional'})</small></label><input type="text" name="gpa" value="${draft.gpa||''}" placeholder="3.5"></div>
+        </div>
       </div>
     </div>
 
@@ -10503,6 +10531,22 @@ function renderJaForm(el) {
             const labels = {exempt:(lang==='ar'?'أعفاء':'Exempt'),deferred:(lang==='ar'?'تأجيل':'Deferred'),served:(lang==='ar'?'أدى الخدمة':'Completed'),serving:(lang==='ar'?'يخدم حالياً':'Currently Serving'),na:(lang==='ar'?'غير قابل للتطبيق':'N/A')};
             return `<label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer"><input type="radio" name="military" value="${v}" ${(draft.military||'na')===v?'checked':''}> ${labels[v]}</label>`;
           }).join('')}
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:16px;margin-top:14px">
+          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'تاريخ إنهاء الخدمة':'Service Completion Date'}</label><input type="date" name="militaryDate" value="${draft.militaryDate||''}"></div>
+          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'رقم شهادة الخدمة':'Military Certificate No.'}</label><input type="text" name="militaryCertNo" value="${draft.militaryCertNo||''}"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3b. Transportation -->
+    <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px">
+      <div style="background:rgba(130,113,72,0.06);padding:10px 16px;font-weight:700;font-size:16px;color:#827148;border-bottom:1px solid var(--border)"><i class="fas fa-car"></i> ${lang==='ar'?'المواصلات':'Transportation'}</div>
+      <div style="padding:16px 20px">
+        <div style="display:flex;flex-wrap:wrap;gap:16px">
+          <div style="flex:1 1 180px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'هل تمتلك سيارة؟':'Do you own a car?'}</label><div style="display:flex;gap:16px;padding-top:4px"><label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer"><input type="radio" name="hasCar" value="yes" ${draft.hasCar==='yes'?'checked':''}> ${lang==='ar'?'نعم':'Yes'}</label><label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer"><input type="radio" name="hasCar" value="no" ${draft.hasCar!=='yes'?'checked':''}> ${lang==='ar'?'لا':'No'}</label></div></div>
+          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'موديل السيارة':'Car Model'}</label><input type="text" name="carModel" value="${draft.carModel||''}" placeholder="Toyota Corolla"></div>
+          <div style="flex:1 1 150px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'سنة السيارة':'Car Year'}</label><input type="number" name="carYear" min="1980" max="2100" value="${draft.carYear||''}"></div>
         </div>
       </div>
     </div>
@@ -10522,12 +10566,97 @@ function renderJaForm(el) {
             <div style="flex:1 1 200px"><label style="font-weight:600;font-size:13px;margin-bottom:3px;display:block">${lang==='ar'?'المسمى الوظيفي':'Title'}</label><input type="text" name="exp${i}_title" value="${exp.title||''}"></div>
           </div>
           <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px">
+            <div style="flex:1 1 160px"><label style="font-weight:600;font-size:13px;margin-bottom:3px;display:block">${lang==='ar'?'نوع الوظيفة':'Employment Type'}</label><select name="exp${i}_employmentType" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff"><option value="">${lang==='ar'?'اختر...':'Select...'}</option><option value="full-time" ${exp.employmentType==='full-time'?'selected':''}>${lang==='ar'?'دوام كامل':'Full-Time'}</option><option value="part-time" ${exp.employmentType==='part-time'?'selected':''}>${lang==='ar'?'دوام جزئي':'Part-Time'}</option><option value="internship" ${exp.employmentType==='internship'?'selected':''}>${lang==='ar'?'تدريب':'Internship'}</option><option value="freelance" ${exp.employmentType==='freelance'?'selected':''}>${lang==='ar'?'حر':'Freelance'}</option></select></div>
+            <div style="flex:1 1 150px"><label style="font-weight:600;font-size:13px;margin-bottom:3px;display:block">${lang==='ar'?'المدة':'Duration'}</label><input type="text" name="exp${i}_duration" value="${exp.duration||''}" placeholder="${lang==='ar'?'سنتان':'2 years'}"></div>
+          </div>
+          <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px">
             <div style="flex:1 1 150px"><label style="font-weight:600;font-size:13px;margin-bottom:3px;display:block">${lang==='ar'?'من':'From'}</label><input type="date" name="exp${i}_from" value="${exp.from||''}"></div>
             <div style="flex:1 1 150px"><label style="font-weight:600;font-size:13px;margin-bottom:3px;display:block">${lang==='ar'?'إلى':'To'}</label><input type="date" name="exp${i}_to" value="${exp.to||''}"></div>
             <div style="flex:1 1 150px"><label style="font-weight:600;font-size:13px;margin-bottom:3px;display:block">${lang==='ar'?'آخر راتب':'Last Salary'}</label><input type="number" name="exp${i}_salary" value="${exp.salary||''}" placeholder="EGP"></div>
           </div>
+          <div style="margin-bottom:10px"><label style="font-weight:600;font-size:13px;margin-bottom:3px;display:block">${lang==='ar'?'المسؤوليات الرئيسية':'Main Responsibilities'}</label><textarea name="exp${i}_responsibilities" rows="2" style="min-height:40px">${exp.responsibilities||''}</textarea></div>
           <div><label style="font-weight:600;font-size:13px;margin-bottom:3px;display:block">${lang==='ar'?'سبب ترك العمل':'Reason for Leaving'}</label><textarea name="exp${i}_reason" rows="2" style="min-height:40px">${exp.reason||''}</textarea></div>
         </div>`).join('')}
+      </div>
+    </div>
+
+    <!-- 4b. Additional Employment Info -->
+    <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px">
+      <div style="background:rgba(165,175,121,0.08);padding:10px 16px;font-weight:700;font-size:16px;color:#827148;border-bottom:1px solid var(--border)"><i class="fas fa-user-tie"></i> ${lang==='ar'?'معلومات التوظيف الحالي':'Additional Employment Information'}</div>
+      <div style="padding:16px 20px">
+        <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px">
+          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'جهة العمل الحالية':'Current Employer'}</label><input type="text" name="currentEmployer" value="${draft.currentEmployer||''}"></div>
+          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'المنصب الحالي':'Current Position'}</label><input type="text" name="currentPosition" value="${draft.currentPosition||''}"></div>
+          <div style="flex:1 1 180px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'الراتب الحالي':'Current Salary (EGP)'}</label><input type="number" name="currentSalary" min="0" value="${draft.currentSalary||''}"></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:16px">
+          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'فترة الإشعار':'Notice Period'}</label><input type="text" name="noticePeriod" value="${draft.noticePeriod||''}" placeholder="${lang==='ar'?'شهر واحد':'1 month'}"></div>
+          <div style="flex:1 1 260px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'هل يمكننا التواصل مع جهة عملك الحالية؟':'May we contact your current employer?'}</label><div style="display:flex;gap:16px;padding-top:4px"><label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer"><input type="radio" name="contactCurrent" value="yes" ${draft.contactCurrent==='yes'?'checked':''}> ${lang==='ar'?'نعم':'Yes'}</label><label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer"><input type="radio" name="contactCurrent" value="no" ${draft.contactCurrent!=='yes'?'checked':''}> ${lang==='ar'?'لا':'No'}</label></div></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4c. Fresh Graduates (Optional) -->
+    <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px">
+      <div style="background:rgba(232,160,124,0.08);padding:10px 16px;font-weight:700;font-size:16px;color:#827148;border-bottom:1px solid var(--border)"><i class="fas fa-user-graduate"></i> ${lang==='ar'?'الخريجون الجدد (اختياري)':'Fresh Graduates (Optional)'}</div>
+      <div style="padding:16px 20px">
+        <label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'إذا لم تكن لديك خبرة عمل سابقة، اذكر التدريبات أو الأعمال التطوعية أو مشاريع الجامعة المرتبطة بالوظيفة:':'If you have no prior work experience, list internships, training, volunteer work, or university projects relevant to the position:'}</label>
+        <textarea name="freshGrad" rows="3">${draft.freshGrad||''}</textarea>
+      </div>
+    </div>
+
+    <!-- 4d. Skills -->
+    <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px">
+      <div style="background:rgba(130,113,72,0.06);padding:10px 16px;font-weight:700;font-size:16px;color:#827148;border-bottom:1px solid var(--border)"><i class="fas fa-tools"></i> ${lang==='ar'?'المهارات':'Skills'}</div>
+      <div style="padding:16px 20px">
+        <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px">
+          <div style="flex:1 1 100%"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'مهارات الكمبيوتر':'Computer Skills'} <small>(${lang==='ar'?'Excel, Word, Google Sheets, CRM, Power BI...':'Excel, Word, Google Sheets, CRM, Power BI...'})</small></label><input type="text" name="computerSkills" value="${draft.computerSkills||''}"></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px">
+          <div style="flex:1 1 250px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'اللغات':'Languages'}</label><input type="text" name="languages" value="${draft.languages||''}" placeholder="${lang==='ar'?'العربية، الإنجليزية':'Arabic, English'}"></div>
+          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'المستوى':'Level'}</label><select name="languageLevel" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:#fff"><option value="">${lang==='ar'?'اختر...':'Select...'}</option><option value="beginner" ${draft.languageLevel==='beginner'?'selected':''}>${lang==='ar'?'مبتدئ':'Beginner'}</option><option value="intermediate" ${draft.languageLevel==='intermediate'?'selected':''}>${lang==='ar'?'متوسط':'Intermediate'}</option><option value="advanced" ${draft.languageLevel==='advanced'?'selected':''}>${lang==='ar'?'متقدم':'Advanced'}</option><option value="fluent" ${draft.languageLevel==='fluent'?'selected':''}>${lang==='ar'?'طلاقة':'Fluent'}</option></select></div>
+        </div>
+        <div style="border-top:1px dashed var(--border);padding-top:14px">
+          <div style="font-weight:700;font-size:14px;color:#827148;margin-bottom:10px"><i class="fas fa-building"></i> ${lang==='ar'?'الخبرة العقارية':'Real Estate Experience'} <small>(${lang==='ar'?'إن وُجدت':'If Applicable'})</small></div>
+          <div style="display:flex;flex-wrap:wrap;gap:16px">
+            <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'هل عملت في العقارات من قبل؟':'Have you worked in Real Estate before?'}</label><div style="display:flex;gap:16px;padding-top:4px"><label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer"><input type="radio" name="realEstate" value="yes" ${draft.realEstate==='yes'?'checked':''}> ${lang==='ar'?'نعم':'Yes'}</label><label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer"><input type="radio" name="realEstate" value="no" ${draft.realEstate!=='yes'?'checked':''}> ${lang==='ar'?'لا':'No'}</label></div></div>
+            <div style="flex:1 1 220px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'المجال':'Area'}</label><select name="realEstateArea" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:#fff"><option value="">${lang==='ar'?'اختر...':'Select...'}</option>${['Brokerage','Developer','Sales','Operations','Marketing','Admin','Customer Service','Other'].map(o => `<option value="${o}" ${draft.realEstateArea===o?'selected':''}>${o}</option>`).join('')}</select></div>
+            <div style="flex:1 1 150px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'سنوات الخبرة':'Years of Experience'}</label><input type="number" name="realEstateYears" min="0" value="${draft.realEstateYears||''}"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4e. Sales Info (role-based) -->
+    <div id="jaSalesInfo" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px;display:none">
+      <div style="background:rgba(37,99,235,0.08);padding:10px 16px;font-weight:700;font-size:16px;color:#827148;border-bottom:1px solid var(--border)"><i class="fas fa-chart-line"></i> ${lang==='ar'?'معلومات المبيعات':'Sales Information'}</div>
+      <div style="padding:16px 20px">
+        <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px">
+          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'نظام CRM المستخدم':'CRM Used'}</label><input type="text" name="salesCrm" value="${draft.salesCrm||''}"></div>
+          <div style="flex:1 1 180px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'متوسط الاجتماعات الشهرية':'Avg Monthly Meetings'}</label><input type="number" name="monthlyMeetings" min="0" value="${draft.monthlyMeetings||''}"></div>
+          <div style="flex:1 1 180px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'متوسط الحجوزات الشهرية':'Avg Monthly Reservations'}</label><input type="number" name="monthlyReservations" min="0" value="${draft.monthlyReservations||''}"></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:16px">
+          <div style="flex:1 1 180px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'متوسط الإغلاقات الشهرية':'Avg Monthly Closings'}</label><input type="number" name="monthlyClosings" min="0" value="${draft.monthlyClosings||''}"></div>
+          <div style="flex:1 1 250px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'أفضل إنجاز مبيعات شهري':'Best Monthly Sales Achievement'}</label><input type="text" name="bestSales" value="${draft.bestSales||''}"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 4f. Operations Info (role-based) -->
+    <div id="jaOpsInfo" style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px;display:none">
+      <div style="background:rgba(37,99,235,0.08);padding:10px 16px;font-weight:700;font-size:16px;color:#827148;border-bottom:1px solid var(--border)"><i class="fas fa-cogs"></i> ${lang==='ar'?'المعلومات التشغيلية':'Operations Information'}</div>
+      <div style="padding:16px 20px">
+        <div style="display:flex;flex-wrap:wrap;gap:16px;margin-bottom:14px">
+          <div style="flex:1 1 200px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'خبرة CRM':'CRM Experience'}</label><input type="text" name="opsCrm" value="${draft.opsCrm||''}"></div>
+          <div style="flex:1 1 180px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'مستوى Google Sheets':'Google Sheets Level'}</label><select name="sheetsLevel" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:#fff"><option value="">${lang==='ar'?'اختر...':'Select...'}</option><option value="basic" ${draft.sheetsLevel==='basic'?'selected':''}>${lang==='ar'?'أساسي':'Basic'}</option><option value="intermediate" ${draft.sheetsLevel==='intermediate'?'selected':''}>${lang==='ar'?'متوسط':'Intermediate'}</option><option value="advanced" ${draft.sheetsLevel==='advanced'?'selected':''}>${lang==='ar'?'متقدم':'Advanced'}</option></select></div>
+          <div style="flex:1 1 180px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'مستوى Excel':'Excel Level'}</label><select name="excelLevel" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:8px;font-size:14px;background:#fff"><option value="">${lang==='ar'?'اختر...':'Select...'}</option><option value="basic" ${draft.excelLevel==='basic'?'selected':''}>${lang==='ar'?'أساسي':'Basic'}</option><option value="intermediate" ${draft.excelLevel==='intermediate'?'selected':''}>${lang==='ar'?'متوسط':'Intermediate'}</option><option value="advanced" ${draft.excelLevel==='advanced'?'selected':''}>${lang==='ar'?'متقدم':'Advanced'}</option></select></div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:16px">
+          <div style="flex:1 1 250px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'خبرة التقارير':'Reporting Experience'}</label><input type="text" name="reportingExp" value="${draft.reportingExp||''}"></div>
+          <div style="flex:1 1 250px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'خبرة التوثيق':'Documentation Experience'}</label><input type="text" name="documentationExp" value="${draft.documentationExp||''}"></div>
+          <div style="flex:1 1 250px"><label style="font-weight:600;font-size:14px;margin-bottom:4px;display:block">${lang==='ar'?'خبرة التنسيق مع المطورين':'Developer Coordination Experience'}</label><input type="text" name="developerCoord" value="${draft.developerCoord||''}"></div>
+        </div>
       </div>
     </div>
 
@@ -10548,15 +10677,27 @@ function renderJaForm(el) {
       <div style="background:rgba(130,113,72,0.06);padding:10px 16px;font-weight:700;font-size:16px;color:#827148;border-bottom:1px solid var(--border)"><i class="fas fa-address-book"></i> ${lang==='ar'?'التوصيات (مراجع)':'References'}</div>
       <div style="padding:16px 20px;overflow-x:auto">
         <table style="width:100%;border-collapse:collapse;font-size:14px">
-          <thead><tr><th style="background:rgba(130,113,72,0.08);padding:10px;border:1px solid var(--border);width:30px">#</th><th style="background:rgba(130,113,72,0.08);padding:10px;border:1px solid var(--border)">${lang==='ar'?'الاسم':'Name'}</th><th style="background:rgba(130,113,72,0.08);padding:10px;border:1px solid var(--border)">${lang==='ar'?'المسمى':'Title'}</th><th style="background:rgba(130,113,72,0.08);padding:10px;border:1px solid var(--border)">${lang==='ar'?'الهاتف':'Phone'}</th><th style="background:rgba(130,113,72,0.08);padding:10px;border:1px solid var(--border)">${lang==='ar'?'العلاقة':'Relation'}</th></tr></thead>
+          <thead><tr><th style="background:rgba(130,113,72,0.08);padding:10px;border:1px solid var(--border);width:30px">#</th><th style="background:rgba(130,113,72,0.08);padding:10px;border:1px solid var(--border)">${lang==='ar'?'الاسم':'Name'}</th><th style="background:rgba(130,113,72,0.08);padding:10px;border:1px solid var(--border)">${lang==='ar'?'الشركة':'Company'}</th><th style="background:rgba(130,113,72,0.08);padding:10px;border:1px solid var(--border)">${lang==='ar'?'المسمى':'Title'}</th><th style="background:rgba(130,113,72,0.08);padding:10px;border:1px solid var(--border)">${lang==='ar'?'الهاتف':'Phone'}</th><th style="background:rgba(130,113,72,0.08);padding:10px;border:1px solid var(--border)">Email</th><th style="background:rgba(130,113,72,0.08);padding:10px;border:1px solid var(--border)">${lang==='ar'?'العلاقة':'Relation'}</th></tr></thead>
           <tbody>${[1,2,3,4].map(n => `<tr>
             <td style="padding:6px;border:1px solid var(--border);text-align:center">${n}</td>
             <td style="padding:4px;border:1px solid var(--border)"><input type="text" name="ref${n}_name" value="${(draft['ref'+n+'_name'])||''}" style="border:none;background:transparent;width:100%;padding:4px"></td>
+            <td style="padding:4px;border:1px solid var(--border)"><input type="text" name="ref${n}_company" value="${(draft['ref'+n+'_company'])||''}" style="border:none;background:transparent;width:100%;padding:4px"></td>
             <td style="padding:4px;border:1px solid var(--border)"><input type="text" name="ref${n}_title" value="${(draft['ref'+n+'_title'])||''}" style="border:none;background:transparent;width:100%;padding:4px"></td>
             <td style="padding:4px;border:1px solid var(--border)"><input type="tel" name="ref${n}_phone" value="${(draft['ref'+n+'_phone'])||''}" style="border:none;background:transparent;width:100%;padding:4px"></td>
+            <td style="padding:4px;border:1px solid var(--border)"><input type="email" name="ref${n}_email" value="${(draft['ref'+n+'_email'])||''}" style="border:none;background:transparent;width:100%;padding:4px"></td>
             <td style="padding:4px;border:1px solid var(--border)"><input type="text" name="ref${n}_relation" value="${(draft['ref'+n+'_relation'])||''}" style="border:none;background:transparent;width:100%;padding:4px"></td>
           </tr>`).join('')}</tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- 6b. Required Documents -->
+    <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:20px">
+      <div style="background:rgba(165,175,121,0.08);padding:10px 16px;font-weight:700;font-size:16px;color:#827148;border-bottom:1px solid var(--border)"><i class="fas fa-file-alt"></i> ${lang==='ar'?'المستندات المطلوبة':'Required Documents'}</div>
+      <div style="padding:16px 20px">
+        <div style="display:flex;flex-wrap:wrap;gap:12px;font-size:14px">
+          ${[['cv',lang==='ar'?'السيرة الذاتية':'CV'],['photo',lang==='ar'?'صورة شخصية حديثة':'Recent Photo'],['id',lang==='ar'?'صورة بطاقة الرقم القومي':'National ID Copy'],['grad',lang==='ar'?'شهادة التخرج':'Graduation Certificate'],['military',lang==='ar'?'شهادة الخدمة العسكرية':'Military Certificate'],['other',lang==='ar'?'شهادات أخرى':'Other Certificates']].map(d => `<label style="display:flex;align-items:center;gap:6px;font-weight:400;cursor:pointer;min-width:200px"><input type="checkbox" name="doc_${d[0]}" ${(draft.documents||[]).includes(d[0])?'checked':''}> ${d[1]}</label>`).join('')}
+        </div>
       </div>
     </div>
 
@@ -10581,6 +10722,7 @@ function renderJaForm(el) {
     </form>
   </div>`;
   if(draft.dob) calculateJaAge();
+  toggleJaRoleSections();
 }
 
 let _jaExpCount = 0;
@@ -10601,10 +10743,15 @@ function addJaExp() {
     <div style="flex:1 1 200px"><label style="font-weight:600;font-size:13px;margin-bottom:3px;display:block">${lang==='ar'?'المسمى الوظيفي':'Title'}</label><input type="text" name="exp${i}_title"></div>
   </div>
   <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px">
+    <div style="flex:1 1 160px"><label style="font-weight:600;font-size:13px;margin-bottom:3px;display:block">${lang==='ar'?'نوع الوظيفة':'Employment Type'}</label><select name="exp${i}_employmentType" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;font-size:13px;background:#fff"><option value="">${lang==='ar'?'اختر...':'Select...'}</option><option value="full-time">${lang==='ar'?'دوام كامل':'Full-Time'}</option><option value="part-time">${lang==='ar'?'دوام جزئي':'Part-Time'}</option><option value="internship">${lang==='ar'?'تدريب':'Internship'}</option><option value="freelance">${lang==='ar'?'حر':'Freelance'}</option></select></div>
+    <div style="flex:1 1 150px"><label style="font-weight:600;font-size:13px;margin-bottom:3px;display:block">${lang==='ar'?'المدة':'Duration'}</label><input type="text" name="exp${i}_duration" placeholder="${lang==='ar'?'سنتان':'2 years'}"></div>
+  </div>
+  <div style="display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px">
     <div style="flex:1 1 150px"><label style="font-weight:600;font-size:13px;margin-bottom:3px;display:block">${lang==='ar'?'من':'From'}</label><input type="date" name="exp${i}_from"></div>
     <div style="flex:1 1 150px"><label style="font-weight:600;font-size:13px;margin-bottom:3px;display:block">${lang==='ar'?'إلى':'To'}</label><input type="date" name="exp${i}_to"></div>
     <div style="flex:1 1 150px"><label style="font-weight:600;font-size:13px;margin-bottom:3px;display:block">${lang==='ar'?'آخر راتب':'Last Salary'}</label><input type="number" name="exp${i}_salary" placeholder="EGP"></div>
   </div>
+  <div style="margin-bottom:10px"><label style="font-weight:600;font-size:13px;margin-bottom:3px;display:block">${lang==='ar'?'المسؤوليات الرئيسية':'Main Responsibilities'}</label><textarea name="exp${i}_responsibilities" rows="2" style="min-height:40px"></textarea></div>
   <div><label style="font-weight:600;font-size:13px;margin-bottom:3px;display:block">${lang==='ar'?'سبب ترك العمل':'Reason for Leaving'}</label><textarea name="exp${i}_reason" rows="2" style="min-height:40px"></textarea></div>`;
   container.appendChild(div);
 }
@@ -10620,6 +10767,17 @@ function calculateJaAge() {
   ageEl.value = a;
 }
 
+function toggleJaRoleSections() {
+  const sel = document.querySelector('#jaFormEl [name="position"]');
+  const pos = sel ? sel.value : '';
+  const salesInfo = document.getElementById('jaSalesInfo');
+  const opsInfo = document.getElementById('jaOpsInfo');
+  const salesPositions = ['Property Advisor','Property Consultant','Senior Property Consultant','Team Leader','Sales Manager'];
+  const opsPositions = ['Operations'];
+  if(salesInfo) salesInfo.style.display = salesPositions.includes(pos) ? '' : 'none';
+  if(opsInfo) opsInfo.style.display = opsPositions.includes(pos) ? '' : 'none';
+}
+
 function collectJaFormData() {
   const form = document.getElementById('jaFormEl');
   if(!form) return null;
@@ -10630,7 +10788,7 @@ function collectJaFormData() {
   data.experiences = [];
   blocks.forEach((b,i) => {
     const exp = {};
-    ['company','title','from','to','salary','reason'].forEach(f => {
+    ['company','title','employmentType','duration','from','to','salary','responsibilities','reason'].forEach(f => {
       const el = b.querySelector(`[name="exp${i}_${f}"]`);
       if(el) exp[f] = el.value;
     });
@@ -10639,6 +10797,13 @@ function collectJaFormData() {
   const cvFile = form.querySelector('[name="cvFile"]');
   data.hasCv = cvFile && cvFile.files && cvFile.files.length > 0;
   data.cvFileName = data.hasCv ? cvFile.files[0].name : '';
+  const photoFile = form.querySelector('[name="photoFile"]');
+  data.hasPhoto = photoFile && photoFile.files && photoFile.files.length > 0;
+  data.photoFileName = data.hasPhoto ? photoFile.files[0].name : '';
+  data.documents = ['cv','photo','id','grad','military','other'].filter(d => {
+    const cb = form.querySelector(`[name="doc_${d}"]`);
+    return cb && cb.checked;
+  });
   return data;
 }
 
@@ -10661,17 +10826,34 @@ function submitJaForm(e) {
   const phone = data.phone || '';
   if(!fullName||!phone||!data.position) { alert(lang==='ar'?'أكمل جميع الحقول الإلزامية (*)':'Please fill all required fields (*)'); return false; }
   const applications = STORAGE.get('jobApplications', []);
+  let jaSeq = 0;
+  applications.forEach(a => { const m = String(a.appNumber||'').match(/JOB-\d+-(\d+)$/); if(m) jaSeq = Math.max(jaSeq, parseInt(m[1],10)); });
   const appData = {
     id: uid(), date: today(), status: 'pending', interviewDate: '', interviewNotes: '',
-    name: fullName, phone, email: data.email||'', position: data.position,
-    address: data.address||'', dob: data.dob||'', age: data.age||'',
-    hasCar: data.hasCar||'no', university: data.university||'', degree: data.degree||'',
+    appNumber: 'JOB-' + new Date().getFullYear() + '-' + String(jaSeq+1).padStart(3,'0'),
+    name: fullName, phone, altPhone: data.altPhone||'', email: data.email||'', position: data.position,
+    gender: data.gender||'', nationality: data.nationality||'', maritalStatus: data.maritalStatus||'',
+    address: data.address||'', city: data.city||'', dob: data.dob||'', age: data.age||'',
+    department: data.department||'', employmentType: data.employmentType||'', preferredLocation: data.preferredLocation||'',
+    university: data.university||'', degree: data.degree||'', major: data.major||'', gradYear: data.gradYear||'', gpa: data.gpa||'',
     eduFrom: data.eduFrom||'', eduTo: data.eduTo||'', graduated: data.graduated||'',
-    military: data.military||'na', experiences: data.experiences||[],
+    military: data.military||'na', militaryDate: data.militaryDate||'', militaryCertNo: data.militaryCertNo||'',
+    experiences: data.experiences||[],
+    currentEmployer: data.currentEmployer||'', currentPosition: data.currentPosition||'', currentSalary: data.currentSalary||'',
+    noticePeriod: data.noticePeriod||'', contactCurrent: data.contactCurrent||'no',
+    freshGrad: data.freshGrad||'',
+    computerSkills: data.computerSkills||'', languages: data.languages||'', languageLevel: data.languageLevel||'',
+    realEstate: data.realEstate||'no', realEstateArea: data.realEstateArea||'', realEstateYears: data.realEstateYears||'',
+    salesCrm: data.salesCrm||'', monthlyMeetings: data.monthlyMeetings||'', monthlyReservations: data.monthlyReservations||'',
+    monthlyClosings: data.monthlyClosings||'', bestSales: data.bestSales||'',
+    opsCrm: data.opsCrm||'', sheetsLevel: data.sheetsLevel||'', excelLevel: data.excelLevel||'',
+    reportingExp: data.reportingExp||'', documentationExp: data.documentationExp||'', developerCoord: data.developerCoord||'',
+    hasCar: data.hasCar||'no', carModel: data.carModel||'', carYear: data.carYear||'',
     hearAbout: data.hearAbout||'', expectedSalary: data.expectedSalary||'',
-    startDate: data.startDate||'', references: [1,2,3,4].map(n => ({name:data['ref'+n+'_name']||'',title:data['ref'+n+'_title']||'',phone:data['ref'+n+'_phone']||'',relation:data['ref'+n+'_relation']||''})),
+    startDate: data.startDate||'', references: [1,2,3,4].map(n => ({name:data['ref'+n+'_name']||'',company:data['ref'+n+'_company']||'',title:data['ref'+n+'_title']||'',phone:data['ref'+n+'_phone']||'',email:data['ref'+n+'_email']||'',relation:data['ref'+n+'_relation']||''})),
+    documents: data.documents||[],
     signature: data.signature||'', sigDate: data.sigDate||today(),
-    hasCv: data.hasCv, cvFileName: data.cvFileName||''
+    hasCv: data.hasCv, cvFileName: data.cvFileName||'', hasPhoto: data.hasPhoto, photoFileName: data.photoFileName||''
   };
   applications.push(appData);
   STORAGE.set('jobApplications', applications);
@@ -10710,17 +10892,16 @@ function jaContactBtns(phone){
 function renderJaList(el) {
   const applications = STORAGE.get('jobApplications', []);
   if(applications.length === 0) { el.innerHTML = '<div class="card"><div class="empty-state"><p>'+(lang==='ar'?'لا توجد طلبات بعد':'No applications yet')+'</p></div></div>'; return; }
-  let h = '<div class="card"><div class="table-wrap"><table><thead><tr><th>'+(lang==='ar'?'التاريخ':'Date')+'</th><th>'+(lang==='ar'?'الاسم':'Name')+'</th><th>'+(lang==='ar'?'الهاتف':'Phone')+'</th><th>'+(lang==='ar'?'المنصب':'Position')+'</th><th>'+(lang==='ar'?'الراتب المتوقع':'Expected')+'</th><th>'+(lang==='ar'?'الحالة':'Status')+'</th><th>'+(lang==='ar'?'المقابلة':'Interview')+'</th><th></th></tr></thead><tbody>';
-  const statusColors = {pending:'#E8A07C',accepted:'#A5AF79',offered:'#10B981',rejected:'#C75B4A',interview:'#827148'};
-  const statusLabels = {pending:(lang==='ar'?'قيد المراجعة':'Pending'),accepted:(lang==='ar'?'مقبول':'Accepted'),offered:(lang==='ar'?'عرض وظيفي':'Offered'),rejected:(lang==='ar'?'مرفوض':'Rejected'),interview:(lang==='ar'?'مقابلة':'Interview')};
+  let h = '<div class="card"><div class="table-wrap"><table><thead><tr><th>'+(lang==='ar'?'رقم الطلب':'App No.')+'</th><th>'+(lang==='ar'?'التاريخ':'Date')+'</th><th>'+(lang==='ar'?'الاسم':'Name')+'</th><th>'+(lang==='ar'?'الهاتف':'Phone')+'</th><th>'+(lang==='ar'?'المنصب':'Position')+'</th><th>'+(lang==='ar'?'الراتب المتوقع':'Expected')+'</th><th>'+(lang==='ar'?'الحالة':'Status')+'</th><th>'+(lang==='ar'?'المقابلة':'Interview')+'</th><th></th></tr></thead><tbody>';
   applications.forEach(app => {
     h += `<tr>
+      <td>${app.appNumber||'-'}</td>
       <td>${app.date||''}</td>
       <td><strong>${app.name||''}</strong></td>
       <td>${app.phone||''}</td>
       <td>${app.position||''}</td>
       <td>${app.expectedSalary?fmt(app.expectedSalary):'-'}</td>
-      <td><span style="background:${statusColors[app.status]||'#888'}22;color:${statusColors[app.status]||'#888'};padding:4px 12px;border-radius:20px;font-size:0.8em;font-weight:700">${statusLabels[app.status]||app.status}</span></td>
+      <td><span style="background:${JA_STATUS_COLORS[app.status]||'#888'}22;color:${JA_STATUS_COLORS[app.status]||'#888'};padding:4px 12px;border-radius:20px;font-size:0.8em;font-weight:700">${JA_STATUS_LABELS[app.status]||app.status}</span></td>
       <td>${app.interviewDate||'-'}</td>
       <td style="white-space:nowrap">
         ${jaContactBtns(app.phone)}
@@ -10738,32 +10919,73 @@ function reviewJaApp(appId) {
   const app = apps.find(a => a.id === appId);
   if(!app) return;
   const L = lang==='ar';
-  let exps = (app.experiences||[]).map((e,i) => `<div style="padding:8px 0;${i>0?'border-top:1px solid var(--border)':''}"><strong>${L?'جهة':'Employer'} ${i+1}:</strong> ${e.company||'-'} | ${e.title||'-'} | ${e.from||''} - ${e.to||''} | ${e.salary?fmt(e.salary):'-'}</div>`).join('');
-  let refs = (app.references||[]).filter(r=>r.name).map(r => `<div style="padding:4px 0">${r.name} (${r.title||'-'}) - ${r.phone||'-'} - ${r.relation||'-'}</div>`).join('');
-  const statusOpts = ['pending','interview','accepted','offered','rejected'].map(s => `<option value="${s}" ${app.status===s?'selected':''}>${statusLabels[s]||s}</option>`).join('');
-  document.getElementById('modalContainer').innerHTML = `<h3 style="margin-bottom:16px"><i class="fas fa-file-alt"></i> ${L?'مراجعة الطلب':'Review Application'} - ${app.name}</h3>
-    <div style="max-height:60vh;overflow-y:auto">
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px 16px;margin-bottom:14px;font-size:14px">
-      <div><strong>${L?'المنصب':'Position'}:</strong> ${app.position||'-'}</div>
-      <div><strong>${L?'الهاتف':'Phone'}:</strong> ${app.phone||'-'} ${app.phone?jaContactBtns(app.phone):''}</div>
-      <div><strong>${L?'البريد':'Email'}:</strong> ${app.email||'-'}</div>
-      <div><strong>${L?'العمر':'Age'}:</strong> ${app.age||'-'}</div>
-      <div><strong>${L?'العنوان':'Address'}:</strong> ${app.address||'-'}</div>
-      <div><strong>${L?'الجامعة':'University'}:</strong> ${app.university||'-'}</div>
-      <div><strong>${L?'التخصص':'Degree'}:</strong> ${app.degree||'-'}</div>
-      <div><strong>${L?'الراتب المتوقع':'Expected Salary'}:</strong> ${app.expectedSalary?fmt(app.expectedSalary):'-'}</div>
-      <div><strong>${L?'تاريخ البدء':'Start Date'}:</strong> ${app.startDate||'-'}</div>
-      <div><strong>${L?'السيارة':'Car'}:</strong> ${app.hasCar==='yes'?(L?'نعم':'Yes'):(L?'لا':'No')}</div>
-      <div><strong>${L?'الخدمة العسكرية':'Military'}:</strong> ${app.military||'-'}</div>
-      <div><strong>${L?'السيرة الذاتية':'CV'}:</strong> ${app.hasCv?(app.cvFileName||L?'مرفقة':'Attached'):(L?'لا':'No')}</div>
+  const genderL = {male:(L?'ذكر':'Male'),female:(L?'أنثى':'Female')};
+  const maritalL = {single:(L?'أعزب':'Single'),married:(L?'متزوج':'Married'),divorced:(L?'مطلق':'Divorced'),widowed:(L?'أرمل':'Widowed')};
+  const empTypeL = {'full-time':(L?'دوام كامل':'Full-Time'),'part-time':(L?'دوام جزئي':'Part-Time'),internship:(L?'تدريب':'Internship'),freelance:(L?'حر':'Freelance')};
+  const militaryL = {exempt:(L?'أعفاء':'Exempt'),deferred:(L?'تأجيل':'Deferred'),served:(L?'أدى الخدمة':'Completed'),serving:(L?'يخدم حالياً':'Currently Serving'),na:(L?'غير قابل للتطبيق':'N/A')};
+  const levelL = {basic:(L?'أساسي':'Basic'),intermediate:(L?'متوسط':'Intermediate'),advanced:(L?'متقدم':'Advanced'),beginner:(L?'مبتدئ':'Beginner'),fluent:(L?'طلاقة':'Fluent')};
+  const docL = {cv:(L?'السيرة الذاتية':'CV'),photo:(L?'صورة شخصية':'Recent Photo'),id:(L?'بطاقة الرقم القومي':'National ID'),grad:(L?'شهادة التخرج':'Graduation Cert.'),military:(L?'شهادة الخدمة':'Military Cert.'),other:(L?'شهادات أخرى':'Other')};
+  let exps = (app.experiences||[]).map((e,i) => {
+    let d = `<div style="padding:8px 0;${i>0?'border-top:1px dashed var(--border)':''}"><strong>${L?'جهة':'Employer'} ${i+1}:</strong> ${e.company||'-'}`;
+    d += e.title ? ` | ${e.title}` : '';
+    d += empTypeL[e.employmentType] ? ` | ${empTypeL[e.employmentType]}` : '';
+    d += e.duration ? ` | ${L?'المدة:':'Duration:'} ${e.duration}` : '';
+    if(e.from) d += ` | ${e.from}${e.to ? ' - '+e.to : ''}`;
+    if(e.salary) d += ` | ${fmt(e.salary)}`;
+    if(e.responsibilities) d += `<div style="font-size:12px;color:var(--text-light);margin-top:3px">${L?'المسؤوليات:':'Responsibilities:'} ${e.responsibilities}</div>`;
+    if(e.reason) d += `<div style="font-size:12px;color:var(--text-light)">${L?'السبب:':'Reason:'} ${e.reason}</div>`;
+    d += '</div>';
+    return d;
+  }).join('');
+  let refs = (app.references||[]).filter(r=>r.name).map(r => `<div style="padding:4px 0;font-size:13px">${r.name}${r.company?' | '+r.company:''}${r.title?' | '+r.title:''}${r.phone?' | '+r.phone:''}${r.email?' | '+r.email:''}${r.relation?' | '+(L?'علاقة:':'Rel:')+' '+r.relation:''}</div>`).join('');
+  const statusOpts = ['pending','interview','accepted','offered','rejected'].map(s => `<option value="${s}" ${app.status===s?'selected':''}>${JA_STATUS_LABELS[s]||s}</option>`).join('');
+  const fdOpts = ['offer','accepted','rejected'].map(s => `<option value="${s}" ${app.finalDecision===s?'selected':''}>${s}</option>`).join('');
+  const row = (lab,val) => `<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0;border-bottom:1px dashed var(--border);font-size:13px"><span style="color:var(--text-light);font-weight:600">${lab}</span><span style="text-align:left">${val||'-'}</span></div>`;
+  const sec = (icon,title,inner) => `<div style="margin-bottom:14px"><div style="font-weight:700;color:#827148;font-size:14px;margin-bottom:6px"><i class="fas ${icon}"></i> ${title}</div>${inner}</div>`;
+  const docs = (app.documents||[]).map(d => docL[d]||d).join(', ');
+  const salesHtml = app.salesCrm||app.monthlyMeetings||app.monthlyReservations||app.monthlyClosings||app.bestSales ? sec('fa-chart-line',L?'معلومات المبيعات':'Sales Information', row(L?'نظام CRM':'CRM Used',app.salesCrm)+row(L?'اجتماعات شهرية':'Monthly Meetings',app.monthlyMeetings)+row(L?'حجوزات شهرية':'Monthly Reservations',app.monthlyReservations)+row(L?'إغلاقات شهرية':'Monthly Closings',app.monthlyClosings)+row(L?'أفضل إنجاز':'Best Achievement',app.bestSales)) : '';
+  const opsHtml = app.opsCrm||app.sheetsLevel||app.excelLevel||app.reportingExp||app.documentationExp||app.developerCoord ? sec('fa-cogs',L?'المعلومات التشغيلية':'Operations Information', row(L?'خبرة CRM':'CRM Experience',app.opsCrm)+row(L?'مستوى Sheets':'Sheets Level',levelL[app.sheetsLevel]||app.sheetsLevel)+row(L?'مستوى Excel':'Excel Level',levelL[app.excelLevel]||app.excelLevel)+row(L?'التقارير':'Reporting',app.reportingExp)+row(L?'التوثيق':'Documentation',app.documentationExp)+row(L?'التنسيق مع المطورين':'Developer Coordination',app.developerCoord)) : '';
+  const realEstateHtml = app.realEstate ? row(L?'خبرة عقارية سابقة':'Real Estate', (app.realEstate==='yes'?(L?'نعم':'Yes')+' '+([app.realEstateArea,app.realEstateYears].filter(Boolean).join(' - ')):(L?'لا':'No'))) : '';
+  document.getElementById('modalContainer').innerHTML = `<h3 style="margin-bottom:6px"><i class="fas fa-file-alt"></i> ${L?'مراجعة الطلب':'Review Application'} - ${app.name}</h3>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px">
+      <span style="background:rgba(130,113,72,.12);color:#827148;padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700">${app.appNumber||''}</span>
+      <span style="background:${JA_STATUS_COLORS[app.status]||'#888'}22;color:${JA_STATUS_COLORS[app.status]||'#888'};padding:4px 12px;border-radius:20px;font-size:12px;font-weight:700">${JA_STATUS_LABELS[app.status]||app.status}</span>
+      <span style="background:rgba(130,113,72,.1);padding:4px 12px;border-radius:20px;font-size:12px">${app.position||''}${app.department?' - '+app.department:''}</span>
     </div>
-    ${exps?`<div style="margin-bottom:12px"><strong>${L?'الخبرات السابقة':'Experience'}:</strong>${exps}</div>`:''}
-    ${app.hearAbout?`<div style="margin-bottom:12px"><strong>${L?'مصدر المعرفة':'Source'}:</strong> ${app.hearAbout}</div>`:''}
-    ${refs?`<div style="margin-bottom:12px"><strong>${L?'المراجع':'References'}:</strong>${refs}</div>`:''}
-    <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:12px">
+    <div style="max-height:60vh;overflow-y:auto;padding-right:4px">
+    ${sec('fa-user',L?'المعلومات الشخصية':'Personal Information',
+      row(L?'العمر':'Age',app.age)+row(L?'النوع':'Gender',genderL[app.gender]||app.gender)+row(L?'الجنسية':'Nationality',app.nationality)+row(L?'الحالة الاجتماعية':'Marital Status',maritalL[app.maritalStatus]||app.maritalStatus)+row(L?'الهاتف':'Phone',app.phone)+row(L?'رقم بديل':'Alternative',app.altPhone)+row(L?'البريد':'Email',app.email)+row(L?'العنوان':'Address',app.address+(app.city?' - '+app.city:''))+row(L?'تاريخ الميلاد':'Date of Birth',app.dob))}
+    ${sec('fa-briefcase',L?'الوظيفة':'Position Details',
+      row(L?'المنصب':'Position',app.position)+row(L?'القسم':'Department',app.department)+row(L?'نوع الوظيفة':'Employment Type',empTypeL[app.employmentType]||app.employmentType)+row(L?'موقع العمل المفضل':'Preferred Location',app.preferredLocation)+row(L?'الراتب المتوقع':'Expected Salary',app.expectedSalary?fmt(app.expectedSalary):'')+row(L?'تاريخ البدء':'Start Date',app.startDate))}
+    ${sec('fa-graduation-cap',L?'التعليم':'Education',
+      row(L?'الجامعة':'University',app.university)+row(L?'الدرجة العلمية':'Degree',app.degree)+row(L?'التخصص':'Major',app.major)+row(L?'سنة التخرج':'Graduation Year',app.gradYear)+row('GPA',app.gpa)+row(L?'الفترة':'Period',(app.eduFrom||'')+(app.eduTo?' - '+app.eduTo:'')+((app.graduated&&(app.eduFrom||app.eduTo))?' ('+(L?'تخرج':'Graduated')+')':'')))}
+    ${exps?sec('fa-briefcase',L?'الخبرات السابقة':'Work Experience',exps):''}
+    ${sec('fa-user-tie',L?'التوظيف الحالي':'Current Employment',
+      row(L?'جهة العمل':'Employer',app.currentEmployer)+row(L?'المنصب':'Position',app.currentPosition)+row(L?'الراتب الحالي':'Current Salary',app.currentSalary)+row(L?'فترة الإشعار':'Notice Period',app.noticePeriod)+row(L?'التواصل مع جهة العمل':'Contact Current Employer',app.contactCurrent==='yes'?(L?'نعم':'Yes'):(L?'لا':'No')))}
+    ${app.freshGrad?sec('fa-user-graduate',L?'الخريجون الجدد':'Fresh Graduates',`<div style="font-size:13px">${app.freshGrad}</div>`):''}
+    ${sec('fa-tools',L?'المهارات':'Skills',
+      row(L?'مهارات الكمبيوتر':'Computer Skills',app.computerSkills)+row(L?'اللغات':'Languages',app.languages+(app.languageLevel?' ('+(levelL[app.languageLevel]||app.languageLevel)+')':''))+realEstateHtml)}
+    ${salesHtml}
+    ${opsHtml}
+    ${sec('fa-shield-alt',L?'الخدمة العسكرية':'Military Service',
+      row(L?'الحالة':'Status',militaryL[app.military]||app.military)+row(L?'تاريخ الإنهاء':'Completion Date',app.militaryDate)+row(L?'رقم الشهادة':'Certificate No.',app.militaryCertNo))}
+    ${sec('fa-car',L?'المواصلات':'Transportation',
+      row(L?'سيارة':'Car',app.hasCar==='yes'?(L?'نعم':'Yes'):(L?'لا':'No'))+row(L?'موديل السيارة':'Car Model',app.carModel)+row(L?'سنة السيارة':'Car Year',app.carYear))}
+    ${(docs||app.hasCv||app.hasPhoto)?sec('fa-file-alt',L?'المستندات':'Documents',row(L?'المستندات المطلوبة':'Required Documents',docs)+row(L?'السيرة الذاتية':'CV',app.hasCv?(app.cvFileName||(L?'مرفقة':'Attached')):(L?'لا':'No'))+row(L?'الصورة الشخصية':'Photo',app.hasPhoto?(app.photoFileName||(L?'مرفقة':'Attached')):(L?'لا':'No'))):''}
+    ${refs?sec('fa-address-book',L?'المراجع':'References',refs):''}
+    ${app.hearAbout?sec('fa-info-circle',L?'مصدر المعرفة':'Source',`<div style="font-size:13px">${app.hearAbout}</div>`):''}
+    <div style="border-top:2px solid #827148;padding-top:12px;margin-top:16px">
+      <div style="font-weight:700;color:#827148;font-size:14px;margin-bottom:10px"><i class="fas fa-user-cog"></i> ${L?'للإدارة فقط':'HR Use Only'}</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+        <div><label style="font-weight:600;font-size:13px;display:block;margin-bottom:4px">${L?'رقم الطلب':'Application No.'}</label><input type="text" id="ja_rAppNo" readonly value="${app.appNumber||''}" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px;background:#f5f5f5"></div>
         <div><label style="font-weight:600;font-size:13px;display:block;margin-bottom:4px">${L?'الحالة':'Status'}</label><select id="ja_rStatus" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px">${statusOpts}</select></div>
         <div><label style="font-weight:600;font-size:13px;display:block;margin-bottom:4px">${L?'موعد المقابلة':'Interview Date'}</label><input type="date" id="ja_rInterview" value="${app.interviewDate||''}" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px"></div>
+        <div><label style="font-weight:600;font-size:13px;display:block;margin-bottom:4px">${L?'المقابل':'Interviewer'}</label><input type="text" id="ja_rInterviewer" value="${app.interviewer||''}" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px"></div>
+        <div><label style="font-weight:600;font-size:13px;display:block;margin-bottom:4px">${L?'نقاط التقييم':'Assessment Score'} /100</label><input type="number" id="ja_rAssessment" min="0" max="100" value="${app.assessmentScore||''}" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px"></div>
+        <div><label style="font-weight:600;font-size:13px;display:block;margin-bottom:4px">${L?'نقاط المقابلة':'Interview Score'} /100</label><input type="number" id="ja_rInterviewScore" min="0" max="100" value="${app.interviewScore||''}" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px"></div>
+        <div><label style="font-weight:600;font-size:13px;display:block;margin-bottom:4px">${L?'الراتب المعروض':'Offered Salary'}</label><input type="number" id="ja_rOfferedSalary" min="0" value="${app.offeredSalary||''}" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px"></div>
+        <div><label style="font-weight:600;font-size:13px;display:block;margin-bottom:4px">${L?'القرار النهائي':'Final Decision'}</label><select id="ja_rFinalDecision" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px"><option value="">${L?'اختر...':'Select...'}</option>${fdOpts}</select></div>
+        <div><label style="font-weight:600;font-size:13px;display:block;margin-bottom:4px">${L?'تاريخ البدء':'Starting Date'}</label><input type="date" id="ja_rStartingDate" value="${app.startDate||''}" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px"></div>
       </div>
       <div style="margin-top:10px"><label style="font-weight:600;font-size:13px;display:block;margin-bottom:4px">${L?'ملاحظات':'Notes'}</label><textarea id="ja_rNotes" rows="3" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px">${app.interviewNotes||''}</textarea></div>
     </div>
@@ -10780,6 +11002,13 @@ function saveJaReview(appId) {
   apps[idx].status = document.getElementById('ja_rStatus').value;
   apps[idx].interviewDate = document.getElementById('ja_rInterview').value;
   apps[idx].interviewNotes = document.getElementById('ja_rNotes').value.trim();
+  apps[idx].appNumber = apps[idx].appNumber || document.getElementById('ja_rAppNo').value;
+  apps[idx].interviewer = document.getElementById('ja_rInterviewer').value.trim();
+  apps[idx].assessmentScore = document.getElementById('ja_rAssessment').value;
+  apps[idx].interviewScore = document.getElementById('ja_rInterviewScore').value;
+  apps[idx].offeredSalary = document.getElementById('ja_rOfferedSalary').value;
+  apps[idx].finalDecision = document.getElementById('ja_rFinalDecision').value;
+  apps[idx].startingDate = document.getElementById('ja_rStartingDate').value;
   if(apps[idx].status !== oldStatus) {
     const sl = {accepted:(lang==='ar'?'مقبول':'Accepted'),rejected:(lang==='ar'?'مرفوض':'Rejected'),interview:(lang==='ar'?'تم جدولة مقابلة':'Interview Scheduled')};
     addNotification({type:'job_status',title:(lang==='ar'?'تحديث حالة الطلب':'Application Status Update'),message:apps[idx].name+': '+(sl[apps[idx].status]||apps[idx].status),date:today(),department:'hr'});
