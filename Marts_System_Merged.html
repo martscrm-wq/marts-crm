@@ -12700,6 +12700,142 @@ function renderAttendanceTab(el) {
   });
   h += `</div>`;
 
+  // ===== حساب المرتبات التفصيلي لكل موظف (من سجلات الحضور والانصراف) =====
+  const empCalc = employees.map(emp => {
+    const recs = monthAttendance.filter(a => (a.empId && a.empId === emp.id) || (!a.empId && a.empName === emp.name));
+    let presentDays = 0, lateCount = 0, lateMinSum = 0, unexcAbs = 0, excAbs = 0, permCount = 0;
+    recs.forEach(a => {
+      const isAbsent = String(a.absent).toLowerCase() === 'true' || parseInt(a.absenceDays) > 0;
+      const lateMin = a.checkIn ? calcLateMinutes(a.checkIn) : 0;
+      if(isAbsent) {
+        const days = parseInt(a.absenceDays) > 0 ? parseInt(a.absenceDays) : 1;
+        if(a.excusedAbsence || a.excused || a.excusedOther) excAbs += days; else unexcAbs += days;
+      } else {
+        presentDays++;
+        if(a.checkIn && lateMin > 0) { lateCount++; lateMinSum += lateMin; }
+        if(a.permission) permCount++;
+      }
+    });
+    const empPenalties = penalties.filter(p => p.empId === emp.id && !p.exempted);
+    const monthPen = empPenalties.filter(p => p.date && p.date.startsWith(currentMonth));
+    let deductionDays = 0;
+    monthPen.forEach(p => {
+      const dedAction = DEDUCTION_RULES.find(r => r.action === p.action);
+      if(dedAction) deductionDays += dedAction.deductionDays;
+      else { const m = String(p.action).match(/(\d+)/); if(m) deductionDays += parseInt(m[1]); }
+    });
+    const dailySalary = emp.salary / 30;
+    const deductionAmount = Math.round(deductionDays * dailySalary);
+    const penaltyDeduction = empPenalties.reduce((s, p) => s + (p.deductionPercent || 0), 0);
+    const finalKpi = Math.max(0, (emp.kpi || 0) - Math.min(penaltyDeduction, 100));
+    const kpiBonus = finalKpi >= 80 ? 0.25 : finalKpi >= 60 ? 0.15 : finalKpi >= 40 ? 0.05 : 0;
+    const bonusAmount = Math.round(emp.salary * kpiBonus);
+    const netSalary = Math.max(0, emp.salary + bonusAmount - deductionAmount);
+    return { emp, recs, monthPen, presentDays, lateCount, lateMinSum, unexcAbs, excAbs, permCount,
+      deductionDays, deductionAmount, penaltyDeduction, finalKpi, kpiBonus, bonusAmount, netSalary };
+  }).filter(d => !(_payrollEmpFilter && d.emp.id !== _payrollEmpFilter));
+
+  const calcTotals = empCalc.reduce((t, d) => {
+    t.dedDays += d.deductionDays; t.dedAmt += d.deductionAmount;
+    t.bonus += d.bonusAmount; t.net += d.netSalary; return t;
+  }, {dedDays:0, dedAmt:0, bonus:0, net:0});
+
+  h += `<div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#1f2937,#374151);color:#fff;padding:20px 24px">
+    <div class="flex-between">
+      <div><h3 style="margin:0;color:#fff"><i class="fas fa-calculator"></i> ${lang==='ar'?'الحساب التفصيلي للمرتبات (من الحضور والانصراف)':'Detailed Salary Calculation (from Attendance)'}</h3>
+      <p style="margin:4px 0 0;opacity:0.85;font-size:13px">${lang==='ar'?'شهر ':'Month '}${currentMonth} | ${lang==='ar'?'إجمالي الخصومات: ':'Total Deductions: '}<strong style="color:#FCA5A5">${fmt(calcTotals.dedAmt)}</strong> | ${lang==='ar'?'صافي الرواتب: ':'Net Payable: '}<strong style="color:#86EFAC">${fmt(calcTotals.net)}</strong></p></div>
+    </div>
+  </div>`;
+
+  h += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
+    <div class="card" style="padding:16px;text-align:center;border-top:4px solid #C75B4A"><div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'إجمالي أيام الخصم':'Total Deduction Days'}</div><div style="font-size:24px;font-weight:800;color:#C75B4A">${calcTotals.dedDays}</div></div>
+    <div class="card" style="padding:16px;text-align:center;border-top:4px solid #E67E22"><div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'إجمالي مبلغ الخصم':'Total Deduction Amount'}</div><div style="font-size:24px;font-weight:800;color:#E67E22">${fmt(calcTotals.dedAmt)}</div></div>
+    <div class="card" style="padding:16px;text-align:center;border-top:4px solid #27ae60"><div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'إجمالي مكافآت KPI':'Total KPI Bonuses'}</div><div style="font-size:24px;font-weight:800;color:#27ae60">${fmt(calcTotals.bonus)}</div></div>
+    <div class="card" style="padding:16px;text-align:center;border-top:4px solid #827148"><div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'صافي الرواتب المستحقة':'Total Net Payable'}</div><div style="font-size:24px;font-weight:800;color:#827148">${fmt(calcTotals.net)}</div></div>
+  </div>`;
+
+  h += `<div class="card"><div class="table-wrap"><table><thead><tr>
+    <th>${lang==='ar'?'الموظف':'Employee'}</th>
+    <th>${lang==='ar'?'الأساسي':'Base'}</th>
+    <th>${lang==='ar'?'أجر اليوم':'Daily'}</th>
+    <th>${lang==='ar'?'حضور':'Present'}</th>
+    <th>${lang==='ar'?'تأخير':'Late'}</th>
+    <th>${lang==='ar'?'غياب (بدون/بعذر)':'Absent (no/exec)'}</th>
+    <th>${lang==='ar'?'أيام الخصم':'Ded. Days'}</th>
+    <th>${lang==='ar'?'مبلغ الخصم':'Ded. Amount'}</th>
+    <th>${lang==='ar'?'KPI':'KPI'}</th>
+    <th>${lang==='ar'?'مكافأة':'Bonus'}</th>
+    <th>${lang==='ar'?'الصافي':'Net'}</th>
+    <th></th>
+  </tr></thead><tbody>`;
+
+  empCalc.forEach((d, idx) => {
+    const rid = (d.emp.id || ('e'+idx)).toString().replace(/[^a-zA-Z0-9_-]/g,'');
+    const dedDaysOf = (action) => {
+      const ra = DEDUCTION_RULES.find(r => r.action === action);
+      if(ra) return ra.deductionDays;
+      const m = String(action).match(/(\d+)/);
+      return m ? parseInt(m[1]) : 0;
+    };
+    const recRows = d.recs.length ? d.recs.map(a => {
+      const lateMin = a.checkIn ? calcLateMinutes(a.checkIn) : 0;
+      const isAbsent = String(a.absent).toLowerCase() === 'true' || parseInt(a.absenceDays) > 0;
+      let status='', ded='0';
+      if(isAbsent) {
+        const exc = a.excusedAbsence || a.excused || a.excusedOther;
+        const days = parseInt(a.absenceDays) > 0 ? parseInt(a.absenceDays) : 1;
+        status = exc ? (lang==='ar'?'بعذر':'Excused') : (lang==='ar'?'غائب':'Absent');
+        ded = exc ? '0' : days;
+      } else if(lateMin > 0) {
+        const exc = a.excusedLate || a.excused || a.excusedOther;
+        status = exc ? (lang==='ar'?'تأخير بعذر':'Exc. Late') : (lang==='ar'?'متأخر':'Late');
+        ded = exc ? '0' : getLateDeduction(lateMin).deductionDays;
+      } else {
+        status = a.checkIn ? (lang==='ar'?'حاضر':'Present') : '-';
+      }
+      return `<tr><td>${a.date ? fmtDate(a.date) : '-'}</td><td>${a.checkIn||'-'}</td><td>${a.checkOut||'-'}</td><td style="text-align:center">${lateMin>0?'<span style="color:#f39c12;font-weight:700">'+lateMin+'</span>':'0'}</td><td>${status}</td><td style="text-align:center;color:${ded==='0'?'var(--text-light)':'#C75B4A'};font-weight:${ded==='0'?'400':'700'}">${ded==='0'?'-':ded}</td></tr>`;
+    }).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--text-light)">${lang==='ar'?'لا توجد سجلات':'No records'}</td></tr>`;
+    const penRows = d.monthPen.length ? d.monthPen.map(p => {
+      const days = dedDaysOf(p.action);
+      const dayAmt = Math.round(days * (d.emp.salary/30));
+      return `<tr><td>${p.violation||'-'}</td><td>${p.action||'-'}</td><td style="text-align:center">${days}</td><td>${p.date?fmtDate(p.date):'-'}</td><td style="text-align:center;color:${dayAmt>0?'#C75B4A':'var(--text-light)'};font-weight:${dayAmt>0?'700':'400'}">${dayAmt>0?'-'+fmt(dayAmt):'-'}</td></tr>`;
+    }).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--text-light)">${lang==='ar'?'لا توجد جزاءات':'No penalties'}</td></tr>`;
+    const kpiColor = d.finalKpi >= 80 ? '#27ae60' : d.finalKpi >= 60 ? '#f39c12' : d.finalKpi >= 40 ? '#e67e22' : '#C75B4A';
+    h += `<tr>
+      <td><strong>${d.emp.name}</strong><div style="font-size:11px;color:var(--text-light)">${getRoleLabel(d.emp.role)}</div></td>
+      <td>${fmt(d.emp.salary)}</td>
+      <td>${fmt(Math.round(d.emp.salary/30))}</td>
+      <td style="text-align:center">${d.presentDays}</td>
+      <td style="text-align:center">${d.lateCount > 0 ? '<span style="color:#f39c12;font-weight:700">'+d.lateCount+'× '+d.lateMinSum+(lang==='ar'?' د':'m')+'</span>' : '0'}</td>
+      <td style="text-align:center">${d.unexcAbs > 0 ? '<span style="color:#C75B4A;font-weight:700">'+d.unexcAbs+'</span>' : '<span style="color:var(--text-light)">0</span>'}${d.excAbs > 0 ? ' / <span style="color:#6C63FF">'+d.excAbs+'</span>' : ''}</td>
+      <td style="text-align:center;color:${d.deductionDays>0?'#C75B4A':'var(--text-light)'};font-weight:${d.deductionDays>0?'700':'400'}">${d.deductionDays>0?d.deductionDays:'-'}</td>
+      <td style="text-align:center;color:${d.deductionAmount>0?'#C75B4A':'var(--text-light)'};font-weight:${d.deductionAmount>0?'700':'400'}">${d.deductionAmount>0?'-'+fmt(d.deductionAmount):'-'}</td>
+      <td style="text-align:center"><span style="color:${kpiColor};font-weight:700">${d.finalKpi}%</span>${d.penaltyDeduction>0?'<div style="font-size:10px;color:#C75B4A">-'+Math.min(d.penaltyDeduction,100)+'%</div>':''}</td>
+      <td style="text-align:center;color:${d.bonusAmount>0?'#27ae60':'var(--text-light)'};font-weight:${d.bonusAmount>0?'700':'400'}">${d.bonusAmount>0?'+'+fmt(d.bonusAmount):'-'}</td>
+      <td style="font-weight:800;color:#27ae60">${fmt(d.netSalary)}</td>
+      <td><button class="btn btn-outline btn-sm" id="attPayDetailBtn-${rid}" onclick="toggleAttPayDetail('${rid}')"><i class="fas fa-chevron-down"></i></button></td>
+    </tr>
+    <tr id="attPayDetail-${rid}" style="display:none"><td colspan="12" style="padding:0">
+      <div style="padding:14px 20px;background:rgba(130,113,72,.05)">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px">
+          <div>
+            <div style="font-weight:700;margin-bottom:8px"><i class="fas fa-clock"></i> ${lang==='ar'?'سجلات الحضور':'Attendance Records'} (${d.recs.length})</div>
+            <div class="table-wrap"><table style="min-width:0"><thead><tr><th>${lang==='ar'?'التاريخ':'Date'}</th><th>${lang==='ar'?'حضور':'In'}</th><th>${lang==='ar'?'انصراف':'Out'}</th><th>${lang==='ar'?'تأخير':'Late'}</th><th>${lang==='ar'?'الحالة':'Status'}</th><th>${lang==='ar'?'خصم':'Ded'}</th></tr></thead><tbody>${recRows}</tbody></table></div>
+          </div>
+          <div>
+            <div style="font-weight:700;margin-bottom:8px"><i class="fas fa-gavel"></i> ${lang==='ar'?'الجزاءات المعتمدة':'Applied Penalties'} (${d.monthPen.length})</div>
+            <div class="table-wrap"><table style="min-width:0"><thead><tr><th>${lang==='ar'?'المخالفة':'Violation'}</th><th>${lang==='ar'?'الإجراء':'Action'}</th><th>${lang==='ar'?'أيام':'Days'}</th><th>${lang==='ar'?'التاريخ':'Date'}</th><th>${lang==='ar'?'المبلغ':'Amount'}</th></tr></thead><tbody>${penRows}</tbody></table></div>
+          </div>
+        </div>
+        <div style="background:rgba(39,174,96,.07);border:1px solid rgba(39,174,96,.25);padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600">
+          <i class="fas fa-equals"></i> ${lang==='ar'?'معادلة الصافي':'Net formula'}: ${fmt(d.emp.salary)} + ${fmt(d.bonusAmount)} - ${fmt(d.deductionAmount)} = <span style="color:#27ae60">${fmt(d.netSalary)}</span>
+        </div>
+      </div>
+    </td></tr>`;
+  });
+
+  h += '</tbody></table></div></div>';
+
   if(_attSumFilter) {
     const sumLabels = {present:lang==='ar'?'الحضور':'Present',late:lang==='ar'?'التأخير':'Late',absent:lang==='ar'?'الغياب':'Absent',permission:lang==='ar'?'الإذن':'Permission'};
     const sumCount = monthAttendance.filter(attFilter).length;
@@ -12804,6 +12940,15 @@ function renderAttendanceTab(el) {
   }
 
   el.innerHTML = h;
+}
+
+function toggleAttPayDetail(id) {
+  const row = document.getElementById('attPayDetail-' + id);
+  const btn = document.getElementById('attPayDetailBtn-' + id);
+  if(!row) return;
+  const open = row.style.display !== 'none';
+  row.style.display = open ? 'none' : 'table-row';
+  if(btn) btn.innerHTML = open ? '<i class="fas fa-chevron-down"></i>' : '<i class="fas fa-chevron-up"></i>';
 }
 
 // ============================================================
