@@ -13972,6 +13972,32 @@ function treasuryCatIsPreset(type, cat) {
   return cats.indexOf(cat) !== -1;
 }
 
+function expenseCatOptions(selected) {
+  const lg = lang === 'ar';
+  const cats = (lg ? TREASURY_CATS : TREASURY_CATS_EN).expense || [];
+  let o = cats.map(c => `<option value="${c}" ${selected === c ? 'selected' : ''}>${c}</option>`).join('');
+  o += `<option value="__custom__" ${(selected && cats.indexOf(selected) === -1) ? 'selected' : ''}>${lg ? 'أخرى (كتابة يدوية)' : 'Other (manual)'}</option>`;
+  return o;
+}
+function onExpenseCatChange() {
+  const custom = document.getElementById('ex_cat').value === '__custom__';
+  const input = document.getElementById('ex_catCustom');
+  if(input) input.style.display = custom ? '' : 'none';
+}
+function expenseCatValue() {
+  const sel = document.getElementById('ex_cat');
+  if(!sel) return '';
+  const v = sel.value;
+  if(v === '__custom__') return (document.getElementById('ex_catCustom')?.value || '').trim();
+  return v;
+}
+function expenseCatIsPreset(cat) {
+  if(!cat) return false;
+  const lg = lang === 'ar';
+  const cats = (lg ? TREASURY_CATS : TREASURY_CATS_EN).expense || [];
+  return cats.indexOf(cat) !== -1;
+}
+
 function openTreasuryModal() {
   const franchises = STORAGE.get('franchises',[]);
   const branches = STORAGE.get('branches',[]);
@@ -14079,10 +14105,11 @@ function updateTreasury(id) {
 
 function editExpense(id) {
   const lg = lang==='ar';
-  if(!hasPermission('accounts_expense_edit')) { wsToast(lg?'لا يمكنك تعديل المصروفات':'No permission to edit expenses'); return; }
+  if(!canAccounting() && !hasPermission('accounts_expense_edit')) { wsToast(lg?'لا يمكنك تعديل المصروفات':'No permission to edit expenses'); return; }
   const expenses = STORAGE.get('expenses',[]);
   const exp = expenses.find(e => e.id === id);
   if (!exp) return;
+  if(exp.locked) { wsToast(lg?'هذا القيد مقفل':'This entry is locked'); return; }
   const franchises = STORAGE.get('franchises',[]);
   const branches = STORAGE.get('branches',[]);
   let fOpts = `<option value="">${t('acc_noFranchise')}</option>`;
@@ -14090,13 +14117,14 @@ function editExpense(id) {
   let bOpts = `<option value="">-</option>`;
   branches.forEach(b => { const f = franchises.find(fr=>fr.id===b.franchiseId); bOpts += `<option value="${b.id}" ${exp.branchId===b.id?'selected':''}>${f?(lang==='ar'?f.name_ar:f.name_en)+' - ':''}${lang==='ar'?b.name_ar:b.name_en}</option>`; });
   document.getElementById('modalContainer').innerHTML=`<h3>${lang==='ar'?'تعديل مصروف':'Edit Expense'}</h3>
-  <div class="form-row"><div class="form-group"><label>${t('acc_category')}</label><input type="text" id="ex_cat" value="${exp.category}"></div>
+  <div class="form-row"><div class="form-group"><label>${t('acc_category')}</label><select id="ex_cat" data-prev-val="${exp.category||''}" onchange="onExpenseCatChange()">${expenseCatOptions(exp.category||'')}</select><input type="text" id="ex_catCustom" style="margin-top:6px;display:none" value="${expenseCatIsPreset(exp.category||'') ? '' : (exp.category||'')}" placeholder="${lang==='ar'?'اكتب النوع يدوياً...':'Type manually...'}"></div>
   <div class="form-group"><label>${t('acc_amount')}</label><input type="number" id="ex_amount" min="0" value="${exp.amount}"></div></div>
   <div class="form-row"><div class="form-group"><label>${t('acc_date')}</label><input type="date" id="ex_date" value="${exp.date}"></div>
   <div class="form-group"><label>${t('acc_description')}</label><input type="text" id="ex_desc" value="${exp.desc}"></div></div>
   <div class="form-row"><div class="form-group"><label>${t('acc_journalFranchise')}</label><select id="ex_franchise">${fOpts}</select></div>
   <div class="form-group"><label>${t('acc_journalBranch')}</label><select id="ex_branch">${bOpts}</select></div></div>
   <div class="modal-actions"><button class="btn btn-primary" onclick="updateExpense('${id}')"><i class="fas fa-save"></i> ${t('save')}</button><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  onExpenseCatChange();
   document.getElementById('modalOverlay').classList.add('active');
 }
 
@@ -14104,10 +14132,11 @@ function updateExpense(id) {
   const expenses = STORAGE.get('expenses',[]);
   const idx = expenses.findIndex(e => e.id === id);
   if (idx === -1) return;
+  if(expenses[idx].locked) { wsToast(lang==='ar'?'هذا القيد مقفل':'This entry is locked'); return; }
   const amt = parseFloat(document.getElementById('ex_amount').value)||0;
   if (amt <= 0) { wsToast(lang==='ar'?'أدخل مبلغ صحيح':'Enter valid amount'); return; }
   expenses[idx] = { ...expenses[idx],
-    category: document.getElementById('ex_cat').value.trim(),
+    category: expenseCatValue(),
     amount: amt,
     date: document.getElementById('ex_date').value,
     desc: document.getElementById('ex_desc').value.trim(),
@@ -14688,8 +14717,8 @@ function filterExpenses(page) {
       const f = franchises.find(fr=>fr.id===e.franchiseId);
       const b = branches.find(br=>br.id===e.branchId);
       const _lk=e.locked;
-      const canEditExp = hasPermission('accounts_expense_edit');
-      const canDelExp = hasPermission('accounts_expense_delete');
+      const canEditExp = canAccounting() || hasPermission('accounts_expense_edit');
+      const canDelExp = canAccounting() || hasPermission('accounts_expense_delete');
       h+=`<tr><td>${e.category}</td><td>${fmt(e.amount)}</td><td>${fmtDate(e.date)}</td><td>${f?(lang==='ar'?f.name_ar:f.name_en):'-'}</td><td>${b?(lang==='ar'?b.name_ar:b.name_en):'-'}</td><td>${e.desc}${_lk?' <i class="fas fa-lock" style="color:#f39c12;font-size:11px" title="'+(lang==='ar'?'مقفل':'Locked')+'"></i>':''}</td><td>${(canEditExp||canDelExp)?(_lk?(canEditExp?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry(\'expenses\',\''+e.id+'\')"><i class="fas fa-lock"></i></button>':''):(canEditExp?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:var(--primary);border-color:var(--primary);margin-right:4px" onclick="editExpense(\''+e.id+'\')"><i class="fas fa-edit"></i></button><button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12;margin-right:4px" onclick="toggleLockEntry(\'expenses\',\''+e.id+'\')"><i class="fas fa-lock-open"></i></button>'+(canDelExp?'<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteExpense(\''+e.id+'\')"><i class="fas fa-trash"></i></button>':''):'')):''}</td></tr>`;
     });
     h+='</tbody></table></div>';
@@ -14708,7 +14737,7 @@ function openExpenseModal() {
   let bOpts = `<option value="">-</option>`;
   branches.forEach(b => { const f = franchises.find(fr=>fr.id===b.franchiseId); bOpts += `<option value="${b.id}">${f?(lang==='ar'?f.name_ar:f.name_en)+' - ':''}${lang==='ar'?b.name_ar:b.name_en}</option>`; });
   document.getElementById('modalContainer').innerHTML=`<h3>${t('acc_addExpense')}</h3>
-  <div class="form-row"><div class="form-group"><label>${t('acc_category')}</label><input type="text" id="ex_cat"></div>
+  <div class="form-row"><div class="form-group"><label>${t('acc_category')}</label><select id="ex_cat" onchange="onExpenseCatChange()">${expenseCatOptions('')}</select><input type="text" id="ex_catCustom" style="margin-top:6px;display:none" placeholder="${lg?'اكتب النوع يدوياً...':'Type manually...'}"></div>
   <div class="form-group"><label>${t('acc_amount')}</label><input type="number" id="ex_amount" min="0"></div></div>
   <div class="form-row"><div class="form-group"><label>${t('acc_date')}</label><input type="date" id="ex_date" value="${today()}"></div>
   <div class="form-group"><label>${t('acc_description')}</label><input type="text" id="ex_desc"></div></div>
@@ -14722,7 +14751,7 @@ function saveExpense() {
   const lg = lang==='ar';
   if(!hasPermission('accounts_expense_add')) { wsToast(lg?'لا يمكنك إضافة مصروفات':'No permission to add expenses'); return; }
   const expenses = STORAGE.get('expenses',[]);
-  const cat = document.getElementById('ex_cat').value.trim();
+  const cat = expenseCatValue();
   const amt = parseFloat(document.getElementById('ex_amount').value)||0;
   const desc = document.getElementById('ex_desc').value.trim();
   const date = document.getElementById('ex_date').value;
