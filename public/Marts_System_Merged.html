@@ -6325,14 +6325,15 @@ function routeToTreasury(id) {
   const s = sales.find(x => x.id === id);
   if(!s) return;
   const treasuries = STORAGE.get('treasury',[]);
+  const commissionAmount = (s.unitPrice || 0) * (s.commissionRate || 0) / 100;
   const entry = {
     id: 'tr_' + Date.now(),
     saleId: s.id,
     saleCode: s.code,
     client: s.client,
-    amount: s.unitPrice || 0,
+    amount: commissionAmount,
     date: new Date().toISOString().slice(0,10),
-    description: lg ? 'تحصيل من ' + s.client + ' - ' + s.code : 'Collection from ' + s.client + ' - ' + s.code,
+    description: lg ? 'عمولة ' + s.client + ' - ' + s.code : 'Commission from ' + s.client + ' - ' + s.code,
     type: 'income',
     status: 'pending',
     createdAt: Date.now(),
@@ -6340,7 +6341,7 @@ function routeToTreasury(id) {
   };
   treasuries.push(entry);
   STORAGE.set('treasury', treasuries);
-  wsToast(lg ? 'تم تحويل المعاملة للخزينة' : 'Transaction routed to treasury');
+  wsToast(lg ? 'تم تحويل عمولة المعاملة للخزينة' : 'Transaction commission routed to treasury');
   showTransTab(_transTab);
 }
 
@@ -7233,9 +7234,9 @@ function createAutoJournalEntry(type, data) {
     lines.push({code:'1120', debit: 0, credit: data.amount || 0});
   } else if(type === 'treasury_income') {
     lines.push({code:'1120', debit: data.amount || 0, credit: 0});
-    lines.push({code:'4100', debit: 0, credit: data.amount || 0});
+    lines.push({code: data.accountCode || '4100', debit: 0, credit: data.amount || 0});
   } else if(type === 'treasury_expense') {
-    lines.push({code:'5330', debit: data.amount || 0, credit: 0});
+    lines.push({code: data.accountCode || '5330', debit: data.amount || 0, credit: 0});
     lines.push({code:'1120', debit: 0, credit: data.amount || 0});
   } else if(type === 'salary_payment') {
     lines.push({code:'5310', debit: data.amount || 0, credit: 0});
@@ -13940,11 +13941,26 @@ const TREASURY_CATS_EN = {
   income: ['Unit Sales','Brokerage Fee','Rental Income','Consulting Income','Receivables Collection'],
   expense: ['Salaries','Rent','Utilities','Marketing','Fuel & Cars','Maintenance','Taxes']
 };
+function treasuryCoaAccounts(type) {
+  const coa = STORAGE.get('chartOfAccounts', DEFAULT_COA);
+  const t = type === 'income' ? 'revenue' : 'expense';
+  return coa.filter(a => a.type === t);
+}
+function treasuryCatToCode(type, cat) {
+  if(!cat || cat === '__custom__') return '';
+  const accs = treasuryCoaAccounts(type);
+  const byCode = accs.find(a => a.code === cat);
+  if(byCode) return byCode.code;
+  const byName = accs.find(a => a.name_ar === cat || a.name_en === cat);
+  return byName ? byName.code : '';
+}
 function treasuryCatOptions(type, selected) {
   const lg = lang === 'ar';
-  const cats = (lg ? TREASURY_CATS : TREASURY_CATS_EN)[type] || [];
-  let o = cats.map(c => `<option value="${c}" ${selected === c ? 'selected' : ''}>${c}</option>`).join('');
-  o += `<option value="__custom__" ${(selected && cats.indexOf(selected) === -1) ? 'selected' : ''}>${lg ? 'أخرى (كتابة يدوية)' : 'Other (manual)'}</option>`;
+  const accs = treasuryCoaAccounts(type);
+  const selCode = treasuryCatToCode(type, selected);
+  let o = accs.map(a => `<option value="${a.code}" ${selCode === a.code ? 'selected' : ''}>${a.code} - ${lg ? a.name_ar : a.name_en}</option>`).join('');
+  if(!o) o = `<option value="">${lg ? 'لا توجد حسابات' : 'No accounts'}</option>`;
+  o += `<option value="__custom__" ${(selected && !selCode) ? 'selected' : ''}>${lg ? 'أخرى (كتابة يدوية)' : 'Other (manual)'}</option>`;
   return o;
 }
 function onTreasuryTypeChange() {
@@ -13958,18 +13974,25 @@ function onTreasuryCatChange() {
   const input = document.getElementById('t_categoryCustom');
   if(input) input.style.display = custom ? '' : 'none';
 }
+function treasuryCatCode() {
+  const sel = document.getElementById('t_category');
+  if(!sel) return '';
+  const v = sel.value;
+  if(v === '__custom__') return '';
+  return v;
+}
 function treasuryCatValue() {
   const sel = document.getElementById('t_category');
   if(!sel) return '';
   const v = sel.value;
   if(v === '__custom__') return (document.getElementById('t_categoryCustom')?.value || '').trim();
-  return v;
+  const type = document.getElementById('t_type')?.value || 'income';
+  const acc = treasuryCoaAccounts(type).find(x => x.code === v);
+  return acc ? (lang === 'ar' ? acc.name_ar : acc.name_en) : v;
 }
 function treasuryCatIsPreset(type, cat) {
   if(!cat) return false;
-  const lg = lang === 'ar';
-  const cats = (lg ? TREASURY_CATS : TREASURY_CATS_EN)[type] || [];
-  return cats.indexOf(cat) !== -1;
+  return !!treasuryCatToCode(type, cat);
 }
 
 function expenseCatOptions(selected) {
@@ -14032,11 +14055,13 @@ function saveTreasury() {
   const franchiseId = document.getElementById('t_franchise').value||'';
   const branchId = document.getElementById('t_branch').value||'';
   const safeId = document.getElementById('t_safe')?.value || '';
-  entries.push({id:uid(),date:date,type:type,category:cat,amount:amt,desc:desc,franchiseId:franchiseId,branchId:branchId,safeId:safeId});
+  const acctCode = treasuryCatCode();
+  entries.push({id:uid(),date:date,type:type,category:cat,accountCode:acctCode,amount:amt,desc:desc,franchiseId:franchiseId,branchId:branchId,safeId:safeId});
   STORAGE.set('treasury',entries);
   createAutoJournalEntry('treasury_' + type, {
     desc: (type === 'income' ? 'إيراد خزينة: ' : 'مصروف خزينة: ') + (cat ? cat + ' - ' : '') + desc,
     amount: amt,
+    accountCode: acctCode,
     date: date,
     ref: 'TR-' + uid(),
     franchiseId: franchiseId,
@@ -14071,7 +14096,7 @@ function editTreasuryEntry(id) {
   document.getElementById('modalContainer').innerHTML=`<h3>${lg?'تعديل قيد الخزينة':'Edit Treasury Entry'}</h3>
   <div class="form-row"><div class="form-group"><label>${t('acc_date')}</label><input type="date" id="t_date" value="${entry.date}"></div>
   <div class="form-group"><label>${t('acc_type')}</label><select id="t_type" onchange="onTreasuryTypeChange()"><option value="income" ${entry.type==='income'?'selected':''}>${t('acc_income')}</option><option value="expense" ${entry.type==='expense'?'selected':''}>${t('acc_expenseType')}</option></select></div></div>
-  <div class="form-row"><div class="form-group"><label>${lg?'نوع الدخل/المصروف':'Income/Expense Type'}</label><select id="t_category" data-prev-val="${entry.category||''}" onchange="onTreasuryCatChange()">${treasuryCatOptions(entry.type||'income', entry.category||'')}</select><input type="text" id="t_categoryCustom" style="margin-top:6px;display:none" value="${treasuryCatIsPreset(entry.type||'income', entry.category||'') ? '' : (entry.category||'')}" placeholder="${lg?'اكتب النوع يدوياً...':'Type manually...'}"></div>
+  <div class="form-row"><div class="form-group"><label>${lg?'نوع الدخل/المصروف':'Income/Expense Type'}</label><select id="t_category" data-prev-val="${entry.accountCode || entry.category || ''}" onchange="onTreasuryCatChange()">${treasuryCatOptions(entry.type||'income', entry.accountCode || entry.category || '')}</select><input type="text" id="t_categoryCustom" style="margin-top:6px;display:none" value="${treasuryCatIsPreset(entry.type||'income', entry.accountCode || entry.category || '') ? '' : (entry.category||'')}" placeholder="${lg?'اكتب النوع يدوياً...':'Type manually...'}"></div>
   <div class="form-group"><label>${t('acc_amount')}</label><input type="number" id="t_amount" min="0" value="${entry.amount}"></div></div>
   <div class="form-row"><div class="form-group"><label>${t('acc_description')}</label><input type="text" id="t_desc" value="${entry.desc}"></div></div>
   <div class="form-row"><div class="form-group"><label>${lg?'الخزنة':'Safe'}</label><select id="t_safe">${sOpts}</select></div>
@@ -14092,6 +14117,7 @@ function updateTreasury(id) {
     date: document.getElementById('t_date').value,
     type: document.getElementById('t_type').value,
     category: treasuryCatValue(),
+    accountCode: treasuryCatCode(),
     amount: amt,
     desc: document.getElementById('t_desc').value.trim(),
     franchiseId: document.getElementById('t_franchise').value||'',
