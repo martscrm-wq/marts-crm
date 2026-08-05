@@ -25,3 +25,17 @@ cd C:\Users\khelw\Downloads\CRM\public && npx vercel --prod --token $env:VERCEL_
 - Deploy: `C:\Users\khelw\Downloads\CRM\public\` (synced via copy)
 - CI/CD Pipeline: `C:\cicd-pipeline\`
 - System clock is 2026 — Firebase SA key auth fails, use `_loadFailed` guard
+
+## Data Safety (CRITICAL — multiple departments write data live)
+- Cloud data is the source of truth: Firestore `marts-crm-6ca37` (collections: `app_data`, `activity_logs`, `app_data_backup`, `system_config`).
+- Daily automatic backup: Task `MartsCRM_CloudBackup` runs `backups\run-backup.bat` at 01:00. Manual run: `node backup_cloud.js` → `backups\cloud-backup-*.json` (keeps latest 14).
+- NEVER touch `STORAGE.set`/`saveSale`/data-write functions without creating a `.bak` copy first.
+- `backups/` and `test-results/` are gitignored (backups stay local on disk).
+- `sa-key.json` is gitignored — never commit or print it.
+
+## Code Safety (before/after EVERY edit)
+1. Create a backup copy first: `Copy-Item Marts_System_Merged.html Marts_System_Merged.html.bak_<version>`
+2. Extract JS and syntax-check after edits: see `scripts\` / run `node --check` on extracted script.
+3. Run jest (83 tests) before deploying.
+4. Commit after each completed task with a clear message → every step is revertible via `git revert`/`git checkout`.
+5. Mirror edits in BOTH `Marts_System_Merged.html` (root) and `public\Marts_System_Merged.html` so the deploy copy never goes stale.

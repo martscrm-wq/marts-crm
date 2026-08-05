@@ -81,13 +81,20 @@ async function getAccessToken() {
 }
 
 async function listAllDocs(token, collection) {
-  const url = `${API}/${collection}?pageSize=300`;
-  const result = await httpRequest(url, {
-    method: 'GET',
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  if (result.error) throw new Error(collection + ' error: ' + JSON.stringify(result.error));
-  return result.documents || [];
+  const all = [];
+  let nextPageToken = null;
+  do {
+    const qs = nextPageToken ? `?pageSize=300&pageToken=${encodeURIComponent(nextPageToken)}` : '?pageSize=300';
+    const url = `${API}/${collection}${qs}`;
+    const result = await httpRequest(url, {
+      method: 'GET',
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (result.error) throw new Error(collection + ' error: ' + JSON.stringify(result.error));
+    if (result.documents) all.push(...result.documents);
+    nextPageToken = result.nextPageToken || null;
+  } while (nextPageToken);
+  return all;
 }
 
 async function fetchFullDoc(token, docRefPath) {
@@ -136,14 +143,9 @@ async function main() {
 
   for (const coll of collections) {
     const docs = await listAllDocs(token, coll);
-    console.log(`\n[${coll}] ${docs.length} documents (page 1)`);
+    console.log(`\n[${coll}] ${docs.length} documents`);
 
-    const records = [];
-    for (const doc of docs) {
-      const path = doc.name.split('/documents/')[1];
-      const full = await fetchFullDoc(token, path);
-      if (full) records.push(docToPlain(full));
-    }
+    const records = docs.map(docToPlain);
     backup.collections[coll] = records;
 
     for (const r of records) {
@@ -165,6 +167,19 @@ async function main() {
   console.log('Total documents:', totalDocs);
   console.log('Saved to:', outFile);
   console.log('File size:', fs.statSync(outFile).size, 'bytes');
+
+  // Retention: keep only the latest 14 backups
+  const old = fs.readdirSync(backupDir).filter(f => f.startsWith('cloud-backup-')).sort();
+  while (old.length > 14) {
+    const f = old.shift();
+    fs.unlinkSync(`${backupDir}/${f}`);
+    console.log('Removed old backup:', f);
+  }
+
+  // Summary log
+  const summary = `${new Date().toISOString()} | docs=${totalDocs} (app_data=${backup.collections.app_data.length}, activity_logs=${backup.collections.activity_logs.length}, app_data_backup=${backup.collections.app_data_backup.length}, system_config=${backup.collections.system_config.length}) | ${outFile}\n`;
+  fs.appendFileSync(`${backupDir}/backup-summary.txt`, summary);
+  console.log('Summary appended to backup-summary.txt');
 }
 
 main().catch(e => { console.error('ERROR:', e.message); process.exit(1); });
