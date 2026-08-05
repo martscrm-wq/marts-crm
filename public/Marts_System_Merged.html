@@ -12731,27 +12731,30 @@ function renderAttendanceTab(el) {
     const kpiBonus = finalKpi >= 80 ? 0.25 : finalKpi >= 60 ? 0.15 : finalKpi >= 40 ? 0.05 : 0;
     const bonusAmount = Math.round(emp.salary * kpiBonus);
     const netSalary = Math.max(0, emp.salary + bonusAmount - deductionAmount);
+    const afterDeduction = Math.max(0, emp.salary - deductionAmount);
     return { emp, recs, monthPen, presentDays, lateCount, lateMinSum, unexcAbs, excAbs, permCount,
-      deductionDays, deductionAmount, penaltyDeduction, finalKpi, kpiBonus, bonusAmount, netSalary };
+      deductionDays, deductionAmount, penaltyDeduction, finalKpi, kpiBonus, bonusAmount, netSalary, afterDeduction };
   }).filter(d => !(_payrollEmpFilter && d.emp.id !== _payrollEmpFilter));
 
   const calcTotals = empCalc.reduce((t, d) => {
     t.dedDays += d.deductionDays; t.dedAmt += d.deductionAmount;
-    t.bonus += d.bonusAmount; t.net += d.netSalary; return t;
-  }, {dedDays:0, dedAmt:0, bonus:0, net:0});
+    t.bonus += d.bonusAmount; t.net += d.netSalary; t.base += d.emp.salary; t.afterDed += d.afterDeduction; return t;
+  }, {dedDays:0, dedAmt:0, bonus:0, net:0, base:0, afterDed:0});
 
   h += `<div class="card" style="margin-bottom:16px;background:linear-gradient(135deg,#1f2937,#374151);color:#fff;padding:20px 24px">
     <div class="flex-between">
       <div><h3 style="margin:0;color:#fff"><i class="fas fa-calculator"></i> ${lang==='ar'?'الحساب التفصيلي للمرتبات (من الحضور والانصراف)':'Detailed Salary Calculation (from Attendance)'}</h3>
-      <p style="margin:4px 0 0;opacity:0.85;font-size:13px">${lang==='ar'?'شهر ':'Month '}${currentMonth} | ${lang==='ar'?'إجمالي الخصومات: ':'Total Deductions: '}<strong style="color:#FCA5A5">${fmt(calcTotals.dedAmt)}</strong> | ${lang==='ar'?'صافي الرواتب: ':'Net Payable: '}<strong style="color:#86EFAC">${fmt(calcTotals.net)}</strong></p></div>
+      <p style="margin:4px 0 0;opacity:0.85;font-size:13px">${lang==='ar'?'شهر ':'Month '}${currentMonth} | ${lang==='ar'?'إجمالي الأساسي: ':'Total Base: '}<strong style="color:#FCD34D">${fmt(calcTotals.base)}</strong> | ${lang==='ar'?'إجمالي الخصم: ':'Total Deductions: '}<strong style="color:#FCA5A5">${fmt(calcTotals.dedAmt)}</strong> | ${lang==='ar'?'الراتب بعد الخصم: ':'After Deduction: '}<strong style="color:#FBBF24">${fmt(calcTotals.afterDed)}</strong> | ${lang==='ar'?'الصافي: ':'Net Payable: '}<strong style="color:#86EFAC">${fmt(calcTotals.net)}</strong></p></div>
     </div>
   </div>`;
 
-  h += `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px">
-    <div class="card" style="padding:16px;text-align:center;border-top:4px solid #C75B4A"><div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'إجمالي أيام الخصم':'Total Deduction Days'}</div><div style="font-size:24px;font-weight:800;color:#C75B4A">${calcTotals.dedDays}</div></div>
-    <div class="card" style="padding:16px;text-align:center;border-top:4px solid #E67E22"><div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'إجمالي مبلغ الخصم':'Total Deduction Amount'}</div><div style="font-size:24px;font-weight:800;color:#E67E22">${fmt(calcTotals.dedAmt)}</div></div>
-    <div class="card" style="padding:16px;text-align:center;border-top:4px solid #27ae60"><div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'إجمالي مكافآت KPI':'Total KPI Bonuses'}</div><div style="font-size:24px;font-weight:800;color:#27ae60">${fmt(calcTotals.bonus)}</div></div>
-    <div class="card" style="padding:16px;text-align:center;border-top:4px solid #827148"><div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'صافي الرواتب المستحقة':'Total Net Payable'}</div><div style="font-size:24px;font-weight:800;color:#827148">${fmt(calcTotals.net)}</div></div>
+  h += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:16px">
+    <div class="card" style="padding:16px;text-align:center;border-top:4px solid #827148"><div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'إجمالي الراتب الأساسي':'Total Base Salary'}</div><div style="font-size:22px;font-weight:800;color:#827148">${fmt(calcTotals.base)}</div></div>
+    <div class="card" style="padding:16px;text-align:center;border-top:4px solid #C75B4A"><div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'إجمالي أيام الخصم':'Total Deduction Days'}</div><div style="font-size:22px;font-weight:800;color:#C75B4A">${calcTotals.dedDays}</div></div>
+    <div class="card" style="padding:16px;text-align:center;border-top:4px solid #E67E22"><div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'إجمالي قيمة الخصم':'Total Deduction Amount'}</div><div style="font-size:22px;font-weight:800;color:#E67E22">${fmt(calcTotals.dedAmt)}</div></div>
+    <div class="card" style="padding:16px;text-align:center;border-top:4px solid #f39c12"><div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'إجمالي الراتب بعد الخصم':'Total After Deduction'}</div><div style="font-size:22px;font-weight:800;color:#f39c12">${fmt(calcTotals.afterDed)}</div></div>
+    <div class="card" style="padding:16px;text-align:center;border-top:4px solid #27ae60"><div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'إجمالي مكافآت KPI':'Total KPI Bonuses'}</div><div style="font-size:22px;font-weight:800;color:#27ae60">${fmt(calcTotals.bonus)}</div></div>
+    <div class="card" style="padding:16px;text-align:center;border-top:4px solid #10B981"><div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'صافي الرواتب المستحقة':'Total Net Payable'}</div><div style="font-size:22px;font-weight:800;color:#10B981">${fmt(calcTotals.net)}</div></div>
   </div>`;
 
   h += `<div class="card"><div class="table-wrap"><table><thead><tr>
@@ -12762,7 +12765,8 @@ function renderAttendanceTab(el) {
     <th>${lang==='ar'?'تأخير':'Late'}</th>
     <th>${lang==='ar'?'غياب (بدون/بعذر)':'Absent (no/exec)'}</th>
     <th>${lang==='ar'?'أيام الخصم':'Ded. Days'}</th>
-    <th>${lang==='ar'?'مبلغ الخصم':'Ded. Amount'}</th>
+    <th>${lang==='ar'?'قيمة الخصم':'Ded. Amount'}</th>
+    <th>${lang==='ar'?'الراتب بعد الخصم':'After Deduction'}</th>
     <th>${lang==='ar'?'KPI':'KPI'}</th>
     <th>${lang==='ar'?'مكافأة':'Bonus'}</th>
     <th>${lang==='ar'?'الصافي':'Net'}</th>
@@ -12810,12 +12814,13 @@ function renderAttendanceTab(el) {
       <td style="text-align:center">${d.unexcAbs > 0 ? '<span style="color:#C75B4A;font-weight:700">'+d.unexcAbs+'</span>' : '<span style="color:var(--text-light)">0</span>'}${d.excAbs > 0 ? ' / <span style="color:#6C63FF">'+d.excAbs+'</span>' : ''}</td>
       <td style="text-align:center;color:${d.deductionDays>0?'#C75B4A':'var(--text-light)'};font-weight:${d.deductionDays>0?'700':'400'}">${d.deductionDays>0?d.deductionDays:'-'}</td>
       <td style="text-align:center;color:${d.deductionAmount>0?'#C75B4A':'var(--text-light)'};font-weight:${d.deductionAmount>0?'700':'400'}">${d.deductionAmount>0?'-'+fmt(d.deductionAmount):'-'}</td>
+      <td style="font-weight:800;color:#E67E22">${fmt(d.afterDeduction)}</td>
       <td style="text-align:center"><span style="color:${kpiColor};font-weight:700">${d.finalKpi}%</span>${d.penaltyDeduction>0?'<div style="font-size:10px;color:#C75B4A">-'+Math.min(d.penaltyDeduction,100)+'%</div>':''}</td>
       <td style="text-align:center;color:${d.bonusAmount>0?'#27ae60':'var(--text-light)'};font-weight:${d.bonusAmount>0?'700':'400'}">${d.bonusAmount>0?'+'+fmt(d.bonusAmount):'-'}</td>
       <td style="font-weight:800;color:#27ae60">${fmt(d.netSalary)}</td>
       <td><button class="btn btn-outline btn-sm" id="attPayDetailBtn-${rid}" onclick="toggleAttPayDetail('${rid}')"><i class="fas fa-chevron-down"></i></button></td>
     </tr>
-    <tr id="attPayDetail-${rid}" style="display:none"><td colspan="12" style="padding:0">
+    <tr id="attPayDetail-${rid}" style="display:none"><td colspan="13" style="padding:0">
       <div style="padding:14px 20px;background:rgba(130,113,72,.05)">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px">
           <div>
@@ -12827,8 +12832,9 @@ function renderAttendanceTab(el) {
             <div class="table-wrap"><table style="min-width:0"><thead><tr><th>${lang==='ar'?'المخالفة':'Violation'}</th><th>${lang==='ar'?'الإجراء':'Action'}</th><th>${lang==='ar'?'أيام':'Days'}</th><th>${lang==='ar'?'التاريخ':'Date'}</th><th>${lang==='ar'?'المبلغ':'Amount'}</th></tr></thead><tbody>${penRows}</tbody></table></div>
           </div>
         </div>
-        <div style="background:rgba(39,174,96,.07);border:1px solid rgba(39,174,96,.25);padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600">
-          <i class="fas fa-equals"></i> ${lang==='ar'?'معادلة الصافي':'Net formula'}: ${fmt(d.emp.salary)} + ${fmt(d.bonusAmount)} - ${fmt(d.deductionAmount)} = <span style="color:#27ae60">${fmt(d.netSalary)}</span>
+        <div style="background:rgba(39,174,96,.07);border:1px solid rgba(39,174,96,.25);padding:10px 14px;border-radius:8px;font-size:13px;font-weight:600;line-height:1.9">
+          <div><i class="fas fa-arrow-down"></i> ${lang==='ar'?'الراتب بعد الخصم':'After deduction'}: ${fmt(d.emp.salary)} - ${fmt(d.deductionAmount)} = <span style="color:#E67E22">${fmt(d.afterDeduction)}</span></div>
+          <div><i class="fas fa-arrow-down"></i> ${lang==='ar'?'الصافي النهائي':'Final net'}: ${fmt(d.afterDeduction)} + ${fmt(d.bonusAmount)} = <span style="color:#27ae60">${fmt(d.netSalary)}</span></div>
         </div>
       </div>
     </td></tr>`;
