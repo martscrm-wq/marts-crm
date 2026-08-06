@@ -9068,6 +9068,22 @@ function downloadAttendanceTemplate() {
   XLSX.writeFile(wb, 'attendance_template.xlsx');
 }
 
+function confirmAttendanceMonthReplace(month, fingerprintOnly) {
+  const attendance = STORAGE.get('attendance', []);
+  const toReplace = fingerprintOnly
+    ? attendance.filter(a => a.month === month && a.source === 'fingerprint')
+    : attendance.filter(a => a.month === month);
+  if(toReplace.length === 0) return true;
+  const srcLabel = fingerprintOnly
+    ? (lang==='ar'?'سجل بصمة':'fingerprint record')
+    : (lang==='ar'?'سجل حضور':'attendance record');
+  return confirm(
+    lang==='ar'
+      ? 'تحذير! سيتم حذف واستبدال ' + toReplace.length + ' ' + srcLabel + ' لشهر ' + month + ' بسجلات الملف الجديد.\nهل تريد المتابعة؟'
+      : 'WARNING! This will DELETE and replace ' + toReplace.length + ' ' + srcLabel + (toReplace.length === 1?'':'s') + ' for month ' + month + ' with the new file records.\nContinue?'
+  );
+}
+
 function importAttendance(event) {
   const file = event.target.files[0];
   if(!file) return;
@@ -9081,6 +9097,7 @@ function importAttendance(event) {
       if(data.length === 0) { alert(lang==='ar'?'الملف فارغ':'File is empty'); return; }
       const month = prompt(lang==='ar'?'أدخل الشهر (YYYY-MM)':'Enter month (YYYY-MM)', today().slice(0,7));
       if(!month || !/^\d{4}-\d{2}$/.test(month)) { alert(lang==='ar'?'صيغة شهر غير صحيحة':'Invalid month format'); return; }
+      if(!confirmAttendanceMonthReplace(month, false)) { event.target.value = ''; return; }
       const result = processAttendance(data, month);
       alert((lang==='ar'?'تم معالجة ':'Processed ') + result.processed + (lang==='ar'?' سجل حضور\nتم اكتشاف ':' attendance records\nDetected ') + result.penalties + (lang==='ar'?' مخالفة تلقائية':' auto violations'));
       renderHrTabContent();
@@ -9228,6 +9245,7 @@ function applyFingerprintMatches() {
     if(!sel || !sel.value) return;
     nameMap[normalizeNameKey(r.name)] = sel.value;
   });
+  if(!confirmAttendanceMonthReplace(_fpPendingMonth, true)) return;
   closeModal();
   const result = processFingerprintFile(_fpPendingData, _fpPendingMonth, nameMap);
   let msg = (lang==='ar'?'تم استيراد ':'Imported ') + result.processed + (lang==='ar'?' يوم حضور من البصمات\nتم اكتشاف ':' fingerprint attendance days\nDetected ') + result.penalties + (lang==='ar'?' مخالفة تلقائية':' auto violations');
@@ -9342,6 +9360,7 @@ function importFingerprintAttendance(event) {
       if(data.length === 0) { alert(lang==='ar'?'الملف فارغ':'File is empty'); return; }
       const month = prompt(lang==='ar'?'أدخل الشهر (YYYY-MM)':'Enter month (YYYY-MM)', today().slice(0,7));
       if(!month || !/^\d{4}-\d{2}$/.test(month)) { alert(lang==='ar'?'صيغة شهر غير صحيحة':'Invalid month format'); return; }
+      if(!confirmAttendanceMonthReplace(month, true)) { event.target.value = ''; return; }
       const result = processFingerprintFile(data, month);
       if(result.unmatched && result.unmatched.length) {
         _fpPendingData = data;
