@@ -7672,9 +7672,222 @@ function openEmpFiles(empId) {
   }
   html += `<div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
   document.getElementById('modalContainer').innerHTML = html;
-  document.getElementById('modalContainer').style.width = '650px';
+  document.getElementById('modalContainer').style.width = '750px';
   document.getElementById('modalOverlay').classList.add('active');
 }
+
+// ============================================================
+// UNIFIED EMPLOYEE PROFILE (الملف الموحد للموظف)
+// ============================================================
+function showEmployeeProfile(empId, month) {
+  const m = month || today().slice(0, 7);
+  openModal(renderEmployeeProfile(empId, m), '96%');
+  const mc = document.getElementById('modalContainer');
+  if(mc) mc.style.width = '1180px';
+}
+
+function renderEmployeeProfile(empId, month) {
+  const lg = lang === 'ar';
+  const emp = STORAGE.get('employees', []).find(e => e.id === empId);
+  if(!emp) return `<h3>${lg?'الموظف غير موجود':'Employee not found'}</h3>`;
+  const allEmployees = STORAGE.get('employees', []);
+  const attendance = STORAGE.get('attendance', []);
+  const penalties = STORAGE.get('employeePenalties', []);
+  const advances = STORAGE.get('employeeAdvances', []);
+  const exceptions = STORAGE.get('attendanceExceptions', []);
+  const salaries = STORAGE.get('salaries', []);
+  const sales = STORAGE.get('sales', []);
+
+  const recs = attendance.filter(a => a.month === month && ((a.empId && a.empId === emp.id) || (!a.empId && a.empName === emp.name)));
+  let presentDays = 0, lateCount = 0, lateMinSum = 0, unexcAbs = 0, excAbs = 0, permCount = 0;
+  recs.forEach(a => {
+    const isAbsent = String(a.absent).toLowerCase() === 'true' || parseInt(a.absenceDays) > 0;
+    const lateMin = a.checkIn ? calcLateMinutes(a.checkIn) : 0;
+    if(isAbsent) {
+      const days = parseInt(a.absenceDays) > 0 ? parseInt(a.absenceDays) : 1;
+      if(a.excusedAbsence || a.excused || a.excusedOther) excAbs += days; else unexcAbs += days;
+    } else {
+      presentDays++;
+      if(a.checkIn && lateMin > 0) { lateCount++; lateMinSum += lateMin; }
+      if(a.permission) permCount++;
+    }
+  });
+
+  const empPenalties = penalties.filter(p => p.empId === emp.id && !p.exempted);
+  const monthPen = empPenalties.filter(p => p.date && p.date.startsWith(month));
+  let deductionDays = 0;
+  monthPen.forEach(p => {
+    const dedAction = DEDUCTION_RULES.find(r => r.action === p.action);
+    if(dedAction) deductionDays += dedAction.deductionDays;
+    else { const m = String(p.action).match(/(\d+)/); if(m) deductionDays += parseInt(m[1]); }
+  });
+  const dailySalary = emp.salary / 30;
+  const deductionAmount = Math.round(deductionDays * dailySalary);
+  const penaltyDeduction = empPenalties.reduce((s, p) => s + (p.deductionPercent || 0), 0);
+  const finalKpi = Math.max(0, (emp.kpi || 0) - Math.min(penaltyDeduction, 100));
+  const kpiBonus = finalKpi >= 80 ? 0.25 : finalKpi >= 60 ? 0.15 : finalKpi >= 40 ? 0.05 : 0;
+  const bonusAmount = Math.round(emp.salary * kpiBonus);
+  const afterDeduction = Math.max(0, emp.salary - deductionAmount);
+  const netSalary = Math.max(0, emp.salary + bonusAmount - deductionAmount);
+
+  const monthAdv = advances.filter(a => a.empId === emp.id && a.date && a.date.startsWith(month));
+  const advTotal = monthAdv.reduce((s, a) => s + a.amount, 0);
+  const advApproved = monthAdv.filter(a => a.status === 'approved').reduce((s, a) => s + a.amount, 0);
+  const advPending = monthAdv.filter(a => a.status === 'pending').reduce((s, a) => s + a.amount, 0);
+
+  const monthExc = exceptions.filter(e => e.empId === emp.id && (!e.month || e.month === month) && (!e.date || e.date.startsWith(month)));
+  const paidSal = salaries.filter(s => s.empId === emp.id && s.date && s.date.startsWith(month));
+  const monthSales = sales.filter(s => s.approvalStatus === 'approved' && s.date && s.date.startsWith(month) && (s.salesPersonId === emp.id || s.marketerId === emp.id));
+  const achievement = monthSales.reduce((sum, s) => sum + (s.unitPrice || 0), 0);
+  const target = emp.target || 0;
+  const achPct = target > 0 ? Math.round((achievement / target) * 100) : 0;
+
+  const sup = allEmployees.find(e => e.id === emp.supervisor);
+  const fr = STORAGE.get('franchises', []).find(f => f.id === emp.franchiseId);
+  const br = STORAGE.get('branches', []).find(b => b.id === emp.branchId);
+
+  const kpiColor = finalKpi >= 80 ? '#27ae60' : finalKpi >= 60 ? '#f39c12' : finalKpi >= 40 ? '#e67e22' : '#C75B4A';
+
+  const miniCard = (color, label, value, big) => `<div class="card" style="padding:16px;text-align:center;border-top:4px solid ${color}">
+    <div style="font-size:11px;color:var(--text-light);margin-bottom:6px">${label}</div>
+    <div style="font-size:${big?'24px':'20px'};font-weight:800;color:${color}">${value}</div>
+  </div>`;
+  const infoItem = (label, value) => `<div style="display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-bottom:1px dashed var(--border)">
+    <span style="color:var(--text-light);font-size:12px">${label}</span><span style="font-weight:600;text-align:left">${value}</span>
+  </div>`;
+  const secBox = (title, body) => `<div class="card" style="padding:16px 18px">
+    <div style="font-weight:700;margin-bottom:10px;font-size:14px;color:var(--primary)"><i class="fas fa-folder-open"></i> ${title}</div>${body}
+  </div>`;
+
+  let h = '';
+  h += `<div style="background:linear-gradient(135deg,#1f2937,#374151);color:#fff;border-radius:16px;padding:22px 24px;margin-bottom:16px">
+    <div style="display:flex;flex-wrap:wrap;gap:16px;align-items:center">
+      <div style="width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#6C63FF,#8B7CF6);display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;flex-shrink:0">${(emp.name||'?').trim().charAt(0)}</div>
+      <div style="flex:1;min-width:230px">
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><h3 style="margin:0;color:#fff;font-size:22px">${emp.name}</h3><span class="badge badge-blue">${getRoleLabel(emp.role)}</span><span style="font-size:11px;padding:3px 10px;border-radius:20px;font-weight:700;background:${emp.status==='active'?'rgba(39,174,96,.2)':'rgba(199,91,74,.2)'};color:${emp.status==='active'?'#86EFAC':'#FCA5A5'}">${emp.status==='active'?(lg?'نشط':'Active'):(lg?'غير نشط':'Inactive')}</span></div>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-top:8px;font-size:12px;opacity:.9">
+          ${emp.personalPhone?`<span><i class="fas fa-phone"></i> ${emp.personalPhone}</span>`:''}
+          ${emp.workPhone?`<span><i class="fas fa-phone-volume"></i> ${emp.workPhone}</span>`:''}
+          ${fr||br?`<span><i class="fas fa-store"></i> ${fr?(lg?fr.name_ar:fr.name_en):''}${br?' - '+(lg?br.name_ar:br.name_en):''}</span>`:''}
+          ${emp.startDate?`<span><i class="fas fa-calendar-plus"></i> ${lg?'بداية العمل: ':'Start: '}${fmtDate(emp.startDate)}</span>`:''}
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        ${canEdit()?`<button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)" onclick="openEmpForm('${emp.id}')"><i class="fas fa-user-edit"></i> ${lg?'تعديل':'Edit'}</button>`:''}
+        ${canEdit()?`<button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)" onclick="openPenaltyForm('${emp.id}')"><i class="fas fa-gavel"></i> ${lg?'جزاء':'Penalty'}</button>`:''}
+        ${canEdit()?`<button class="btn btn-sm" style="background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3)" onclick="openAdvanceForm('${emp.id}')"><i class="fas fa-hand-holding-usd"></i> ${lg?'سلفة':'Advance'}</button>`:''}
+      </div>
+    </div>
+  </div>`;
+
+  h += `<div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+    <label style="font-size:13px;font-weight:700"><i class="fas fa-calendar-alt"></i> ${lg?'الشهر:':'Month:'}</label>
+    <input type="month" value="${month}" onchange="showEmployeeProfile('${emp.id}', this.value)" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;background:var(--bg-card);color:var(--text);font-size:13px">
+    <span style="font-size:12px;color:var(--text-light)">${lg?'كل الأرقام أدناه محسوبة لشهر ':'All figures below are for '}${month}</span>
+  </div>`;
+
+  h += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
+    ${miniCard('#827148', lg?'الراتب الأساسي':'Base Salary', fmt(emp.salary))}
+    ${miniCard('#6C63FF', lg?'أجر اليوم':'Daily Rate', fmt(Math.round(dailySalary)))}
+    ${miniCard('#C75B4A', lg?'أيام الخصم':'Deduction Days', deductionDays > 0 ? deductionDays : '-')}
+    ${miniCard('#E67E22', lg?'مبلغ الخصم':'Deduction Amount', deductionAmount > 0 ? '-'+fmt(deductionAmount) : '-')}
+    ${miniCard('#27ae60', lg?'مكافأة KPI':'KPI Bonus', bonusAmount > 0 ? '+'+fmt(bonusAmount) : '-')}
+    ${miniCard('#10B981', lg?'صافي الراتب':'Net Salary', fmt(netSalary), true)}
+  </div>`;
+
+  h += `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:16px">
+    ${miniCard('#27ae60', lg?'أيام الحضور':'Present Days', presentDays)}
+    ${miniCard('#f39c12', lg?'التأخير':'Late', lateCount > 0 ? lateCount+'× ('+lateMinSum+(lg?' د':'m')+')' : '0')}
+    ${miniCard('#C75B4A', lg?'غياب بدون عذر':'Unexcused Absence', unexcAbs)}
+    ${miniCard('#6C63FF', lg?'غياب بعذر':'Excused Absence', excAbs)}
+    ${miniCard('#8B7CF6', lg?'أذونات':'Permissions', permCount)}
+  </div>`;
+
+  h += `<div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px">`;
+  h += secBox(lg?'الملف الشخصي':'Personal Profile', `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 18px;font-size:13px">
+    ${infoItem(lg?'الدور':'Role', getRoleLabel(emp.role))}
+    ${infoItem(lg?'الهاتف الشخصي':'Personal Phone', emp.personalPhone||'-')}
+    ${infoItem(lg?'هاتف العمل':'Work Phone', emp.workPhone||'-')}
+    ${infoItem(lg?'الرقم القومي':'National ID', emp.nationalId||'-')}
+    ${infoItem(lg?'العنوان':'Address', emp.address||'-')}
+    ${infoItem(lg?'تاريخ البدء':'Start Date', emp.startDate?fmtDate(emp.startDate):'-')}
+    ${infoItem(lg?'المشرف':'Supervisor', sup?sup.name:'-')}
+    ${infoItem(lg?'الفرع':'Branch', br?(lg?br.name_ar:br.name_en):'-')}
+    ${infoItem(lg?'الفرنشايز':'Franchise', fr?(lg?fr.name_ar:fr.name_en):'-')}
+    ${infoItem(lg?'الملفات المرفقة':'Attached Files', (emp.files||[]).length)}
+    ${infoItem(lg?'KPI المدخل':'Manual KPI', (emp.kpi||0)+'%')}
+    ${infoItem(lg?'الهدف الشهري':'Monthly Target', fmt(target))}
+  </div>`);
+  h += secBox(lg?'الأداء':'Performance', `<div style="display:grid;grid-template-columns:1fr 1fr;gap:0 18px;font-size:13px">
+    ${infoItem(lg?'KPI النهائي':'Final KPI', `<span style="color:${kpiColor};font-weight:800">${finalKpi}%</span>`)}
+    ${infoItem(lg?'خصم الجزاءات':'Penalty Deduction', penaltyDeduction>0?'-'+Math.min(penaltyDeduction,100)+'%':'-')}
+    ${infoItem(lg?'شريحة المكافأة':'Bonus Tier', kpiBonus>0?Math.round(kpiBonus*100)+'%':'-')}
+    ${infoItem(lg?'مبلغ المكافأة':'Bonus Amount', bonusAmount>0?'+'+fmt(bonusAmount):'-')}
+    ${infoItem(lg?'الإنجاز (المبيعات):':'Achievement (Sales)', fmt(achievement))}
+    ${infoItem(lg?'نسبة الإنجاز':'Achievement %', target>0?`<span style="color:${achPct>=100?'#27ae60':achPct>=60?'#f39c12':'#C75B4A'};font-weight:700">${achPct}%</span>`:'-')}
+  </div>`);
+  h += `</div>`;
+
+  const attRows = recs.length ? recs.map(a => {
+    const isAbsent = String(a.absent).toLowerCase() === 'true' || parseInt(a.absenceDays) > 0;
+    const lateMin = a.checkIn ? calcLateMinutes(a.checkIn) : 0;
+    let st = '-', sc = 'var(--text-light)';
+    if(isAbsent) {
+      const exc = a.excusedAbsence || a.excused || a.excusedOther;
+      st = exc ? (lg?'غياب بعذر':'Excused') : (lg?'غائب':'Absent');
+      sc = exc ? '#6C63FF' : '#C75B4A';
+    } else if(lateMin > 0) {
+      const exc = a.excusedLate || a.excused || a.excusedOther;
+      st = exc ? (lg?'تأخير بعذر':'Exc. Late') : (lg?'متأخر':'Late');
+      sc = exc ? '#6C63FF' : '#f39c12';
+    } else if(a.checkIn) { st = lg?'حاضر':'Present'; sc = '#27ae60'; }
+    return `<tr><td>${a.date ? fmtDate(a.date) : '-'}</td><td>${a.checkIn||'-'}</td><td>${a.checkOut||'-'}</td><td style="text-align:center">${lateMin>0?lateMin:0}</td><td><span style="color:${sc};font-weight:600">${st}</span></td><td style="text-align:center">${a.permission?'<i class="fas fa-file-contract" style="color:#8B7CF6"></i>':'-'}</td><td>${a.issuedBy? (a.issuedBy==='system_auto'?(lg?'بصمة':'Fingerprint'):(lg?'يدوي':'Manual')) : '-'}</td></tr>`;
+  }).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--text-light);padding:18px">${lg?'لا توجد سجلات حضور هذا الشهر':'No attendance records this month'}</td></tr>`;
+
+  const penRows = monthPen.length ? monthPen.map(p => {
+    const ra = DEDUCTION_RULES.find(r => r.action === p.action);
+    const days = ra ? ra.deductionDays : (String(p.action).match(/(\d+)/) ? parseInt(String(p.action).match(/(\d+)/)[1]) : 0);
+    const amt = Math.round(days * dailySalary);
+    return `<tr><td>${p.violation||'-'}</td><td>${p.action||'-'}</td><td style="text-align:center">${days||'-'}</td><td>${p.date?fmtDate(p.date):'-'}</td><td style="text-align:center;color:${amt>0?'#C75B4A':'var(--text-light)'};font-weight:${amt>0?'700':'400'}">${amt>0?'-'+fmt(amt):'-'}</td><td style="font-size:12px;color:var(--text-light)">${p.notes||'-'}</td></tr>`;
+  }).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--text-light);padding:18px">${lg?'لا توجد جزاءات هذا الشهر':'No penalties this month'}</td></tr>`;
+
+  const advRows = monthAdv.length ? monthAdv.map(a => {
+    const sc = a.status==='approved'?'#27ae60':a.status==='rejected'?'#C75B4A':'#f39c12';
+    const st = a.status==='approved'?(lg?'معتمدة':'Approved'):a.status==='rejected'?(lg?'مرفوضة':'Rejected'):(lg?'قيد المراجعة':'Pending');
+    const pct = emp.salary>0?Math.round((a.amount/emp.salary)*100):0;
+    return `<tr><td>${fmtDate(a.date)}</td><td style="font-weight:700;color:#E67E22">${fmt(a.amount)}</td><td style="text-align:center">${pct}%</td><td><span style="color:${sc};font-weight:600">${st}</span></td><td style="font-size:12px;color:var(--text-light)">${a.notes||'-'}</td></tr>`;
+  }).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--text-light);padding:18px">${lg?'لا توجد سلف هذا الشهر':'No advances this month'}</td></tr>`;
+
+  const excRows = monthExc.length ? monthExc.map(e => {
+    let sc = '#f39c12', st = lg?'قيد الانتظار':'Pending';
+    if(e.status==='approved') { sc='#27ae60'; st=lg?'معتمد':'Approved'; }
+    if(e.status==='rejected') { sc='#C75B4A'; st=lg?'مرفوض':'Rejected'; }
+    if(e.status==='reverted') { sc='#6C63FF'; st=lg?'تم التراجع':'Reverted'; }
+    const chain = (e.approvals||[]).map(a => {
+      let c = '#f39c12', lbl = lg?'قيد الانتظار':'Pending';
+      if(a.status==='approved'){ c='#27ae60'; lbl=lg?'موافق':'Approved'; }
+      if(a.status==='rejected'){ c='#C75B4A'; lbl=lg?'مرفوض':'Rejected'; }
+      return `<span style="font-size:11px">${a.level===1?(lg?'المدير':'Supervisor'):'HR'}: <span style="color:${c};font-weight:700">${lbl}</span></span>`;
+    }).join(' ');
+    return `<tr><td>${e.date?fmtDate(e.date):'-'}</td><td><span class="badge badge-blue">${exceptionTypeLabel(e.type)}</span></td><td style="font-size:12px;color:var(--text-light);max-width:180px">${e.reason||'-'}</td><td><span style="color:${sc};font-weight:700">${st}</span></td><td>${chain||'-'}</td></tr>`;
+  }).join('') : `<tr><td colspan="5" style="text-align:center;color:var(--text-light);padding:18px">${lg?'لا توجد استثناءات هذا الشهر':'No exceptions this month'}</td></tr>`;
+
+  const paidRows = paidSal.length ? paidSal.map(s => `<tr><td>${fmtDate(s.date)}</td><td style="font-weight:700;color:#27ae60">${fmt(s.amount)}</td><td style="font-size:12px;color:var(--text-light)">${s.notes||'-'}</td></tr>`).join('') : `<tr><td colspan="3" style="text-align:center;color:var(--text-light);padding:18px">${lg?'لم يتم دفع رواتب هذا الشهر':'No salary payments this month'}</td></tr>`;
+
+  h += secBox(`${lg?'سجلات الحضور':'Attendance Records'} (${recs.length})`, `<div class="table-wrap"><table style="min-width:0"><thead><tr><th>${lg?'التاريخ':'Date'}</th><th>${lg?'حضور':'In'}</th><th>${lg?'انصراف':'Out'}</th><th>${lg?'تأخير':'Late'}</th><th>${lg?'الحالة':'Status'}</th><th>${lg?'إذن':'Perm.'}</th><th>${lg?'المصدر':'Source'}</th></tr></thead><tbody>${attRows}</tbody></table></div>`);
+  h += secBox(`${lg?'الجزاءات':'Penalties'} (${monthPen.length})`, `<div class="table-wrap"><table style="min-width:0"><thead><tr><th>${lg?'المخالفة':'Violation'}</th><th>${lg?'الإجراء':'Action'}</th><th>${lg?'أيام':'Days'}</th><th>${lg?'التاريخ':'Date'}</th><th>${lg?'المبلغ':'Amount'}</th><th>${lg?'ملاحظات':'Notes'}</th></tr></thead><tbody>${penRows}</tbody></table></div>`);
+  h += secBox(`${lg?'السلف':'Advances'} (${monthAdv.length})`, `<div style="display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px">
+    <span style="font-size:12px;font-weight:700">${lg?'الإجمالي':'Total'}: <span style="color:#E67E22">${fmt(advTotal)}</span></span>
+    <span style="font-size:12px;font-weight:700">${lg?'معتمدة':'Approved'}: <span style="color:#27ae60">${fmt(advApproved)}</span></span>
+    <span style="font-size:12px;font-weight:700">${lg?'قيد المراجعة':'Pending'}: <span style="color:#f39c12">${fmt(advPending)}</span></span>
+  </div><div class="table-wrap"><table style="min-width:0"><thead><tr><th>${lg?'التاريخ':'Date'}</th><th>${lg?'المبلغ':'Amount'}</th><th>${lg?'% من الراتب':'% of Salary'}</th><th>${lg?'الحالة':'Status'}</th><th>${lg?'ملاحظات':'Notes'}</th></tr></thead><tbody>${advRows}</tbody></table></div>`);
+  h += secBox(`${lg?'الاستثناءات':'Exceptions'} (${monthExc.length})`, `<div class="table-wrap"><table style="min-width:0"><thead><tr><th>${lg?'التاريخ':'Date'}</th><th>${lg?'النوع':'Type'}</th><th>${lg?'السبب':'Reason'}</th><th>${lg?'الحالة':'Status'}</th><th>${lg?'سلسلة الموافقة':'Approval Chain'}</th></tr></thead><tbody>${excRows}</tbody></table></div>`);
+  h += secBox(`${lg?'الرواتب المدفوعة':'Paid Salaries'} (${paidSal.length})`, `<div class="table-wrap"><table style="min-width:0"><thead><tr><th>${lg?'التاريخ':'Date'}</th><th>${lg?'المبلغ':'Amount'}</th><th>${lg?'ملاحظات':'Notes'}</th></tr></thead><tbody>${paidRows}</tbody></table></div>`);
+
+  h += `<div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  return h;
+}
+
 
 function deleteEmpFile(empId, fileIndex) {
   if(!confirm(t('confirm_delete'))) return;
@@ -9359,7 +9572,7 @@ function renderPayrollSalaries(el) {
         <td style="text-align:center;color:${d.monthDeductionAmount > 0 ? '#C75B4A' : 'var(--text-light)'};font-weight:${d.monthDeductionAmount > 0 ? '700' : '400'}">${d.monthDeductionAmount > 0 ? '-' + fmt(d.monthDeductionAmount) : '-'}</td>
         <td style="font-weight:800;color:#27ae60">${fmt(d.netSalary)}</td>
         <td style="text-align:center">${d.monthPenalties.length > 0 ? '<span class="badge badge-red">' + d.monthPenalties.length + '</span>' : '<span style="color:var(--text-light)">0</span>'}</td>
-        <td>${canEdit() ? '<button class="btn btn-outline btn-sm" onclick="showPayrollDetail(\'' + d.emp.id + '\')" title="' + (lang==='ar'?'تفاصيل':'Details') + '"><i class="fas fa-eye"></i></button> <button class="btn btn-outline btn-sm" onclick="openPenaltyForm(\'' + d.emp.id + '\')" title="' + (lang==='ar'?'إضافة جزاء':'Add Penalty') + '"><i class="fas fa-gavel"></i></button>' : ''}</td>
+        <td>${'<button class="btn btn-outline btn-sm" onclick="showEmployeeProfile(\'' + d.emp.id + '\')" title="' + (lang==='ar'?'الملف الكامل للموظف':'Full Employee Profile') + '"><i class="fas fa-id-card"></i></button>' + (canEdit() ? '<button class="btn btn-outline btn-sm" onclick="showPayrollDetail(\'' + d.emp.id + '\')" title="' + (lang==='ar'?'تفاصيل':'Details') + '"><i class="fas fa-eye"></i></button> <button class="btn btn-outline btn-sm" onclick="openPenaltyForm(\'' + d.emp.id + '\')" title="' + (lang==='ar'?'إضافة جزاء':'Add Penalty') + '"><i class="fas fa-gavel"></i></button>' : '')}</td>
       </tr>`;
     });
 
@@ -9515,7 +9728,8 @@ function showPayrollDetail(empId) {
   const bonusAmount = Math.round(emp.salary * kpiBonus);
   const netSalary = Math.max(0, emp.salary + bonusAmount - monthDeductionAmount);
 
-  let html = `<h3>${lang==='ar'?'تفاصيل راتب':'Payroll Detail'}: ${emp.name}</h3>`;
+  let html = `<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button class="btn btn-outline btn-sm" onclick="showEmployeeProfile('${empId}','${currentMonth}')"><i class="fas fa-id-card"></i> ${lang==='ar'?'الملف الكامل':'Full Profile'}</button></div>`;
+  html += `<h3>${lang==='ar'?'تفاصيل راتب':'Payroll Detail'}: ${emp.name}</h3>`;
 
   html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin:16px 0">
     <div style="background:rgba(130,113,72,0.05);padding:14px;border-radius:8px;text-align:center">
@@ -12708,7 +12922,7 @@ function renderExceptionsTab(el) {
         if(a.status === 'rejected') { c = '#C75B4A'; lbl = lang==='ar'?'مرفوض':'Rejected'; }
         return `<div style="font-size:12px"><span style="color:var(--text-light)">${a.level === 1 ? (lang==='ar'?'المدير المباشر':'Supervisor') : (lang==='ar'?'HR':'HR')}:</span> <span style="color:${c};font-weight:700">${lbl}</span>${a.empName ? ' ('+a.empName+')' : ''}</div>`;
       }).join('');
-      let actions = '';
+      let actions = '<button class="btn btn-outline btn-sm" onclick="showEmployeeProfile(\'' + exc.empId + '\')" title="' + (lang==='ar'?'الملف الكامل للموظف':'Full Employee Profile') + '"><i class="fas fa-id-card"></i></button>';
       if(exc.status === 'pending' && canAct) {
         actions += `<button class="btn btn-success btn-sm" onclick="approveException('${exc.id}')"><i class="fas fa-check"></i> ${lang==='ar'?'موافقة':'Approve'}</button>
           <button class="btn btn-danger btn-sm" onclick="rejectException('${exc.id}')"><i class="fas fa-times"></i> ${lang==='ar'?'رفض':'Reject'}</button>`;
@@ -12925,7 +13139,7 @@ function renderAttendanceTab(el) {
       <td style="text-align:center"><span style="color:${kpiColor};font-weight:700">${d.finalKpi}%</span>${d.penaltyDeduction>0?'<div style="font-size:10px;color:#C75B4A">-'+Math.min(d.penaltyDeduction,100)+'%</div>':''}</td>
       <td style="text-align:center;color:${d.bonusAmount>0?'#27ae60':'var(--text-light)'};font-weight:${d.bonusAmount>0?'700':'400'}">${d.bonusAmount>0?'+'+fmt(d.bonusAmount):'-'}</td>
       <td style="font-weight:800;color:#27ae60">${fmt(d.netSalary)}</td>
-      <td><button class="btn btn-outline btn-sm" id="attPayDetailBtn-${rid}" onclick="toggleAttPayDetail('${rid}')"><i class="fas fa-chevron-down"></i></button></td>
+      <td><div style="display:flex;gap:4px;justify-content:center"><button class="btn btn-outline btn-sm" onclick="showEmployeeProfile('${d.emp.id}')" title="${lang==='ar'?'الملف الكامل للموظف':'Full Employee Profile'}"><i class="fas fa-id-card"></i></button><button class="btn btn-outline btn-sm" id="attPayDetailBtn-${rid}" onclick="toggleAttPayDetail('${rid}')"><i class="fas fa-chevron-down"></i></button></div></td>
     </tr>
     <tr id="attPayDetail-${rid}" style="display:none"><td colspan="13" style="padding:0">
       <div style="padding:14px 20px;background:rgba(130,113,72,.05)">
@@ -13124,12 +13338,12 @@ function renderAdvancesTab(el) {
   h += `<th>${lang==='ar'?'التاريخ':'Date'}</th>`;
   h += `<th>${lang==='ar'?'الحالة':'Status'}</th>`;
   h += `<th>${lang==='ar'?'ملاحظات':'Notes'}</th>`;
-  if(canEdit()) h += `<th></th>`;
+  h += `<th></th>`;
   h += `</tr></thead><tbody>`;
 
   const filteredAdvances = monthAdvances.filter(advFilter);
   if(filteredAdvances.length === 0) {
-    h += `<tr><td colspan="${canEdit()?10:9}"><div class="empty-state"><p>${lang==='ar'?'لا توجد سلف هذا الشهر':'No advances this month'}</p></div></td></tr>`;
+    h += `<tr><td colspan="10"><div class="empty-state"><p>${lang==='ar'?'لا توجد سلف هذا الشهر':'No advances this month'}</p></div></td></tr>`;
   } else {
     filteredAdvances.forEach(a => {
       const emp = employees.find(e => e.id === a.empId);
@@ -13183,9 +13397,7 @@ function renderAdvancesTab(el) {
         <td>${fmtDate(a.date)}</td>
         <td><span style="color:${statusColor};font-weight:600">${statusText}</span></td>
         <td style="font-size:12px;color:var(--text-light)">${a.notes||'-'}</td>`;
-      if(canEdit()) {
-        h += `<td>${a.status==='pending'?`<button class="btn btn-outline btn-sm" onclick="approveAdvance('${a.id}')" style="color:#27ae60;border-color:#27ae60">${lang==='ar'?'اعتماد':'Approve'}</button> <button class="btn btn-outline btn-sm" onclick="rejectAdvance('${a.id}')" style="color:#C75B4A;border-color:#C75B4A">${lang==='ar'?'رفض':'Reject'}</button>`:''}</td>`;
-      }
+      h += `<td><div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center"><button class="btn btn-outline btn-sm" onclick="showEmployeeProfile('${emp.id}')" title="${lang==='ar'?'الملف الكامل للموظف':'Full Employee Profile'}"><i class="fas fa-id-card"></i></button>${a.status==='pending'&&canEdit()?`<button class="btn btn-outline btn-sm" onclick="approveAdvance('${a.id}')" style="color:#27ae60;border-color:#27ae60">${lang==='ar'?'اعتماد':'Approve'}</button> <button class="btn btn-outline btn-sm" onclick="rejectAdvance('${a.id}')" style="color:#C75B4A;border-color:#C75B4A">${lang==='ar'?'رفض':'Reject'}</button>`:''}</div></td>`;
       h += `</tr>`;
     });
   }
@@ -13224,7 +13436,7 @@ function openAdvanceForm(empId) {
     <label>${lang==='ar'?'الموظف':'Employee'}</label>
     <select id="advEmpId"><option value="">${lang==='ar'?'اختر الموظف':'Select employee'}</option>`;
   employees.forEach(e => {
-    html += `<option value="${e.id}">${e.name} - ${fmt(e.salary)}</option>`;
+    html += `<option value="${e.id}" ${empId===e.id?'selected':''}>${e.name} - ${fmt(e.salary)}</option>`;
   });
   html += `</select></div>`;
 
