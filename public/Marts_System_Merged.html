@@ -4368,7 +4368,7 @@ function dashShowUnits() {
 function dashShowHotClients() {
   const lg=lang==='ar';
   const clients=STORAGE.get('crm_clients',[]);
-  const hot=(clients||[]).filter(c=>(c.stage||'fresh_leads')==='hot_cases');
+  const hot=(clients||[]).filter(c=>((c&&c.stage)||'fresh_leads')==='hot_cases');
   const rows=hot.map(c=>[c.name||'-',c.phone||c.mobile||'-',c.stage||'-']);
   showSummaryList(lg?'العملاء الساخنون - القائمة':'Hot Leads - List',[lg?'الاسم':'Name',lg?'الهاتف':'Phone',lg?'المرحلة':'Stage'],rows);
 }
@@ -4515,7 +4515,7 @@ function renderDashboard(el) {
   const pendingRes=reservations.filter(r=>r.status==='pending').length;
   const todayAttendance=STORAGE.get('attendanceLog',[]).filter(a=>a.date===now.toDateString()&&a.clockIn).length;
   const todayPresent=employees.filter(e=>e.status==='active').length;
-  const crmHot=clients.filter?clients.filter(c=>(c.stage||'fresh_leads')==='hot_cases').length:0;
+  const crmHot=clients.filter?clients.filter(c=>((c&&c.stage)||'fresh_leads')==='hot_cases').length:0;
 
   el.innerHTML=`
   <div class="topbar"><h1><i class="fas fa-tachometer-alt"></i> ${lg?'لوحة التحكم الرئيسية':'Dashboard'}</h1>
@@ -21889,7 +21889,7 @@ function renderCrmWorkspaceView(el){
             <span class="ws-row-desc" style="margin-right:8px">${c.preferredProject || ''}</span>
           </div>
           <div class="ws-row-badges">
-            <button class="ws-pill ${c.stage === 'broker' ? 'broker' : c.stage === 'hot_cases' ? 'hot' : c.stage === 'follow_up' ? 'warm' : 'new'}"><i class="fas fa-chevron-down"></i> ${t('crm_stage_'+(c.stage||'fresh_leads'))}</button>
+            <button class="ws-pill ${c.stage === 'broker' ? 'broker' : c.stage === 'hot_cases' ? 'hot' : c.stage === 'follow_up' ? 'warm' : 'new'}"><i class="fas fa-chevron-down"></i> ${t('crm_stage_'+((c&&c.stage)||'fresh_leads'))}</button>
             <button class="ws-pill ${parseInt(c.budget) > 5000000 ? 'hot' : 'warm'}"><i class="fas fa-chevron-down"></i> ${parseInt(c.budget) > 5000000 ? (lang==='ar'?'ساخن':'Hot') : (lang==='ar'?'دافئ':'Warm')}</button>
           </div>
           <div class="ws-row-bottom">
@@ -23003,7 +23003,7 @@ function wsOpenMergeWizard(){
   const lg = lang==='ar';
   const clients = getCrmClients();
   const selected = ids.map(id=>clients.find(c=>c.id===id)).filter(Boolean);
-  const mainOpts = selected.map(c=>'<option value="'+c.id+'">'+c.name+' ('+(c.phone||'')+') - '+t('crm_stage_'+(c.stage||'fresh_leads'))+'</option>').join('');
+  const mainOpts = selected.map(c=>'<option value="'+c.id+'">'+c.name+' ('+(c.phone||'')+') - '+t('crm_stage_'+((c&&c.stage)||'fresh_leads'))+'</option>').join('');
   const modal = document.getElementById('modalContainer');
   modal.innerHTML = '<h3><i class="fas fa-code-branch" style="color:#84CC16"></i> '+lg?'دمج '+selected.length+' عملاء':'Merge '+selected.length+' clients'+'</h3>'
     +'<div style="background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.3);border-radius:8px;padding:10px 14px;margin:12px 0;font-size:12px;color:#EF4444;display:flex;align-items:center;gap:8px">'
@@ -23167,7 +23167,7 @@ function wsExport(type){
     let csv = '\uFEFF'+(lg?'الاسم,الهاتف,البريد,المصدر,المرحلة,الحالة,الميزانية,المسند إليه,المشروع,التقييم,تاريخ الإنشاء':'Name,Phone,Email,Source,Stage,Status,Budget,Assigned,Project,Rating,Created')+'\n';
     data.forEach(c=>{
       const {rating}=calculateLeadScore(c);
-      csv+=`"${c.name||''}","${c.phone||''}","${c.email||''}","${getCrmSourceLabel(c.source)}","${t('crm_stage_'+(c.stage||'fresh_leads'))}","${t('crm_status_'+c.status)}","${c.budget||0}","${c.assignedUser?getEmpName(c.assignedUser):''}","${c.preferredProject||''}","${rating}","${c.date||''}"\n`;
+      csv+=`"${c.name||''}","${c.phone||''}","${c.email||''}","${getCrmSourceLabel(c.source)}","${t('crm_stage_'+((c&&c.stage)||'fresh_leads'))}","${t('crm_status_'+c.status)}","${c.budget||0}","${c.assignedUser?getEmpName(c.assignedUser):''}","${c.preferredProject||''}","${rating}","${c.date||''}"\n`;
     });
     const blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
     const url=URL.createObjectURL(blob);
@@ -23214,7 +23214,7 @@ function wsExport(type){
   } else if(type==='excel'){
     let rows = data.map(c=>{
       const {rating}=calculateLeadScore(c);
-      return [c.name||'',c.phone||'',c.email||'',getCrmSourceLabel(c.source),t('crm_stage_'+(c.stage||'fresh_leads')),t('crm_status_'+c.status),c.budget||0,c.assignedUser?getEmpName(c.assignedUser):'',c.preferredProject||'',rating,c.date||''];
+      return [c.name||'',c.phone||'',c.email||'',getCrmSourceLabel(c.source),t('crm_stage_'+((c&&c.stage)||'fresh_leads')),t('crm_status_'+c.status),c.budget||0,c.assignedUser?getEmpName(c.assignedUser):'',c.preferredProject||'',rating,c.date||''];
     });
     let csv='\uFEFF"Name","Phone","Email","Source","Stage","Status","Budget","Assigned","Project","Rating","Created"\n';
     rows.forEach(r=>{csv+=r.map(v=>'"'+String(v).replace(/"/g,'""')+'"').join(',')+'\n';});
@@ -23620,7 +23620,9 @@ function renderCrmStats(){
   const hotCases=clients.filter(c=>(c.stage||'')==='hot_cases').length;
   const doneDeals=clients.filter(c=>(c.stage||'')==='done_deal').length;
   const scheduled=clients.filter(c=>(c.stage||'')==='scheduled_meeting'||(c.stage||'')==='rotation_scheduled').length;
-  document.getElementById('crmStats').innerHTML=`
+  const _statsEl=document.getElementById('crmStats');
+  if(!_statsEl) return;
+  _statsEl.innerHTML=`
     <div class="stats-grid">
       <div class="stat-card" style="cursor:pointer" onclick="crmShowList('all')" title="${lang==='ar'?'اضغط لعرض قائمة العملاء':'Click to show all clients'}"><div class="stat-icon blue"><i class="fas fa-users"></i></div><div class="stat-info"><h4>${total}</h4><p>${t('crm_totalClients')}</p></div></div>
       <div class="stat-card" style="cursor:pointer" onclick="crmShowList('new')" title="${lang==='ar'?'اضغط لعرض العملاء الجدد':'Click to show new clients'}"><div class="stat-icon yellow"><i class="fas fa-user-plus"></i></div><div class="stat-info"><h4>${newC}</h4><p>${t('crm_newClients')}</p></div></div>
@@ -23636,7 +23638,7 @@ function renderCrmStats(){
 function switchCrmTab(tab,btn){
   document.querySelectorAll('.crm-tab').forEach(t=>t.classList.remove('active'));
   if(btn)btn.classList.add('active');
-  const c=document.getElementById('crmContent');
+  const c=document.getElementById('crmViewContent');
   if(tab!=='list') _crmTeamFilterUser='';
   if(tab==='list') renderCrmList(c);
   else if(tab==='pipeline') renderCrmPipeline(c);
@@ -23677,7 +23679,7 @@ function filterCrmList(){
   if(search) clients=clients.filter(c=>(c.name||'').toLowerCase().includes(search)||(c.phone||'').includes(search)||(c.email||'').toLowerCase().includes(search)||(c.nationalId||'').includes(search));
   if(source) clients=clients.filter(c=>c.source===source);
   if(status) clients=clients.filter(c=>c.status===status);
-  if(stage) clients=clients.filter(c=>(c.stage||'fresh_leads')===stage);
+  if(stage) clients=clients.filter(c=>((c&&c.stage)||'fresh_leads')===stage);
   const countEl=document.getElementById('crmFilterCount');
   if(countEl) countEl.textContent=clients.length+' '+t('crm_filterResults');
   if(!clients.length){document.getElementById('crmTable').innerHTML='<div class="empty-state"><p>'+t('crm_noResults')+'</p></div>';return;}
@@ -23693,7 +23695,7 @@ function filterCrmList(){
       <td>${c.phone||'-'}</td>
       <td><span class="badge badge-blue">${getCrmSourceLabel(c.source)}</span></td>
       <td><span class="crm-status-badge ${getCrmStatusClass(c.status)}">${getCrmStatusLabel(c.status)}</span></td>
-      <td><span class="crm-stage-badge ${getCrmStageClass(c.stage||'fresh_leads')}">${getCrmStageLabel(c.stage||'fresh_leads')}</span></td>
+      <td><span class="crm-stage-badge ${getCrmStageClass((c&&c.stage)||'fresh_leads')}">${getCrmStageLabel((c&&c.stage)||'fresh_leads')}</span></td>
       <td>${fmt(c.budget)}</td>
       <td>${assigneeUser?'<span class="badge badge-purple" style="font-size:11px">'+(assigneeUser.fullName||assigneeUser.username)+'</span>':'-'}</td>
       <td>${lastContact}</td>
@@ -23754,7 +23756,7 @@ function dropCrmCard(e,newStatus){
     saveCrmClients(clients);
     addCrmActivity(c.id,'status_changed',t('crm_status_'+oldStatus)+' → '+t('crm_status_'+newStatus));
     renderCrmStats();
-    renderCrmPipeline(document.getElementById('crmContent'));
+    renderCrmPipeline(document.getElementById('crmViewContent'));
   }
   _dragCrmClientId=null;
 }
@@ -23882,7 +23884,7 @@ function renderCrmTeam(el){
 
 function filterTeamClient(username){
   _crmTeamFilterUser=username;
-  const el=document.getElementById('crmContent');
+  const el=document.getElementById('crmViewContent');
   renderCrmList(el);
 }
 
@@ -24052,7 +24054,7 @@ function openCrmClientForm(clientId){
   const empOpts=employees.map(e=>`<option value="${e.id}" ${c&&c.assignedTo===e.id?'selected':''}>${e.name}</option>`).join('');
   const sourceOpts=CRM_SOURCES.map(s=>`<option value="${s}" ${c&&c.source===s?'selected':''}>${t('crm_source_'+s)}</option>`).join('');
   const statusOpts=CRM_STATUSES.map(s=>`<option value="${s}" ${c&&c.status===s?'selected':''}>${t('crm_status_'+s)}</option>`).join('');
-  const stageOpts=CRM_STAGES.map(s=>`<option value="${s}" ${(c.stage||'fresh_leads')===s?'selected':''}>${t('crm_stage_'+s)}</option>`).join('');
+  const stageOpts=CRM_STAGES.map(s=>`<option value="${s}" ${((c&&c.stage)||'fresh_leads')===s?'selected':''}>${t('crm_stage_'+s)}</option>`).join('');
   const projects=STORAGE.get('sales',[]).map(s=>s.project).filter(Boolean);
   const uniqueProjects=[...new Set(projects)];
   const projOpts=uniqueProjects.map(p=>`<option value="${p}" ${c&&c.preferredProject===p?'selected':''}>${p}</option>`).join('');
@@ -24124,7 +24126,7 @@ function saveCrmClient(clientId){
     nextFollowUp:document.getElementById('crm_nextFollowUp').value,
     notes:document.getElementById('crm_notes').value.trim(),
     campaignName:document.getElementById('crm_campaignName')?.value?.trim()||'',
-    attachments:_pendingAttachments.length>0?_pendingAttachments:undefined
+    attachments:_pendingAttachments.length>0?_pendingAttachments:[]
   };
   if(clientId){
     const idx=clients.findIndex(c=>c.id===clientId);
@@ -24296,7 +24298,7 @@ function openCrmClientDetail(clientId){
       <div class="crm-prof-head-info">
         <div class="crm-prof-title">${c.name} <span class="crm-prof-id">#${c.id || ''}</span></div>
         <div class="crm-prof-sub">
-          <span class="crm-stage-badge ${getCrmStageClass(c.stage||'fresh_leads')}">${getCrmStageLabel(c.stage||'fresh_leads')}</span>
+          <span class="crm-stage-badge ${getCrmStageClass((c&&c.stage)||'fresh_leads')}">${getCrmStageLabel((c&&c.stage)||'fresh_leads')}</span>
           <span class="crm-status-badge ${getCrmStatusClass(c.status)}">${getCrmStatusLabel(c.status)}</span>
           <span class="badge badge-blue">${getCrmSourceLabel(c.source)}</span>
           ${c.budget ? `<span class="crm-prof-sub-item"><i class="fas fa-coins"></i> ${fmt(c.budget)}</span>` : ''}
@@ -24461,7 +24463,7 @@ function crmProfileJourneyHtml(c){
     </div>`).join('') : '<div class="empty-state"><p>'+(lang==='ar'?'لا توجد رحلة بعد — قم بتغيير المرحلة':'No journey yet — change the stage')+'</p></div>';
   const change = canEditCrm() ? `
     <div class="crm-prof-addbox" style="margin-top:12px">
-      <select id="crmJourneyStage" style="flex:1;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)">${CRM_STAGES.map(s => `<option value="${s}" ${(c.stage||'fresh_leads')===s?'selected':''}> ${t('crm_stage_'+s)}</option>`).join('')}</select>
+      <select id="crmJourneyStage" style="flex:1;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)">${CRM_STAGES.map(s => `<option value="${s}" ${((c&&c.stage)||'fresh_leads')===s?'selected':''}> ${t('crm_stage_'+s)}</option>`).join('')}</select>
       <button class="btn btn-primary btn-sm" onclick="crmSaveJourney('${c.id}')"><i class="fas fa-route"></i> ${lang==='ar'?'تسجيل انتقال':'Record Transition'}</button>
     </div>` : '';
   return `<div class="crm-prof-journey">${rows}</div>${change}`;
@@ -26697,7 +26699,7 @@ function renderGovOverview(container) {
     ${sodIssues.length > 0 ? `<div class="gov-alert gov-alert-warning"><i class="fas fa-exclamation-triangle"></i><div><strong>${lg?'مشكلة فصل مهام':'SOD Issue'}:</strong> ${sodIssues.length} ${lg?'مستخدم لديهم صلاحية الإضافة والحذف معاً':'users have both add and delete permissions'}</div></div>` : `<div class="gov-alert gov-alert-success"><i class="fas fa-check-circle"></i><div>${t('gov_audit_noIssues')}</div></div>`}
     ${overdueCOI.length > 0 ? `<div class="gov-alert gov-alert-danger"><i class="fas fa-exclamation-circle"></i><div><strong>${t('gov_audit_overdue')}:</strong> ${overdueCOI.length} ${lg?'إقرارات متأخرة':'declarations overdue'}</div></div>` : ''}
     <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
-      <button class="btn btn-primary btn-sm" onclick="switchGovTab(5);renderGovAuditSettingsTab(document.getElementById('govTabContent'))"><i class="fas fa-chart-bar"></i> ${lg?'عرض تقرير التدقيق':'View Audit Report'}</button>
+      <button class="btn btn-primary btn-sm" onclick="switchGovTab(5);renderGovSettingsTab(document.getElementById('govTabContent'))"><i class="fas fa-chart-bar"></i> ${lg?'عرض تقرير التدقيق':'View Audit Report'}</button>
       <button class="btn btn-outline btn-sm" onclick="exportGovernanceReport()"><i class="fas fa-download"></i> ${t('gov_exportReport')}</button>
     </div>
   </div>`;
@@ -29863,7 +29865,7 @@ function renderDealsPipeline(){
   </div>
   <div class="pipeline-board" id="pipelineBoard">
     ${PIPELINE_STAGES.map(stage=>{
-      const stageClients=clients.filter(c=>(c.stage||'fresh_leads')===stage);
+      const stageClients=clients.filter(c=>((c&&c.stage)||'fresh_leads')===stage);
       const stageVal=stageClients.reduce((s,c)=>s+(parseFloat(c.budget)||0),0);
       const color=PIPELINE_STAGE_COLORS[stage]||'#6B7280';
       return `<div class="pipeline-column" style="--stage-color:${color}" data-stage="${stage}">
@@ -33749,7 +33751,7 @@ function wsApplyFiltersAdvanced(){
 
     if(grids[0]){
       const selects=grids[0].querySelectorAll('select');
-      if(selects[0]?.value && (c.stage||'fresh_leads')!==selects[0].value) show=false;
+      if(selects[0]?.value && ((c&&c.stage)||'fresh_leads')!==selects[0].value) show=false;
       if(selects[1]?.value && c.assignedUser!==selects[1].value) show=false;
       if(selects[3]?.value && c.source!==selects[3].value) show=false;
     }
