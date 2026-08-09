@@ -17005,8 +17005,10 @@ function renderAnalysis() {
     ltlItems.forEach(a => { const pct = taBase>0?((a.credit-a.debit)/taBase*100):0; h += `<tr><td style="padding:4px 32px;font-size:0.85em">${lg?a.name_ar:a.name_en}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.85em">${fmt(a.credit-a.debit)}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.85em">${pct.toFixed(1)}%</td></tr>`; });
     h += `<tr style="font-weight:700;color:#827148"><td style="padding:6px 16px">${lg?'حقوق الملكية':'Equity'}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${fmt(equity)}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${taBase>0?(equity/taBase*100).toFixed(1):'0.0'}%</td></tr>`;
     eqItems.forEach(a => { const pct = taBase>0?((a.credit-a.debit)/taBase*100):0; h += `<tr><td style="padding:4px 32px;font-size:0.85em">${lg?a.name_ar:a.name_en}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.85em">${fmt(a.credit-a.debit)}</td><td style="direction:ltr;text-align:right;padding:4px 8px;font-size:0.85em">${pct.toFixed(1)}%</td></tr>`; });
-    const tlePct = taBase>0?((cl+ltl+equity)/taBase*100):0;
-    h += `<tr style="font-weight:700;border-top:1px solid var(--border);background:rgba(130,113,72,0.05)"><td style="padding:6px 16px">${lg?'إجمالي الخصوم وحقوق الملكية':'Total L+E'}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${fmt(cl+ltl+equity)}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${tlePct.toFixed(1)}%</td></tr>`;
+    h += `<tr style="color:#827148"><td style="padding:6px 16px">${lg?'الأرباح المحتجزة':'Retained Earnings'}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${fmt(netIncome)}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${taBase>0?(netIncome/taBase*100).toFixed(1):'0.0'}%</td></tr>`;
+    const retainedEarnings = netIncome;
+    const tlePct = taBase>0?((cl+ltl+equity+retainedEarnings)/taBase*100):0;
+    h += `<tr style="font-weight:700;border-top:1px solid var(--border);background:rgba(130,113,72,0.05)"><td style="padding:6px 16px">${lg?'إجمالي الخصوم وحقوق الملكية':'Total L+E'}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${fmt(cl+ltl+equity+retainedEarnings)}</td><td style="direction:ltr;text-align:right;padding:6px 8px">${tlePct.toFixed(1)}%</td></tr>`;
     h += '</table></div></div></div>';
 
     // --- Horizontal Analysis ---
