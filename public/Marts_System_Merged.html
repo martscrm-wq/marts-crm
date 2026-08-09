@@ -16678,7 +16678,7 @@ function renderIncomeStatement() {
   const balances = getAccountBalances();
   const codes = Object.keys(balances).sort();
   let totalRevenue = 0, totalContraRevenue = 0, totalCOGS = 0, totalOperatingExp = 0;
-  const revenueItems = [], contraRevenueItems = [], cogsItems = [], operatingExpItems = [];
+  const revenueItems = [], contraRevenueItems = [], cogsItems = [], operatingExpItems = [], caItems = [], faItems = [], clItems = [], ltlItems = [], eqItems = [];
   codes.forEach(code => {
     const b = balances[code];
     if(b.debit === 0 && b.credit === 0) return;
@@ -16849,27 +16849,30 @@ function renderAnalysis() {
   let totalCurrentAssets = 0, totalFixedAssets = 0, totalCurrentLiab = 0, totalLongTermLiab = 0;
   let totalRevenue = 0, totalContraRevenue = 0, totalCOGS = 0, totalOperatingExp = 0;
   let totalEquity = 0, actualCash = 0, actualInventory = 0;
-  const revenueItems = [], contraRevenueItems = [], cogsItems = [], operatingExpItems = [];
+  const revenueItems = [], contraRevenueItems = [], cogsItems = [], operatingExpItems = [], caItems = [], faItems = [], clItems = [], ltlItems = [], eqItems = [];
   Object.values(balances).forEach(b => {
     if(b.debit === 0 && b.credit === 0) return;
     const net = b.debit - b.credit;
     if(b.type === 'asset' && (b.code.startsWith('11') || b.code === '1')) {
       totalCurrentAssets += net;
+      caItems.push(b);
       if(b.code === '1110' || b.code === '1120') actualCash += b.debit - b.credit;
       if(b.code === '1160') actualInventory += b.debit - b.credit;
     }
-    else if(b.type === 'asset') totalFixedAssets += net;
-    else if(b.type === 'contra_asset') totalFixedAssets += net;
-    else if(b.type === 'liability' && (b.code.startsWith('21') || b.code === '2')) totalCurrentLiab += b.credit - b.debit;
-    else if(b.type === 'liability') totalLongTermLiab += b.credit - b.debit;
+    else if(b.type === 'asset') { totalFixedAssets += net; faItems.push(b); }
+    else if(b.type === 'contra_asset') { totalFixedAssets += net; faItems.push(b); }
+    else if(b.type === 'liability' && (b.code.startsWith('21') || b.code === '2')) { totalCurrentLiab += b.credit - b.debit; clItems.push(b); }
+    else if(b.type === 'liability') { totalLongTermLiab += b.credit - b.debit; ltlItems.push(b); }
     else if(b.type === 'revenue' && b.credit > 0) { totalRevenue += b.credit; revenueItems.push(b); }
     else if(b.type === 'contra_revenue' && b.debit > 0) { totalContraRevenue += b.debit; contraRevenueItems.push(b); }
     else if(b.type === 'expense' && b.debit > 0) {
       if(b.code.startsWith('51')) { totalCOGS += b.debit; cogsItems.push(b); }
       else { totalOperatingExp += b.debit; operatingExpItems.push(b); }
     }
-    else if(b.type === 'equity') totalEquity += b.credit - b.debit;
+    else if(b.type === 'equity') { totalEquity += b.credit - b.debit; eqItems.push(b); }
   });
+  const ca = totalCurrentAssets, fa = totalFixedAssets, cl = totalCurrentLiab, ltl = totalLongTermLiab, equity = totalEquity, totalLE = cl + ltl + equity;
+  const coa = STORAGE.get('chartOfAccounts', []);
   const totalAssets = totalCurrentAssets + totalFixedAssets;
   const totalLiab = totalCurrentLiab + totalLongTermLiab;
   const netRevenue = totalRevenue - totalContraRevenue;
