@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
@@ -31,6 +31,7 @@
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--primary:#827148;--primary-dark:#6B5C3A;--primary-light:#A5AF79;--accent:#E8A07C;--bg:#E9EBE7;--card:#FFFFFF;--card-hover:#FFF5E6;--text:#3D3225;--text-light:#7A6E5D;--border:#E8DFD0;--success:#A5AF79;--warning:#E8A07C;--danger:#C75B4A;--sidebar-w:270px;--shadow:0 4px 24px rgba(130,113,72,.08);--shadow-lg:0 8px 40px rgba(130,113,72,.12);--radius:16px;--radius-sm:12px;--gradient-blue:linear-gradient(135deg,#827148,#A5AF79);--gradient-green:linear-gradient(135deg,#6B8C5A,#A5AF79);--gradient-purple:linear-gradient(135deg,#827148,#E8A07C);--gradient-orange:linear-gradient(135deg,#E8A07C,#E9EBE7);--gradient-pink:linear-gradient(135deg,#C75B4A,#E8A07C);--gradient-dark:linear-gradient(135deg,#E9EBE7,#FFFFFF)}
 body{font-family:'Segoe UI',Tahoma,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-weight:700;overflow-x:hidden}
+@media(max-width:1024px){html,body,.app{overflow-x:hidden}main{max-width:100%;overflow-x:hidden}}
 .app-watermark{position:fixed;inset:0;z-index:150;pointer-events:none;background:url('LogoMarts_watermark.png?v=1') no-repeat center center;background-size:min(520px,70vw) auto}
 h1,h2,h3,h4,h5,h6,.login-box h2,.topbar h1,.card h3,.stat-card h3{font-family:'Transcity',sans-serif}
 a{text-decoration:none;color:inherit}button{cursor:pointer;border:none;font-family:inherit;touch-action:manipulation;-webkit-tap-highlight-color:transparent}
@@ -2920,28 +2921,45 @@ const STORAGE = {
     }
     if (_fbReady && _fbDb && k !== 'lang' && k !== 'currentUser' && !k.startsWith('_')) {
       const userLabel = currentUser ? (currentUser.fullName || currentUser.username) : 'system';
-      if (Array.isArray(v) && v.length > 500) {
-        const totalChunks = Math.ceil(v.length / 500);
-        (async () => {
-          try {
-            for (let c = 0; c < totalChunks; c++) {
-              await _fbDb.doc('app_data/' + k + '__chunk' + c).set({
-                value: v.slice(c * 500, (c + 1) * 500), chunkIndex: c, totalChunks: totalChunks,
-                _chunkKey: k, timestamp: timestamp, updatedBy: userLabel
+      const _doCloudWrite = () => {
+        if (Array.isArray(v) && v.length > 500) {
+          const totalChunks = Math.ceil(v.length / 500);
+          (async () => {
+            try {
+              for (let c = 0; c < totalChunks; c++) {
+                await _fbDb.doc('app_data/' + k + '__chunk' + c).set({
+                  value: v.slice(c * 500, (c + 1) * 500), chunkIndex: c, totalChunks: totalChunks,
+                  _chunkKey: k, timestamp: timestamp, updatedBy: userLabel
+                }, { merge: true });
+              }
+              await _fbDb.doc('app_data/' + k).set({
+                value: v.length, totalChunks: totalChunks, _isChunked: true,
+                timestamp: timestamp, updatedBy: userLabel
               }, { merge: true });
-            }
-            await _fbDb.doc('app_data/' + k).set({
-              value: v.length, totalChunks: totalChunks, _isChunked: true,
-              timestamp: timestamp, updatedBy: userLabel
-            }, { merge: true });
-          } catch(e) { console.warn('[CloudStorage] Chunk write failed:', k, e.message); }
-        })();
+            } catch(e) { console.warn('[CloudStorage] Chunk write failed:', k, e.message); }
+          })();
+        } else {
+          _fbDb.doc('app_data/' + k).set({
+            value: v, timestamp: timestamp, updatedBy: userLabel
+          }, { merge: true }).catch(e => console.warn('[CloudStorage] Write failed:', k, e.message));
+        }
+      };
+      // ===== DATA SAFETY GUARD v3.0.1: never push an empty array over existing cloud data =====
+      if (Array.isArray(v) && v.length === 0) {
+        _fbDb.doc('app_data/' + k).get().then(snap => {
+          const cloudVal = snap.exists ? snap.data().value : null;
+          const cloudHasData = Array.isArray(cloudVal) && cloudVal.length > 0;
+          if (cloudHasData) {
+            console.warn('[DataGuard] BLOCKED empty-overwrite for "' + k + '" (cloud has ' + cloudVal.length + ' records). Cloud preserved, local kept.');
+            try { ActivityLog.log('danger', 'data_guard_blocked', { key: k, cloudRecords: cloudVal.length }); } catch(e) {}
+            return;
+          }
+          _doCloudWrite();
+        }).catch(() => _doCloudWrite());
       } else {
-        _fbDb.doc('app_data/' + k).set({
-          value: v, timestamp: timestamp, updatedBy: userLabel
-        }, { merge: true }).catch(e => console.warn('[CloudStorage] Write failed:', k, e.message));
+        _doCloudWrite();
       }
-    }
+        }
     if (k !== 'lang' && k !== 'currentUser' && k !== '_pendingSync' && !k.startsWith('_ts_') && !k.startsWith('_pendingSync') && k !== 'activityLogs' && _old !== JSON.stringify(v)) {
       ActivityLog.log('data_update', k, { keys: v && typeof v === 'object' ? (Array.isArray(v) ? v.length + ' items' : Object.keys(v).join(',')) : typeof v });
     }
@@ -4016,6 +4034,7 @@ function initData() {
     });
     if(changed) safeStorage.set('users', JSON.stringify(users));
   }
+  // SAFETY v3.0.1: migration MUST NEVER delete/clear any data key. It only sets a flag.
   if(!safeStorage.get('_migration_v3_cleared')){
     safeStorage.set('_migration_v3_cleared','1');
     console.log('[Migration v3] Flag set � destructive clear removed to protect cloud data');
@@ -6158,12 +6177,7 @@ function routeAttendanceToExpenses(month) {
 
   employees.filter(e => e.status === 'active').forEach(emp => {
     const empPenalties = penalties.filter(p => p.empId === emp.id && !p.exempted);
-    let monthDeductionDays = 0;
-    empPenalties.forEach(p => {
-      const dedAction = DEDUCTION_RULES.find(r => r.action === p.action);
-      if(dedAction) monthDeductionDays += dedAction.deductionDays;
-      else { const match = String(p.action).match(/(\d+)/); if(match) monthDeductionDays += parseInt(match[1]); }
-    });
+    let monthDeductionDays = calcMonthDeductionDays(emp, month, {approvedOnly: true});
     const dailySalary = emp.salary / 30;
     const monthDeductionAmount = Math.round(monthDeductionDays * dailySalary);
     const netSalary = Math.max(0, emp.salary - monthDeductionAmount);
@@ -8913,9 +8927,14 @@ const DEDUCTION_RULES = [
 
 function calcLateMinutes(checkInTime) {
   if(!checkInTime) return 0;
-  const parts = String(checkInTime).split(':');
-  const h = parseInt(parts[0]) || 0;
-  const m = parseInt(parts[1]) || 0;
+  const raw = String(checkInTime).trim();
+  const timeMatch = raw.match(/(\d{1,2}):(\d{2})\s*(AM|PM|ص|م)?/i);
+  if(!timeMatch) return 0;
+  let h = parseInt(timeMatch[1]);
+  const m = parseInt(timeMatch[2]);
+  const meridian = (timeMatch[3] || '').toUpperCase();
+  if(meridian === 'PM' && h !== 12) h += 12;
+  if(meridian === 'AM' && h === 12) h = 0;
   const arrivalMin = h * 60 + m;
   const officialMin = ATTENDANCE_START_HOUR * 60 + ATTENDANCE_START_MIN;
   return Math.max(0, arrivalMin - officialMin);
@@ -8926,6 +8945,60 @@ function getLateDeduction(lateMinutes) {
     if(lateMinutes <= rule.maxMinutes) return rule;
   }
   return DEDUCTION_RULES[DEDUCTION_RULES.length - 1];
+}
+
+const DEDUCTION_ACTION_DAYS = {
+  'مسموح': 0,
+  'مسموح لآخر الشهر': 0,
+  'خصم ربع يوم': 0.25,
+  'خصم نصف يوم': 0.5,
+  'خصم يوم كامل': 1,
+  'خصم يومين': 2,
+  'خصم 3 أيام': 3,
+  'خصم 5 أيام': 5,
+  'لفت نظر': 0,
+  'إنذار كتابي': 0,
+  'إنذار': 0,
+  'فصل': 0
+};
+
+function penaltyDeductionDays(penalties) {
+  let days = 0;
+  penalties.forEach(p => {
+    const dedAction = DEDUCTION_RULES.find(r => r.action === p.action);
+    if(dedAction) days += dedAction.deductionDays;
+    else if(DEDUCTION_ACTION_DAYS[p.action] !== undefined) days += DEDUCTION_ACTION_DAYS[p.action];
+    else { const m = String(p.action).match(/(\d+)/); if(m) days += parseInt(m[1]); }
+  });
+  return days;
+}
+
+function calcMonthDeductionDays(emp, month, opts) {
+  opts = opts || {};
+  const attendance = STORAGE.get('attendance', []);
+  const penalties = STORAGE.get('employeePenalties', []);
+  const recs = attendance.filter(a => a.month === month && ((a.empId && a.empId === emp.id) || (!a.empId && a.empName === emp.name)) && (!opts.approvedOnly || a.approvalStatus === 'approved'));
+  const empPenalties = penalties.filter(p => p.empId === emp.id && !p.exempted && p.date && p.date.startsWith(month) && (!opts.approvedOnly || p.approvalStatus === 'approved'));
+  let days = 0;
+  if(recs.length > 0) {
+    recs.forEach(a => {
+      const isAbsent = String(a.absent).toLowerCase() === 'true' || parseInt(a.absenceDays) > 0;
+      if(isAbsent) {
+        const excused = a.excusedAbsence || a.excused || a.excusedOther;
+        if(!excused) days += (parseInt(a.absenceDays) > 0 ? parseInt(a.absenceDays) : 1);
+        return;
+      }
+      if(a.checkIn) {
+        const lateMin = calcLateMinutes(a.checkIn);
+        const excLate = a.excusedLate || a.excused || a.excusedOther;
+        if(lateMin > 0 && !excLate) days += getLateDeduction(lateMin).deductionDays;
+      }
+    });
+    days += penaltyDeductionDays(empPenalties.filter(p => p.issuedBy !== 'system_auto'));
+  } else {
+    days += penaltyDeductionDays(empPenalties);
+  }
+  return days;
 }
 
 function countPreviousViolations(empId, violationType, month) {
@@ -8964,20 +9037,24 @@ function processAttendance(rows, month) {
   let processedCount = 0;
 
   rows.forEach(row => {
-    const empName = (row.name || row['الاسم'] || '').trim();
-    const empId = row.id || row['الرقم'] || '';
+    if(!row) return;
+    const empName = (row['Employee Name'] || row.name || row['الاسم'] || row['اسم الموظف'] || '').trim();
+    const empId = row.id || row['الرقم'] || String(row['No.'] || '');
     let emp = employees.find(e => e.id === empId);
     if(!emp) emp = employees.find(e => e.name && e.name.trim() === empName);
     if(!emp) return;
 
-    const checkIn = row.checkIn || row['وقت الحضور'] || row['حضور'] || '';
-    const checkOut = row.checkOut || row['وقت الانصراف'] || row['انصراف'] || '';
-    const isAbsent = row.absent || row['غياب'] || '';
+    const checkIn = row['Check In (HH:MM AM/PM)'] || row['Check In'] || row.checkIn || row['وقت الحضور'] || row['حضور'] || row['time'] || row['Time'] || '';
+    const checkOut = row['Check Out (HH:MM AM/PM)'] || row['Check Out'] || row.checkOut || row['وقت الانصراف'] || row['انصراف'] || '';
+    const statusRaw = String(row.Status || row['الحالة'] || row.status || '').toLowerCase();
+    const isAbsent = row.absent || row['غياب'] || (statusRaw === 'absent' || statusRaw === 'غياب' || statusRaw === 'غائب');
     const hasPermission = row.permission || row['إذن'] || '';
-    const absenceDays = parseInt(row.absenceDays || row['أيام غياب'] || '0') || 0;
+    const absenceDays = parseInt(row.absenceDays || row['أيام غياب'] || row['Absence Days'] || '0') || 0;
+    const rowDate = String(row.Date || row['التاريخ'] || '').trim();
 
     if(String(isAbsent).toLowerCase() === 'true' || String(isAbsent) === '1' || absenceDays > 0) {
       const days = absenceDays > 0 ? absenceDays : 1;
+      const penaltyDate = rowDate || (month + '-01');
       for(let d = 0; d < days; d++) {
         const prevCount = countPreviousViolations(emp.id, 'الغياب بدون إذن', month);
         const viAction = getViolationAction('الغياب بدون إذن', prevCount);
@@ -8985,7 +9062,7 @@ function processAttendance(rows, month) {
           id: uid(), empId: emp.id, violation: 'الغياب بدون إذن',
           action: viAction.action, deductionPercent: viAction.deductionDays * 4,
           notes: lang==='ar'?'غياب تلقائي من ملف الحضور':'Auto absence from attendance file',
-          date: month + '-01', issuedBy: 'system_auto'
+          date: penaltyDate, issuedBy: 'system_auto'
         });
       }
       processedCount++;
@@ -9013,7 +9090,7 @@ function processAttendance(rows, month) {
           id: uid(), empId: emp.id, violation: violationType,
           action: viAction.action, deductionPercent: viAction.deductionDays * 4,
           notes: (lang==='ar'?'تأخير ':'Late ') + lateMin + (lang==='ar'?' دقيقة - حضور ':' min - arrival: ') + checkIn,
-          date: month + '-01', issuedBy: 'system_auto'
+          date: rowDate || (month + '-01'), issuedBy: 'system_auto'
         });
       }
     }
@@ -9034,15 +9111,15 @@ function processAttendance(rows, month) {
 
   const attendance = STORAGE.get('attendance', []);
   const existingMonth = attendance.filter(a => !a.month || a.month !== month);
-  const rawRecords = rows.filter(row => row && (row.name || row['الاسم'])).map(row => ({
+  const rawRecords = rows.filter(row => row && (row['Employee Name'] || row.name || row['الاسم'])).map(row => ({
     id: uid(), month: month,
-    empId: row.id || row['الرقم'] || '',
-    empName: (row.name || row['الاسم'] || '').trim(),
-    checkIn: row.checkIn || row['وقت الحضور'] || row['حضور'] || '',
-    checkOut: row.checkOut || row['وقت الانصراف'] || row['انصراف'] || '',
+    empId: row.id || row['الرقم'] || String(row['No.'] || ''),
+    empName: (row['Employee Name'] || row.name || row['الاسم'] || '').trim(),
+    checkIn: row['Check In (HH:MM AM/PM)'] || row['Check In'] || row.checkIn || row['وقت الحضور'] || row['حضور'] || '',
+    checkOut: row['Check Out (HH:MM AM/PM)'] || row['Check Out'] || row.checkOut || row['وقت الانصراف'] || row['انصراف'] || '',
     absent: row.absent || row['غياب'] || '',
     permission: row.permission || row['إذن'] || '',
-    absenceDays: parseInt(row.absenceDays || row['أيام غياب'] || '0') || 0,
+    absenceDays: parseInt(row.absenceDays || row['أيام غياب'] || row['Absence Days'] || '0') || 0,
     dateImported: today(),
     approvalStatus: 'pending'
   }));
@@ -9145,9 +9222,12 @@ function normalizeFpDate(datePart) {
   if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
   const m = s.match(/^(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
   if(m) {
-    const d = m[1].padStart(2,'0'), mo = m[2].padStart(2,'0');
+    const a = parseInt(m[1]), b = parseInt(m[2]);
     const y = m[3].length === 2 ? '20' + m[3] : m[3];
-    if(parseInt(d) <= 31 && parseInt(mo) <= 12) return y + '-' + mo + '-' + d;
+    let mo, d;
+    if(a > 12 && b <= 12) { mo = b; d = a; }
+    else { mo = a; d = b; }
+    return y + '-' + String(mo).padStart(2,'0') + '-' + String(d).padStart(2,'0');
   }
   return s.slice(0,10);
 }
@@ -9347,6 +9427,94 @@ function processFingerprintFile(data, month, nameMap) {
   return {processed: processedCount, penalties: monthPenalties.length, unmatched: Object.keys(unmatched)};
 }
 
+function normalizeZktecReport(wb) {
+  const rows = [];
+  const sheetNames = wb.SheetNames || [];
+  let perEmployeeSheets = [];
+  let hasDailyAll = false;
+  for(let i = 0; i < sheetNames.length; i++) {
+    const name = sheetNames[i];
+    if(/summary/i.test(name)) continue;
+    if(/daily_all/i.test(name)) { hasDailyAll = true; continue; }
+    const ws = wb.Sheets[name];
+    if(!ws) continue;
+    const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+    if(!data || data.length < 2) continue;
+    const headerRow = (data[0] || []).map(String);
+    const hasDate = headerRow.some(k => /^date$/i.test(k) || /التاريخ/i.test(k));
+    const hasCheckIn = headerRow.some(k => /check in|وقت الحضور/i.test(k));
+    if(hasDate && hasCheckIn) perEmployeeSheets.push({name, ws});
+  }
+  if(perEmployeeSheets.length) {
+    perEmployeeSheets.forEach(({name, ws}) => {
+      const data = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      const headerRow = (data[0] || []).map(String);
+      const empName = name.trim();
+      for(let r = 1; r < data.length; r++) {
+        const raw = data[r];
+        if(!raw) continue;
+        const cell0 = String(raw[0] || '').trim();
+        if(cell0 && headerRow.some(k => /^date$/i.test(k)) && cell0 === headerRow[0]) continue;
+        const inRaw = String(raw[1] || '').trim();
+        const outRaw = String(raw[2] || '').trim();
+        if(inRaw && /(\d{1,2}):(\d{2})\s*(AM|PM|ص|م)/i.test(inRaw)) {
+          rows.push({Name: empName, Time: inRaw, State: 'C/In', Exception: '', 'New State': '', Operation: ''});
+        }
+        if(outRaw && /(\d{1,2}):(\d{2})\s*(AM|PM|ص|م)/i.test(outRaw)) {
+          rows.push({Name: empName, Time: outRaw, State: 'C/Out', Exception: '', 'New State': '', Operation: ''});
+        }
+      }
+    });
+    return rows;
+  }
+  if(hasDailyAll) {
+    const ws = wb.Sheets[sheetNames.find(n => /daily_all/i.test(n))];
+    if(ws) {
+      const aoa = XLSX.utils.sheet_to_json(ws, {header:1, defval:''});
+      if(aoa && aoa.length >= 2) {
+        const header = (aoa[0] || []).map(String);
+        const inCols = [];
+        header.forEach((h, ci) => { if(/in$/i.test(h)) inCols.push(ci); });
+        for(let r = 1; r < aoa.length; r++) {
+          const empName = String(aoa[r][0] || '').trim();
+          if(!empName) continue;
+          inCols.forEach(ci => {
+            const inRaw = String(aoa[r][ci] || '').trim();
+            const outRaw = String(aoa[r][ci + 1] || '').trim();
+            if(inRaw && /(\d{1,2}):(\d{2})\s*(AM|PM|ص|م)/i.test(inRaw) && !/missing|absent/i.test(inRaw)) {
+              rows.push({Name: empName, Time: inRaw, State: 'C/In', Exception: '', 'New State': '', Operation: ''});
+            }
+            if(outRaw && /(\d{1,2}):(\d{2})\s*(AM|PM|ص|م)/i.test(outRaw) && !/missing|absent/i.test(outRaw)) {
+              rows.push({Name: empName, Time: outRaw, State: 'C/Out', Exception: '', 'New State': '', Operation: ''});
+            }
+          });
+        }
+      }
+    }
+    return rows;
+  }
+  for(let i = 0; i < sheetNames.length; i++) {
+    const name = sheetNames[i];
+    if(/summary/i.test(name)) continue;
+    const ws = wb.Sheets[name];
+    if(!ws) continue;
+    const data = XLSX.utils.sheet_to_json(ws, {defval:''});
+    if(!data.length) continue;
+    const first = data[0] || {};
+    const hasTimeCol = Object.keys(first).some(k => /time|الوقت/i.test(k));
+    if(hasTimeCol) {
+      data.forEach(r => {
+        const n = String(r.Name || r['الاسم'] || '').trim();
+        const t = String(r.Time || r['الوقت'] || '').trim();
+        if(n && t && /(\d{1,2}):(\d{2})\s*(AM|PM|ص|م)/i.test(t)) {
+          rows.push({Name: n, Time: t, State: String(r.State || r['الحالة'] || 'C/In'), Exception: String(r.Exception || ''), 'New State': '', Operation: ''});
+        }
+      });
+    }
+  }
+  return rows;
+}
+
 function importFingerprintAttendance(event) {
   const file = event.target.files[0];
   if(!file) return;
@@ -9354,10 +9522,23 @@ function importFingerprintAttendance(event) {
   reader.onload = function(e) {
     try {
       const wb = XLSX.read(e.target.result, {type:'array'});
-      const wsName = wb.SheetNames.find(s => s.toLowerCase().includes('fingerprint') || s.includes('بصمة')) || wb.SheetNames[0];
-      const ws = wb.Sheets[wsName];
-      const data = XLSX.utils.sheet_to_json(ws);
-      if(data.length === 0) { alert(lang==='ar'?'الملف فارغ':'File is empty'); return; }
+      const flatSheet = wb.SheetNames.find(s => s.toLowerCase().includes('fingerprint') || s.includes('بصمة'));
+      let wsName = flatSheet;
+      let data = null;
+      if(flatSheet) {
+        data = XLSX.utils.sheet_to_json(wb.Sheets[flatSheet], {defval:''});
+      }
+      if(!data || !data.length || !Object.keys(data[0] || {}).some(k => /time|الوقت/i.test(k))) {
+        const converted = normalizeZktecReport(wb);
+        if(converted.length) {
+          wsName = 'daily_all';
+          data = converted;
+        } else {
+          wsName = wb.SheetNames.find(s => s.toLowerCase().includes('fingerprint') || s.includes('بصمة')) || wb.SheetNames[0];
+          data = XLSX.utils.sheet_to_json(wb.Sheets[wsName], {defval:''});
+        }
+      }
+      if(!data || data.length === 0) { alert(lang==='ar'?'الملف فارغ':'File is empty'); return; }
       const month = prompt(lang==='ar'?'أدخل الشهر (YYYY-MM)':'Enter month (YYYY-MM)', today().slice(0,7));
       if(!month || !/^\d{4}-\d{2}$/.test(month)) { alert(lang==='ar'?'صيغة شهر غير صحيحة':'Invalid month format'); return; }
       if(!confirmAttendanceMonthReplace(month, true)) { event.target.value = ''; return; }
@@ -9487,15 +9668,7 @@ function renderPayrollSalaries(el) {
     const monthPenalties = empPenalties.filter(p => p.date && p.date.startsWith(currentMonth));
     const allTimePenalties = empPenalties;
 
-    let monthDeductionDays = 0;
-    monthPenalties.forEach(p => {
-      const dedAction = DEDUCTION_RULES.find(r => r.action === p.action);
-      if(dedAction) monthDeductionDays += dedAction.deductionDays;
-      else {
-        const match = String(p.action).match(/(\d+)/);
-        if(match) monthDeductionDays += parseInt(match[1]);
-      }
-    });
+    let monthDeductionDays = calcMonthDeductionDays(emp, currentMonth);
 
     const dailySalary = emp.salary / 30;
     const monthDeductionAmount = Math.round(monthDeductionDays * dailySalary);
@@ -9618,12 +9791,7 @@ function approvePayroll() {
   employees.forEach(emp => {
     const empPenalties = penalties.filter(p => p.empId === emp.id && !p.exempted);
     const monthPenalties = empPenalties.filter(p => p.date && p.date.startsWith(currentMonth));
-    let monthDeductionDays = 0;
-    monthPenalties.forEach(p => {
-      const dedAction = DEDUCTION_RULES.find(r => r.action === p.action);
-      if(dedAction) monthDeductionDays += dedAction.deductionDays;
-      else { const match = String(p.action).match(/(\d+)/); if(match) monthDeductionDays += parseInt(match[1]); }
-    });
+    let monthDeductionDays = calcMonthDeductionDays(emp, currentMonth);
     const dailySalary = emp.salary / 30;
     const monthDeductionAmount = Math.round(monthDeductionDays * dailySalary);
     const penaltyDeduction = empPenalties.reduce((s, p) => s + (p.deductionPercent || 0), 0);
@@ -13058,12 +13226,7 @@ function renderAttendanceTab(el) {
     });
     const empPenalties = penalties.filter(p => p.empId === emp.id && !p.exempted);
     const monthPen = empPenalties.filter(p => p.date && p.date.startsWith(currentMonth));
-    let deductionDays = 0;
-    monthPen.forEach(p => {
-      const dedAction = DEDUCTION_RULES.find(r => r.action === p.action);
-      if(dedAction) deductionDays += dedAction.deductionDays;
-      else { const m = String(p.action).match(/(\d+)/); if(m) deductionDays += parseInt(m[1]); }
-    });
+    const deductionDays = calcMonthDeductionDays(emp, currentMonth);
     const dailySalary = emp.salary / 30;
     const deductionAmount = Math.round(deductionDays * dailySalary);
     const penaltyDeduction = empPenalties.reduce((s, p) => s + (p.deductionPercent || 0), 0);
@@ -13106,6 +13269,7 @@ function renderAttendanceTab(el) {
     <th>${lang==='ar'?'غياب (بدون/بعذر)':'Absent (no/exec)'}</th>
     <th>${lang==='ar'?'أيام الخصم':'Ded. Days'}</th>
     <th>${lang==='ar'?'قيمة الخصم':'Ded. Amount'}</th>
+    <th>${lang==='ar'?'الجزاءات':'Penalties'}</th>
     <th>${lang==='ar'?'الراتب بعد الخصم':'After Deduction'}</th>
     <th>${lang==='ar'?'KPI':'KPI'}</th>
     <th>${lang==='ar'?'مكافأة':'Bonus'}</th>
@@ -13154,13 +13318,14 @@ function renderAttendanceTab(el) {
       <td style="text-align:center">${d.unexcAbs > 0 ? '<span style="color:#C75B4A;font-weight:700">'+d.unexcAbs+'</span>' : '<span style="color:var(--text-light)">0</span>'}${d.excAbs > 0 ? ' / <span style="color:#6C63FF">'+d.excAbs+'</span>' : ''}</td>
       <td style="text-align:center;color:${d.deductionDays>0?'#C75B4A':'var(--text-light)'};font-weight:${d.deductionDays>0?'700':'400'}">${d.deductionDays>0?d.deductionDays:'-'}</td>
       <td style="text-align:center;color:${d.deductionAmount>0?'#C75B4A':'var(--text-light)'};font-weight:${d.deductionAmount>0?'700':'400'}">${d.deductionAmount>0?'-'+fmt(d.deductionAmount):'-'}</td>
+      <td style="text-align:center">${d.monthPen.length > 0 ? '<span class="badge badge-red" title="'+penaltyDeductionDays(d.monthPen)+(lang==='ar'?' أيام جزاء':' penalty days')+'" style="cursor:pointer" onclick="toggleAttPayDetail(\''+rid+'\')">'+d.monthPen.length+' '+ (lang==='ar'?'جزاء':'Pen.') +'</span>' : '<span style="color:var(--text-light)">0</span>'}</td>
       <td style="font-weight:800;color:#E67E22">${fmt(d.afterDeduction)}</td>
       <td style="text-align:center"><span style="color:${kpiColor};font-weight:700">${d.finalKpi}%</span>${d.penaltyDeduction>0?'<div style="font-size:10px;color:#C75B4A">-'+Math.min(d.penaltyDeduction,100)+'%</div>':''}</td>
       <td style="text-align:center;color:${d.bonusAmount>0?'#27ae60':'var(--text-light)'};font-weight:${d.bonusAmount>0?'700':'400'}">${d.bonusAmount>0?'+'+fmt(d.bonusAmount):'-'}</td>
       <td style="font-weight:800;color:#27ae60">${fmt(d.netSalary)}</td>
       <td><div style="display:flex;gap:4px;justify-content:center"><button class="btn btn-outline btn-sm" onclick="showEmployeeProfile('${d.emp.id}')" title="${lang==='ar'?'الملف الكامل للموظف':'Full Employee Profile'}"><i class="fas fa-id-card"></i></button><button class="btn btn-outline btn-sm" id="attPayDetailBtn-${rid}" onclick="toggleAttPayDetail('${rid}')"><i class="fas fa-chevron-down"></i></button></div></td>
     </tr>
-    <tr id="attPayDetail-${rid}" style="display:none"><td colspan="13" style="padding:0">
+    <tr id="attPayDetail-${rid}" style="display:none"><td colspan="14" style="padding:0">
       <div style="padding:14px 20px;background:rgba(130,113,72,.05)">
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:12px">
           <div>
@@ -28370,7 +28535,15 @@ function importData(event) {
 }
 
 function clearAllData() {
+  // SAFETY v3.0.1: owner-only + typed confirmation required
+  if (!currentUser || (currentUser.role !== 'owner' && !(currentUser.permissions && currentUser.permissions.clearAllData))) {
+    alert(t('permission_denied') || 'Only the owner can clear all data.');
+    ActivityLog.log('danger', 'clear_all_data_denied', { user: currentUser ? currentUser.username : 'unknown', reason: 'not-owner' });
+    return;
+  }
   if(!confirm(t('confirm_delete'))) return;
+  const typed = prompt('TYPE DELETE to confirm permanent data wipe:');
+  if (typed !== 'DELETE') { alert('Cancelled - data was NOT deleted.'); return; }
   try { backupAllToCloud(true); } catch(e) { console.warn('[Backup] Pre-clear backup failed:', e); }
   exportAllData();
   ActivityLog.log('danger', 'clear_all_data', { user: currentUser ? currentUser.username : 'unknown' });
@@ -29865,8 +30038,16 @@ try {
   if(errEl) errEl.textContent = 'Init error: ' + e.message;
 }
 (function(){
+  // SAFETY v3.0.1: ?reset=true no longer wipes data. Requires logged-in owner + typed confirmation.
   var params = new URLSearchParams(window.location.search);
   if(params.get('reset') === 'true'){
+    var isOwner = (typeof currentUser !== 'undefined' && currentUser && currentUser.role === 'owner');
+    var confirmed = isOwner && prompt('TYPE RESET to confirm local data reset (cloud data is preserved):') === 'RESET';
+    if(!confirmed){
+      window.history.replaceState({}, document.title, window.location.pathname);
+      alert('Reset blocked by safety guard. Only an owner can reset, and must type RESET to confirm.');
+      return;
+    }
     var protectedKeys = ['lang','darkMode','user','currentPage'];
     Object.keys(mem).forEach(function(k){
       if(protectedKeys.indexOf(k) === -1) delete mem[k];
@@ -29874,7 +30055,7 @@ try {
     delete mem['activityLog'];
     delete mem['systemLog'];
     window.history.replaceState({}, document.title, window.location.pathname);
-    alert(lang==='ar'?'تم حذف جميع البيانات بنجاح.':'Data cleared successfully.');
+    alert('Local data reset done (cloud untouched).');
     location.reload();
   }
 })();
