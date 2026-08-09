@@ -16849,6 +16849,7 @@ function renderAnalysis() {
   let totalCurrentAssets = 0, totalFixedAssets = 0, totalCurrentLiab = 0, totalLongTermLiab = 0;
   let totalRevenue = 0, totalContraRevenue = 0, totalCOGS = 0, totalOperatingExp = 0;
   let totalEquity = 0, actualCash = 0, actualInventory = 0;
+  const revenueItems = [], contraRevenueItems = [], cogsItems = [], operatingExpItems = [];
   Object.values(balances).forEach(b => {
     if(b.debit === 0 && b.credit === 0) return;
     const net = b.debit - b.credit;
@@ -16861,11 +16862,11 @@ function renderAnalysis() {
     else if(b.type === 'contra_asset') totalFixedAssets += net;
     else if(b.type === 'liability' && (b.code.startsWith('21') || b.code === '2')) totalCurrentLiab += b.credit - b.debit;
     else if(b.type === 'liability') totalLongTermLiab += b.credit - b.debit;
-    else if(b.type === 'revenue' && b.credit > 0) totalRevenue += b.credit;
-    else if(b.type === 'contra_revenue' && b.debit > 0) totalContraRevenue += b.debit;
+    else if(b.type === 'revenue' && b.credit > 0) { totalRevenue += b.credit; revenueItems.push(b); }
+    else if(b.type === 'contra_revenue' && b.debit > 0) { totalContraRevenue += b.debit; contraRevenueItems.push(b); }
     else if(b.type === 'expense' && b.debit > 0) {
-      if(b.code.startsWith('51')) totalCOGS += b.debit;
-      else totalOperatingExp += b.debit;
+      if(b.code.startsWith('51')) { totalCOGS += b.debit; cogsItems.push(b); }
+      else { totalOperatingExp += b.debit; operatingExpItems.push(b); }
     }
     else if(b.type === 'equity') totalEquity += b.credit - b.debit;
   });
