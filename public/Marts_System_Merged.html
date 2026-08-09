@@ -24260,69 +24260,897 @@ function deleteCrmClient(clientId){
   switchCrmTab('list',document.querySelector('.crm-tab'));
 }
 
+// ===== LEAD PROFILE v2 (8xCRM-STYLE) START =====
+
+// ============================================================
+// LEAD PROFILE (8xCRM-STYLE) — full client profile with tabs
+// ============================================================
+let crmProfileClientId = null;
+let crmProfileTabActive = 'overview';
+
 function openCrmClientDetail(clientId){
-  const c=getCrmClients().find(x=>x.id===clientId);
-  if(!c)return;
-  const activities=getCrmActivities().filter(a=>a.clientId===clientId).sort((a,b)=>new Date(b.date)-new Date(a.date));
-  const employees=STORAGE.get('employees',[]);
-  const getEmpName=(id)=>{const e=employees.find(x=>x.id===id);return e?e.name:'-';};
-  const followUpClass=c.nextFollowUp?(new Date(c.nextFollowUp)<new Date()?'crm-followup-overdue':new Date(c.nextFollowUp)<new Date(Date.now()+3*86400000)?'crm-followup-soon':'crm-followup-ok'):'';
+  const c = getCrmClients().find(x => x.id === clientId);
+  if(!c) return;
+  crmProfileClientId = clientId;
+  crmProfileTabActive = 'overview';
+  const empName = (id) => { const e = STORAGE.get('employees',[]).find(x => x.id === id); return e ? e.name : (id || '-'); };
+  const userName = (u) => { const x = getAllUsers().find(v => v.username === u); return x ? (x.fullName || x.username) : (u || '-'); };
+  const now = new Date();
+  const daysSince = (d) => { if(!d) return null; return Math.max(0, Math.floor((now - new Date(d)) / 86400000)); };
+  const isOverdue = c.nextFollowUp && new Date(c.nextFollowUp) < now;
 
-  let actHtml='';
-  if(activities.length){
-    activities.forEach(a=>{
-      const iconMap={created:'fa-user-plus',updated:'fa-pen',status_changed:'fa-arrow-right',call:'fa-phone',meeting:'fa-handshake',email:'fa-envelope',note:'fa-sticky-note',account_created:'fa-key'};
-      const colorMap={created:'#22c55e',updated:'#827148',status_changed:'#a855f7',call:'#eab308',meeting:'#f97316',email:'#827148',note:'#6b7280',account_created:'#22c55e'};
-      actHtml+=`<div class="crm-activity-item">
-        <div class="crm-activity-icon" style="background:${colorMap[a.type]||'#6b7280'}"><i class="fas ${iconMap[a.type]||'fa-circle'}"></i></div>
-        <div class="crm-activity-content"><h5>${a.desc}</h5><p>${a.by||''}</p></div>
-        <div class="crm-activity-time">${new Date(a.date).toLocaleString('ar-EG')}</div>
-      </div>`;
-    });
-  } else actHtml='<div class="empty-state"><p>'+t('crm_noActivity')+'</p></div>';
+  const actions = [
+    canEditCrm() ? `<button class="crm-prof-act" style="background:#6366F1;color:#fff" onclick="crmActionReassign('${c.id}')"><i class="fas fa-user-friends"></i> ${lang==='ar'?'إعادة إسناد':'Re-assign'}</button>` : '',
+    canEditCrm() ? `<button class="crm-prof-act" style="background:#22c55e;color:#fff" onclick="crmActionLogCall('${c.id}')"><i class="fas fa-phone"></i> ${lang==='ar'?'تسجيل مكالمة':'Log a Call'}</button>` : '',
+    canEditCrm() ? `<button class="crm-prof-act" style="background:#3b82f6;color:#fff" onclick="crmActionLogMessage('${c.id}')"><i class="fas fa-comment-dots"></i> ${lang==='ar'?'رسالة':'Message'}</button>` : '',
+    canEditCrm() ? `<button class="crm-prof-act" style="background:#f59e0b;color:#fff" onclick="crmActionSetMeeting('${c.id}')"><i class="fas fa-handshake"></i> ${lang==='ar'?'موعد':'Meeting'}</button>` : '',
+    canEditCrm() ? `<button class="crm-prof-act" style="background:#8b5cf6;color:#fff" onclick="crmActionNewDeal('${c.id}')"><i class="fas fa-hand-holding-usd"></i> ${lang==='ar'?'صفقة جديدة':'New Deal'}</button>` : '',
+    canEditCrm() ? `<button class="crm-prof-act" style="background:#ef4444;color:#fff" onclick="crmActionTags('${c.id}')"><i class="fas fa-tags"></i> ${lang==='ar'?'وسوم':'Tags'}</button>` : '',
+    `<button class="crm-prof-act" onclick="crmActionStatistics('${c.id}')"><i class="fas fa-chart-bar"></i> ${lang==='ar'?'الإحصائيات':'Statistics'}</button>`,
+    canEditCrm() ? `<button class="crm-prof-act" style="background:#10b981;color:#fff" onclick="crmActionNewContact('${c.id}')"><i class="fas fa-user-plus"></i> ${lang==='ar'?'جهة اتصال':'Contact'}</button>` : ''
+  ].filter(Boolean).join('');
 
-  const html=`<h3><i class="fas fa-user" style="color:var(--primary);margin-left:8px"></i> ${c.name}</h3>
-  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:16px">
-    <div class="card">
-      <h4 style="margin-bottom:12px"><i class="fas fa-info-circle" style="color:var(--primary)"></i> ${t('crm_list')}</h4>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:13px">
-        <div><span style="color:var(--text-light)">${t('crm_clientPhone')}:</span> <strong>${c.phone||'-'}</strong></div>
-        <div><span style="color:var(--text-light)">${t('crm_clientEmail')}:</span> <strong>${c.email||'-'}</strong></div>
-        <div><span style="color:var(--text-light)">${t('crm_clientSource')}:</span> <span class="badge badge-blue">${getCrmSourceLabel(c.source)}</span></div>
-        <div><span style="color:var(--text-light)">${t('crm_clientStatus')}:</span> <span class="crm-status-badge ${getCrmStatusClass(c.status)}">${getCrmStatusLabel(c.status)}</span></div>
-        <div><span style="color:var(--text-light)">${t('crm_stage')}:</span> <span class="crm-stage-badge ${getCrmStageClass(c.stage||'fresh_leads')}">${getCrmStageLabel(c.stage||'fresh_leads')}</span></div>
-        <div><span style="color:var(--text-light)">${t('crm_clientBudget')}:</span> <strong>${fmt(c.budget)}</strong></div>
-        <div><span style="color:var(--text-light)">${t('crm_clientAssigned')}:</span> <strong>${c.assignedTo?getEmpName(c.assignedTo):'-'}</strong></div>
-        <div><span style="color:var(--text-light)">${t('crm_clientPreferredProject')}:</span> <strong>${c.preferredProject||'-'}</strong></div>
-        <div><span style="color:var(--text-light)">${t('crm_clientPreferredUnit')}:</span> <strong>${c.preferredUnit||'-'}</strong></div>
-        <div style="grid-column:1/-1"><span style="color:var(--text-light)">${t('crm_clientAddress')}:</span> <strong>${c.address||'-'}</strong></div>
-        <div><span style="color:var(--text-light)">${t('crm_clientDate')}:</span> <strong>${c.date||'-'}</strong></div>
-        ${c.nextFollowUp?`<div><span style="color:var(--text-light)">${t('crm_clientNextFollowUp')}:</span> <strong>${c.nextFollowUp}</strong> <span class="crm-followup-badge ${followUpClass}">${new Date(c.nextFollowUp)<new Date()?'⚠':'✓'}</span></div>`:''}
-        ${c.notes?`<div style="grid-column:1/-1"><span style="color:var(--text-light)">${t('crm_clientNotes')}:</span> <strong>${c.notes}</strong></div>`:''}
-        ${c.attachments&&c.attachments.length?`<div style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:10px;margin-top:6px"><span style="color:var(--text-light)">${lang==='ar'?'المرفقات':'Attachments'}:</span><div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:6px">${c.attachments.map(a=>`<a href="${a.dataUrl}" download="${a.name}" style="display:inline-flex;align-items:center;gap:4px;padding:4px 10px;background:var(--primary)10;border:1px solid var(--primary)30;border-radius:6px;font-size:11px;color:var(--primary);text-decoration:none"><i class="fas fa-file"></i>${a.name}<span style="color:var(--text-light);font-size:9px">${a.size||''}</span></a>`).join('')}</div></div>`:''}
-        ${c.trialEmail?`<div style="grid-column:1/-1;border-top:1px solid var(--border);padding-top:10px;margin-top:6px"><span style="color:var(--text-light)">${t('crm_trialAccount')}:</span> <span style="color:var(--primary);font-family:monospace">${c.trialEmail}</span></div>`:''}
+  const html = `<div class="crm-prof">
+    <div class="crm-prof-head">
+      <div class="crm-prof-avatar">${getInitials(c.name)}</div>
+      <div class="crm-prof-head-info">
+        <div class="crm-prof-title">${c.name} <span class="crm-prof-id">#${c.id || ''}</span></div>
+        <div class="crm-prof-sub">
+          <span class="crm-stage-badge ${getCrmStageClass(c.stage||'fresh_leads')}">${getCrmStageLabel(c.stage||'fresh_leads')}</span>
+          <span class="crm-status-badge ${getCrmStatusClass(c.status)}">${getCrmStatusLabel(c.status)}</span>
+          <span class="badge badge-blue">${getCrmSourceLabel(c.source)}</span>
+          ${c.budget ? `<span class="crm-prof-sub-item"><i class="fas fa-coins"></i> ${fmt(c.budget)}</span>` : ''}
+          ${isOverdue ? `<span class="crm-prof-overdue"><i class="fas fa-exclamation-triangle"></i> ${lang==='ar'?'متابعة متأخرة':'Overdue follow-up'}</span>` : ''}
+        </div>
       </div>
-      <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap">
-        ${canEditCrm()?`<button class="btn btn-outline btn-sm" onclick="closeModal();openCrmClientForm('${c.id}')"><i class="fas fa-pen"></i> ${t('edit')}</button>`:''}
-        ${!canEditCrm()?`<button class="btn btn-outline btn-sm" onclick="addCrmDescriptionOnly('${c.id}')"><i class="fas fa-sticky-note"></i> ${lang==='ar'?'إضافة وصف':'Add Description'}</button>`:''}
-        ${canEditCrm()?`<button class="btn btn-success btn-sm" onclick="logCrmActivity('${c.id}','call')"><i class="fas fa-phone"></i> ${t('crm_call')}</button>`:''}
-        ${canEditCrm()?`<button class="btn btn-primary btn-sm" onclick="logCrmActivity('${c.id}','meeting')"><i class="fas fa-handshake"></i> ${t('crm_meeting')}</button>`:''}
-        ${canEditCrm()?`<button class="btn btn-outline btn-sm" onclick="logCrmActivity('${c.id}','email')"><i class="fas fa-envelope"></i> ${t('crm_email')}</button>`:''}
-        ${c.status!=='converted'&&canEditCrm()?`<button class="btn btn-success btn-sm" onclick="changeCrmStatus('${c.id}','converted')"><i class="fas fa-check"></i> ${t('crm_markConverted')}</button>`:''}
-        ${c.status!=='lost'&&canEditCrm()?`<button class="btn btn-danger btn-sm" onclick="changeCrmStatus('${c.id}','lost')"><i class="fas fa-times"></i> ${t('crm_markLost')}</button>`:''}
-        ${canEditCrm()?`<select onchange="changeCrmStage('${c.id}',this.value);this.value=''" style="padding:5px 8px;border-radius:6px;border:1px solid var(--border);font-size:12px;background:var(--bg)"><option value="">${t('crm_stage')}...</option>${CRM_STAGES.map(s=>`<option value="${s}" ${((c.stage||'fresh_leads')===s?'disabled':'')}>${t('crm_stage_'+s)}</option>`).join('')}</select>`:''}
-      </div>
+      <div class="crm-prof-actions">${actions}</div>
     </div>
-    <div class="card">
-      <h4 style="margin-bottom:12px"><i class="fas fa-history" style="color:var(--primary)"></i> ${t('crm_activityLog')}</h4>
-      ${actHtml}
+    <div class="crm-prof-tabs">
+      ${crmProfileTabBtn('overview', 'fa-info-circle', lang==='ar'?'نظرة عامة':'Overview')}
+      ${crmProfileTabBtn('history', 'fa-history', lang==='ar'?'السجل':'History')}
+      ${crmProfileTabBtn('calls', 'fa-phone', lang==='ar'?'المكالمات':'Calls')}
+      ${crmProfileTabBtn('journey', 'fa-route', lang==='ar'?'رحلة العميل':'Lead Journey')}
+      ${crmProfileTabBtn('todos', 'fa-tasks', lang==='ar'?'المهام':'Todos')}
+      ${crmProfileTabBtn('units', 'fa-building', lang==='ar'?'الوحدات':'Units')}
+      ${crmProfileTabBtn('attachments', 'fa-paperclip', lang==='ar'?'المرفقات':'Attachments')}
+      ${crmProfileTabBtn('contacts', 'fa-address-book', lang==='ar'?'جهات الاتصال':'Contacts')}
+      ${crmProfileTabBtn('campaigns', 'fa-bullhorn', lang==='ar'?'الحملات':'Campaigns')}
+      ${crmProfileTabBtn('assignees', 'fa-users', lang==='ar'?'الإسناد':'Assignees')}
+      ${crmProfileTabBtn('duplicates', 'fa-clone', lang==='ar'?'المكررات':'Duplicates')}
+      ${crmProfileTabBtn('logs', 'fa-scroll', lang==='ar'?'السجلات':'Logs')}
+    </div>
+    <div class="crm-prof-body" id="crmProfileBody">
+      ${crmProfileTabContent(crmProfileTabActive, c)}
     </div>
   </div>`;
-  document.getElementById('modalContainer').innerHTML=html;
-  document.getElementById('modalContainer').style.width='900px';
+  document.getElementById('modalContainer').innerHTML = html;
+  document.getElementById('modalContainer').style.width = '960px';
+  document.getElementById('modalContainer').style.maxWidth = '96vw';
   document.getElementById('modalOverlay').classList.add('active');
 }
 
+function crmProfileTabBtn(key, icon, label){
+  const active = crmProfileTabActive === key;
+  return `<div class="crm-prof-tab ${active?'active':''}" onclick="crmProfileSwitch('${key}')"><i class="fas ${icon}"></i> ${label}</div>`;
+}
+
+function crmProfileSwitch(key){
+  crmProfileTabActive = key;
+  const c = getCrmClients().find(x => x.id === crmProfileClientId);
+  if(!c) return;
+  const body = document.getElementById('crmProfileBody');
+  if(body) body.innerHTML = crmProfileTabContent(key, c);
+  document.querySelectorAll('.crm-prof-tab').forEach(el => el.classList.toggle('active', el.getAttribute('onclick').includes(key)));
+}
+
+function crmProfileTabContent(key, c){
+  switch(key){
+    case 'overview': return crmProfileOverviewHtml(c);
+    case 'history': return crmProfileHistoryHtml(c);
+    case 'calls': return crmProfileCallsHtml(c);
+    case 'journey': return crmProfileJourneyHtml(c);
+    case 'todos': return crmProfileTodosHtml(c);
+    case 'units': return crmProfileUnitsHtml(c);
+    case 'attachments': return crmProfileAttachmentsHtml(c);
+    case 'contacts': return crmProfileContactsHtml(c);
+    case 'campaigns': return crmProfileCampaignsHtml(c);
+    case 'assignees': return crmProfileAssigneesHtml(c);
+    case 'duplicates': return crmProfileDuplicatesHtml(c);
+    case 'logs': return crmProfileLogsHtml(c);
+    default: return '';
+  }
+}
+
+
+// ---- TAB CONTENT: OVERVIEW ----
+function crmProfileOverviewHtml(c){
+  const empName = (id) => { const e = STORAGE.get('employees',[]).find(x => x.id === id); return e ? e.name : (id || '-'); };
+  const userName = (u) => { const x = getAllUsers().find(v => v.username === u); return x ? (x.fullName || x.username) : (u || '-'); };
+  const acts = getCrmActivities().filter(a => a.clientId === c.id).length;
+  const deals = STORAGE.get('crmDeals',[]).filter(d => d.clientId === c.id);
+  const todos = (c.todos || []).filter(t => !t.done);
+  const calls = (c.calls || []).length;
+  const meetings = (c.meetings || []).length;
+  const stat = [
+    {icon:'fa-phone', label:lang==='ar'?'مكالمات':'Calls', val:calls, color:'#22c55e'},
+    {icon:'fa-handshake', label:lang==='ar'?'اجتماعات':'Meetings', val:meetings, color:'#f59e0b'},
+    {icon:'fa-tasks', label:lang==='ar'?'مهام مفتوحة':'Open Todos', val:todos.length, color:'#3b82f6'},
+    {icon:'fa-hand-holding-usd', label:lang==='ar'?'صفقات':'Deals', val:deals.length, color:'#8b5cf6'},
+    {icon:'fa-history', label:lang==='ar'?'نشاطات':'Activities', val:acts, color:'#6366f1'},
+    {icon:'fa-building', label:lang==='ar'?'وحدات':'Units', val:(c.purchasedUnits||[]).length + (c.sellingUnits||[]).length, color:'#10b981'}
+  ].map(s => `<div class="crm-prof-stat"><i class="fas ${s.icon}" style="color:${s.color}"></i><div class="crm-prof-stat-val">${s.val}</div><div class="crm-prof-stat-label">${s.label}</div></div>`).join('');
+
+  const rows = [
+    [lang==='ar'?'الهاتف':'Phone', c.phone || '-', 'fa-phone'],
+    [lang==='ar'?'البريد':'Email', c.email || '-', 'fa-envelope'],
+    [lang==='ar'?'الرقم القومي':'National ID', c.nationalId || '-', 'fa-id-card'],
+    [lang==='ar'?'الميزانية':'Budget', c.budget ? fmt(c.budget) : '-', 'fa-coins'],
+    [lang==='ar'?'المسند إليه':'Assigned To', c.assignedTo ? empName(c.assignedTo) : (c.assignedUser ? userName(c.assignedUser) : '-'), 'fa-user-tag'],
+    [lang==='ar'?'المشروع المفضل':'Preferred Project', c.preferredProject || '-', 'fa-building'],
+    [lang==='ar'?'نوع الوحدة':'Unit Type', c.preferredUnit || '-', 'fa-door-open'],
+    [lang==='ar'?'العنوان':'Address', c.address || '-', 'fa-map-marker-alt'],
+    [lang==='ar'?'المتابعة القادمة':'Next Follow-up', c.nextFollowUp ? new Date(c.nextFollowUp).toLocaleDateString(lang==='ar'?'ar-EG':'en-GB') : '-', 'fa-calendar-check'],
+    [lang==='ar'?'الحملة':'Campaign', c.campaignName || '-', 'fa-bullhorn'],
+    [lang==='ar'?'تاريخ الإضافة':'Created', c.date ? new Date(c.date).toLocaleDateString(lang==='ar'?'ar-EG':'en-GB') : '-', 'fa-calendar-plus']
+  ].map(r => `<div class="crm-prof-info-item"><i class="fas ${r[2]}" style="color:var(--crm-primary);width:18px"></i><span class="crm-prof-info-label">${r[0]}</span><strong>${r[1]}</strong></div>`).join('');
+
+  const tags = (c.tags || []).map(t => `<span class="crm-prof-tag">${t} <i class="fas fa-times" onclick="crmRemoveTag('${c.id}','${t}')" style="cursor:pointer;font-size:9px;margin-left:2px;opacity:.7"></i></span>`).join('');
+
+  return `<div class="crm-prof-grid2">
+    <div class="card">
+      <h4 style="margin-bottom:10px"><i class="fas fa-chart-pie" style="color:var(--crm-primary)"></i> ${lang==='ar'?'إحصائيات سريعة':'Quick Stats'}</h4>
+      <div class="crm-prof-stats">${stat}</div>
+      ${tags ? `<div style="margin-top:12px"><h4 style="margin-bottom:8px"><i class="fas fa-tags" style="color:var(--crm-primary)"></i> ${lang==='ar'?'الوسوم':'Tags'}</h4><div>${tags}</div></div>` : ''}
+      ${c.notes ? `<div style="margin-top:12px;padding:10px;background:var(--crm-card-bg);border:1px solid var(--crm-card-border);border-radius:8px;font-size:12px"><strong>${lang==='ar'?'ملاحظات':'Notes'}:</strong> ${c.notes}</div>` : ''}
+    </div>
+    <div class="card">
+      <h4 style="margin-bottom:10px"><i class="fas fa-info-circle" style="color:var(--crm-primary)"></i> ${lang==='ar'?'بيانات العميل':'Lead Details'}</h4>
+      <div class="crm-prof-info">${rows}</div>
+      ${c.attachments && c.attachments.length ? `<div style="margin-top:12px"><h4 style="margin-bottom:8px"><i class="fas fa-paperclip" style="color:var(--crm-primary)"></i> ${lang==='ar'?'المرفقات':'Attachments'} (${c.attachments.length})</h4><div class="crm-prof-att-list">${c.attachments.map(a => `<a href="${a.dataUrl}" download="${a.name}" class="crm-prof-att"><i class="fas fa-file"></i> ${a.name} <span>${a.size||''}</span></a>`).join('')}</div></div>` : ''}
+    </div>
+  </div>`;
+}
+
+// ---- TAB CONTENT: HISTORY ----
+function crmProfileHistoryHtml(c){
+  const acts = getCrmActivities().filter(a => a.clientId === c.id).sort((a,b) => new Date(b.date) - new Date(a.date));
+  if(!acts.length) return '<div class="empty-state"><p>'+ (lang==='ar'?'لا توجد نشاطات بعد':'No activities yet') +'</p></div>';
+  const iconMap = {created:'fa-user-plus',updated:'fa-pen',status_changed:'fa-arrow-right',call:'fa-phone',meeting:'fa-handshake',email:'fa-envelope',note:'fa-sticky-note',account_created:'fa-key',message:'fa-comment-dots',deal:'fa-hand-holding-usd',todo:'fa-tasks',tag:'fa-tags',reassign:'fa-user-friends',meeting_feedback:'fa-clipboard-check'};
+  const colorMap = {created:'#22c55e',updated:'#827148',status_changed:'#a855f7',call:'#eab308',meeting:'#f97316',email:'#827148',note:'#6b7280',account_created:'#22c55e',message:'#3b82f6',deal:'#8b5cf6',todo:'#3b82f6',tag:'#ef4444',reassign:'#6366f1',meeting_feedback:'#10b981'};
+  return acts.map(a => `<div class="crm-activity-item">
+    <div class="crm-activity-icon" style="background:${colorMap[a.type]||'#6b7280'}"><i class="fas ${iconMap[a.type]||'fa-circle'}"></i></div>
+    <div class="crm-activity-content"><h5>${a.desc}</h5><p>${a.by || ''}</p></div>
+    <div class="crm-activity-time">${new Date(a.date).toLocaleString(lang==='ar'?'ar-EG':'en-GB')}</div>
+  </div>`).join('');
+}
+
+// ---- TAB CONTENT: CALLS (recorded) ----
+function crmProfileCallsHtml(c){
+  const calls = c.calls || [];
+  const rows = calls.slice().sort((a,b) => new Date(b.date) - new Date(a.date)).map((cl,i) => `
+    <div class="crm-prof-call">
+      <div class="crm-prof-call-ic"><i class="fas fa-phone"></i></div>
+      <div class="crm-prof-call-info">
+        <div><strong>${cl.duration ? lang==='ar'?'مكالمة مدتها ':'Call of ' + cl.duration + ' ' + (lang==='ar'?'دقيقة':'min') : (lang==='ar'?'مكالمة':'Call')}</strong> <span style="color:var(--text-light);font-size:11px">· ${new Date(cl.date).toLocaleString(lang==='ar'?'ar-EG':'en-GB')}</span></div>
+        ${cl.note ? `<div style="font-size:12px;margin-top:4px">${cl.note}</div>` : ''}
+      </div>
+      ${cl.audioUrl ? `<audio controls style="height:32px;max-width:200px" src="${cl.audioUrl}"></audio>` : ''}
+      ${canEditCrm() ? `<button class="crm-prof-del" onclick="crmDeleteCall('${c.id}',${i})"><i class="fas fa-trash"></i></button>` : ''}
+    </div>`).join('');
+  const addBtn = canEditCrm() ? `
+    <div class="crm-prof-addbox">
+      <input type="text" id="crmCallNote" placeholder="${lang==='ar'?'ملاحظة المكالمة (اختياري)':'Call note (optional)'}" style="flex:1;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)">
+      <input type="number" id="crmCallDur" placeholder="${lang==='ar'?'المدة (دقائق)':'Duration (min)'}" style="width:130px;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)">
+      <label class="crm-prof-filebtn"><i class="fas fa-microphone"></i> ${lang==='ar'?'تسجيل صوتي':'Audio'}<input type="file" accept="audio/*" id="crmCallAudio" style="display:none" onchange="crmLoadCallAudio(event)"></label>
+      <button class="btn btn-primary btn-sm" onclick="crmSaveCall('${c.id}')"><i class="fas fa-check"></i> ${lang==='ar'?'إضافة':'Add'}</button>
+    </div>` : '';
+  return (rows ? rows : '<div class="empty-state"><p>'+(lang==='ar'?'لا توجد مكالمات مسجلة':'No recorded calls')+'</p></div>') + addBtn;
+}
+
+// ---- TAB CONTENT: JOURNEY ----
+function crmProfileJourneyHtml(c){
+  const journey = c.journey || [];
+  const rows = journey.length ? journey.slice().sort((a,b) => new Date(b.date) - new Date(a.date)).map((j,i,a) => `
+    <div class="crm-prof-journey-item">
+      <div class="crm-prof-journey-dot" style="background:${i === a.length-1 ? '#22c55e' : '#6366f1'}"></div>
+      <div class="crm-prof-journey-content">
+        <div><strong>${getCrmStageLabel(j.stage || j.from || 'fresh_leads')}</strong> ${j.from && j.to ? `<i class="fas fa-arrow-right" style="font-size:10px;color:var(--text-light)"></i> ${getCrmStageLabel(j.to)}` : ''}</div>
+        <div style="font-size:11px;color:var(--text-light)">${new Date(j.date).toLocaleString(lang==='ar'?'ar-EG':'en-GB')} · ${j.by || ''}</div>
+        ${j.note ? `<div style="font-size:12px;margin-top:4px">${j.note}</div>` : ''}
+      </div>
+    </div>`).join('') : '<div class="empty-state"><p>'+(lang==='ar'?'لا توجد رحلة بعد — قم بتغيير المرحلة':'No journey yet — change the stage')+'</p></div>';
+  const change = canEditCrm() ? `
+    <div class="crm-prof-addbox" style="margin-top:12px">
+      <select id="crmJourneyStage" style="flex:1;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)">${CRM_STAGES.map(s => `<option value="${s}" ${(c.stage||'fresh_leads')===s?'selected':''}> ${t('crm_stage_'+s)}</option>`).join('')}</select>
+      <button class="btn btn-primary btn-sm" onclick="crmSaveJourney('${c.id}')"><i class="fas fa-route"></i> ${lang==='ar'?'تسجيل انتقال':'Record Transition'}</button>
+    </div>` : '';
+  return `<div class="crm-prof-journey">${rows}</div>${change}`;
+}
+
+
+// ---- TAB CONTENT: TODOS ----
+function crmProfileTodosHtml(c){
+  const todos = c.todos || [];
+  const rows = todos.map((td,i) => `
+    <div class="crm-prof-todo ${td.done?'done':''}">
+      <label style="display:flex;align-items:center;gap:8px;cursor:pointer;flex:1">
+        <input type="checkbox" ${td.done?'checked':''} onchange="crmToggleTodo('${c.id}',${i},this.checked)">
+        <span>${td.title}</span>
+      </label>
+      ${td.due ? `<span class="crm-prof-todo-due ${!td.done && new Date(td.due) < new Date() ? 'over' : ''}"><i class="fas fa-calendar"></i> ${new Date(td.due).toLocaleDateString(lang==='ar'?'ar-EG':'en-GB')}</span>` : ''}
+      ${canEditCrm() ? `<button class="crm-prof-del" onclick="crmDeleteTodo('${c.id}',${i})"><i class="fas fa-trash"></i></button>` : ''}
+    </div>`).join('') || '<div class="empty-state"><p>'+(lang==='ar'?'لا توجد مهام':'No todos')+'</p></div>';
+  const add = canEditCrm() ? `
+    <div class="crm-prof-addbox">
+      <input type="text" id="crmTodoTitle" placeholder="${lang==='ar'?'عنوان المهمة':'Task title'}" style="flex:1;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)">
+      <input type="date" id="crmTodoDue" style="padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)">
+      <button class="btn btn-primary btn-sm" onclick="crmAddTodo('${c.id}')"><i class="fas fa-plus"></i> ${lang==='ar'?'إضافة':'Add'}</button>
+    </div>` : '';
+  return rows + add;
+}
+
+// ---- TAB CONTENT: UNITS ----
+function crmProfileUnitsHtml(c){
+  const selling = c.sellingUnits || [];
+  const purchased = c.purchasedUnits || [];
+  const unitRow = (u, tag) => `
+    <div class="crm-prof-unit">
+      <div class="crm-prof-unit-ic"><i class="fas ${tag==='sold'?'fa-hand-holding-usd':'fa-key'}"></i></div>
+      <div class="crm-prof-unit-info"><strong>${u.name || u.unitName || '-'}</strong>
+        ${u.project ? `<div style="font-size:11px;color:var(--text-light)">${u.project}</div>` : ''}
+        ${u.amount ? `<div style="font-size:12px;color:var(--crm-primary)">${fmt(u.amount)}</div>` : ''}
+      </div>
+      <span class="crm-prof-unit-tag ${tag}">${tag === 'sold' ? (lang==='ar'?'شراء':'Purchased') : (lang==='ar'?'بيع':'Selling')}</span>
+    </div>`;
+  const rows = [...purchased.map(u => unitRow(u,'sold')), ...selling.map(u => unitRow(u,'sell'))].join('') || '<div class="empty-state"><p>'+(lang==='ar'?'لا توجد وحدات مرتبطة':'No linked units')+'</p></div>';
+  const add = canEditCrm() ? `
+    <div class="crm-prof-addbox">
+      <input type="text" id="crmUnitName" placeholder="${lang==='ar'?'اسم الوحدة':'Unit name'}" style="flex:1;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)">
+      <input type="number" id="crmUnitAmount" placeholder="${lang==='ar'?'المبلغ':'Amount'}" style="width:130px;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)">
+      <select id="crmUnitType" style="padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)">
+        <option value="purchased">${lang==='ar'?'شراء':'Purchased'}</option>
+        <option value="selling">${lang==='ar'?'بيع':'Selling'}</option>
+      </select>
+      <button class="btn btn-primary btn-sm" onclick="crmAddUnit('${c.id}')"><i class="fas fa-plus"></i> ${lang==='ar'?'إضافة':'Add'}</button>
+    </div>` : '';
+  return rows + add;
+}
+
+// ---- TAB CONTENT: ATTACHMENTS ----
+function crmProfileAttachmentsHtml(c){
+  const atts = c.attachments || [];
+  const rows = atts.map((a,i) => `
+    <div class="crm-prof-att-row">
+      <a href="${a.dataUrl}" download="${a.name}" class="crm-prof-att"><i class="fas fa-file"></i> ${a.name} <span>${a.size||''}</span></a>
+      ${canEditCrm() ? `<button class="crm-prof-del" onclick="crmDeleteAttachment('${c.id}',${i})"><i class="fas fa-trash"></i></button>` : ''}
+    </div>`).join('') || '<div class="empty-state"><p>'+(lang==='ar'?'لا توجد مرفقات':'No attachments')+'</p></div>';
+  const add = canEditCrm() ? `
+    <div class="crm-prof-addbox">
+      <label class="crm-prof-filebtn"><i class="fas fa-upload"></i> ${lang==='ar'?'رفع ملف':'Upload File'}<input type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" style="display:none" onchange="crmProfileUploadAtt('${c.id}',event)"></label>
+    </div>` : '';
+  return rows + add;
+}
+
+// ---- TAB CONTENT: CONTACTS ----
+function crmProfileContactsHtml(c){
+  const contacts = c.relatedContacts || [];
+  const rows = contacts.map((ct,i) => `
+    <div class="crm-prof-contact">
+      <div class="crm-prof-contact-avatar">${getInitials(ct.name)}</div>
+      <div class="crm-prof-contact-info"><strong>${ct.name}</strong>
+        <div style="font-size:11px;color:var(--text-light)">${ct.phone || ''} ${ct.relation ? '· ' + ct.relation : ''}</div>
+      </div>
+      ${ct.phone ? `<a href="https://wa.me/${ct.phone.replace(/\\D/g,'')}" target="_blank" class="crm-prof-contact-wa" title="WhatsApp"><i class="fab fa-whatsapp"></i></a>` : ''}
+      ${canEditCrm() ? `<button class="crm-prof-del" onclick="crmDeleteContact('${c.id}',${i})"><i class="fas fa-trash"></i></button>` : ''}
+    </div>`).join('') || '<div class="empty-state"><p>'+(lang==='ar'?'لا توجد جهات اتصال':'No related contacts')+'</p></div>';
+  const add = canEditCrm() ? `
+    <div class="crm-prof-addbox">
+      <input type="text" id="crmContactName" placeholder="${lang==='ar'?'الاسم':'Name'}" style="flex:1;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)">
+      <input type="text" id="crmContactPhone" placeholder="${lang==='ar'?'الهاتف':'Phone'}" style="width:150px;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)">
+      <input type="text" id="crmContactRelation" placeholder="${lang==='ar'?'العلاقة':'Relation'}" style="width:120px;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)">
+      <button class="btn btn-primary btn-sm" onclick="crmAddContact('${c.id}')"><i class="fas fa-plus"></i> ${lang==='ar'?'إضافة':'Add'}</button>
+    </div>` : '';
+  return rows + add;
+}
+
+// ---- TAB CONTENT: CAMPAIGNS ----
+function crmProfileCampaignsHtml(c){
+  const campaigns = STORAGE.get('crm_campaigns',[]);
+  const linked = campaigns.filter(cp => cp.clientIds ? cp.clientIds.includes(c.id) : (cp.clientId === c.id));
+  const rows = linked.map(cp => `
+    <div class="crm-prof-campaign">
+      <div class="crm-prof-campaign-ic"><i class="fas fa-bullhorn"></i></div>
+      <div class="crm-prof-campaign-info"><strong>${cp.name || cp.campaignName || '-'}</strong>
+        ${cp.type ? `<div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'النوع':'Type'}: ${cp.type}</div>` : ''}
+        ${cp.status ? `<div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'الحالة':'Status'}: ${cp.status}</div>` : ''}
+      </div>
+    </div>`).join('') || '<div class="empty-state"><p>'+(lang==='ar'?'لا توجد حملات مرتبطة':'No linked campaigns')+'</p></div>';
+  return rows;
+}
+
+// ---- TAB CONTENT: ASSIGNEES ----
+function crmProfileAssigneesHtml(c){
+  const hist = c.assignmentHistory || [];
+  const userName = (u) => { const x = getAllUsers().find(v => v.username === u); return x ? (x.fullName || x.username) : (u || '-'); };
+  const rows = hist.length ? hist.slice().sort((a,b) => new Date(b.date) - new Date(a.date)).map(h => `
+    <div class="crm-activity-item">
+      <div class="crm-activity-icon" style="background:#6366f1"><i class="fas fa-user-friends"></i></div>
+      <div class="crm-activity-content"><h5>${lang==='ar'?'إعادة إسناد':'Re-assignment'}: ${userName(h.from||'-')} <i class="fas fa-arrow-right" style="font-size:10px"></i> ${userName(h.to||'-')}</h5><p>${h.by || ''}</p></div>
+      <div class="crm-activity-time">${new Date(h.date).toLocaleString(lang==='ar'?'ar-EG':'en-GB')}</div>
+    </div>`).join('') : '<div class="empty-state"><p>'+(lang==='ar'?'لا يوجد سجل إسناد':'No assignment history')+'</p></div>';
+  const current = `<div class="crm-prof-current-assign"><i class="fas fa-user-check"></i> ${lang==='ar'?'المسند حالياً إلى':'Currently assigned to'}: <strong>${c.assignedUser ? userName(c.assignedUser) : (c.assignedTo ? userName(c.assignedTo) : '-')}</strong></div>`;
+  return current + rows;
+}
+
+// ---- TAB CONTENT: DUPLICATES ----
+function crmProfileDuplicatesHtml(c){
+  const clients = getCrmClients();
+  const dups = clients.filter(x => x.id !== c.id && ((x.phone && c.phone && x.phone === c.phone) || (x.email && c.email && x.email === c.email)));
+  if(!dups.length) return '<div class="empty-state"><p><i class="fas fa-check-circle" style="color:#22c55e;font-size:24px;display:block;margin-bottom:8px"></i>'+(lang==='ar'?'لا توجد تكرارات':'No duplicates found')+'</p></div>';
+  return dups.map(d => `
+    <div class="crm-prof-dup">
+      <div class="crm-prof-dup-info"><strong>${d.name}</strong>
+        <div style="font-size:11px;color:var(--text-light)">${d.phone || ''} · ${d.email || ''}</div>
+        <div style="font-size:11px;margin-top:2px"><span class="crm-stage-badge ${getCrmStageClass(d.stage||'fresh_leads')}">${getCrmStageLabel(d.stage||'fresh_leads')}</span> <span class="badge badge-blue">${getCrmSourceLabel(d.source)}</span></div>
+      </div>
+      <div class="crm-prof-dup-actions">
+        ${canEditCrm() ? `<button class="btn btn-outline btn-sm" onclick="crmMergeDuplicates('${c.id}','${d.id}')"><i class="fas fa-code-branch"></i> ${lang==='ar'?'دمج':'Merge'}</button>` : ''}
+        <button class="btn btn-outline btn-sm" onclick="openCrmClientDetail('${d.id}')"><i class="fas fa-eye"></i> ${lang==='ar'?'عرض':'View'}</button>
+      </div>
+    </div>`).join('');
+}
+
+// ---- TAB CONTENT: LOGS ----
+function crmProfileLogsHtml(c){
+  const logs = c.logs || [];
+  const rows = logs.length ? logs.slice().sort((a,b) => new Date(b.date) - new Date(a.date)).map(l => `
+    <div class="crm-activity-item">
+      <div class="crm-activity-icon" style="background:#6b7280"><i class="fas fa-scroll"></i></div>
+      <div class="crm-activity-content"><h5>${l.desc || l.action || ''}</h5><p>${l.by || ''}</p></div>
+      <div class="crm-activity-time">${new Date(l.date).toLocaleString(lang==='ar'?'ar-EG':'en-GB')}</div>
+    </div>`).join('') : '<div class="empty-state"><p>'+(lang==='ar'?'لا توجد سجلات':'No logs')+'</p></div>';
+  return rows;
+}
+
+
+// ---- PROFILE ACTIONS ----
+function crmReassignBox(clientId){
+  const c = getCrmClients().find(x => x.id === clientId);
+  if(!c) return;
+  const teamUsers = getAllUsers().filter(u => ['sales','tl','sm','marketer','ma','md'].includes(u.role));
+  const opts = teamUsers.map(u => `<option value="${u.username}" ${c.assignedUser === u.username ? 'selected' : ''}> ${u.fullName || u.username} (${t(u.role)})</option>`).join('');
+  const html = `<h3><i class="fas fa-user-friends" style="color:var(--crm-primary)"></i> ${lang==='ar'?'إعادة إسناد':'Re-assign'}: ${c.name}</h3>
+  <div style="padding:14px 0">
+    <label style="font-size:12px;font-weight:600">${lang==='ar'?'إسناد إلى':'Assign to'}</label>
+    <select id="crmReassignUser" style="width:100%;margin-top:8px;padding:10px;border:1px solid var(--crm-card-border);border-radius:8px;font-size:13px;background:var(--crm-card-bg);color:var(--crm-text-primary)">${opts}</select>
+  </div>
+  <div class="modal-actions">
+    <button class="btn btn-primary" onclick="crmSaveReassign('${clientId}')"><i class="fas fa-check"></i> ${lang==='ar'?'إسناد':'Assign'}</button>
+    <button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button>
+  </div>`;
+  document.getElementById('modalContainer').innerHTML = html;
+  document.getElementById('modalContainer').style.width = '440px';
+}
+function crmActionReassign(clientId){ crmReassignBox(clientId); }
+function crmSaveReassign(clientId){
+  const user = document.getElementById('crmReassignUser').value;
+  if(!user) return alert(lang==='ar'?'اختر مستخدماً':'Select a user');
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c) return;
+  const hist = c.assignmentHistory || [];
+  hist.push({from: c.assignedUser, to: user, date: new Date().toISOString(), by: currentUser ? currentUser.username : 'system'});
+  c.assignmentHistory = hist;
+  c.assignedUser = user;
+  const emp = STORAGE.get('employees',[]).find(e => e.username === user || e.id === user);
+  if(emp) c.assignedTo = emp.id;
+  saveCrmClients(clients);
+  addCrmActivity(clientId, 'reassign', lang==='ar'?'إعادة إسناد إلى ':'Re-assigned to ' + (getAllUsers().find(u=>u.username===user)?.fullName || user));
+  openCrmClientDetail(clientId);
+}
+
+function crmActionLogCall(clientId){
+  const c = getCrmClients().find(x => x.id === clientId);
+  if(!c) return;
+  const html = `<h3><i class="fas fa-phone" style="color:#22c55e"></i> ${lang==='ar'?'تسجيل مكالمة':'Log a Call'} — ${c.name}</h3>
+  <div style="padding:14px 0;display:flex;flex-direction:column;gap:12px">
+    <div><label style="font-size:12px;font-weight:600">${lang==='ar'?'المدة (دقائق)':'Duration (minutes)'}</label><input type="number" id="crmLogCallDur" min="0" value="5" style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--crm-card-border);border-radius:8px;font-size:13px;background:var(--crm-card-bg);color:var(--crm-text-primary)"></div>
+    <div><label style="font-size:12px;font-weight:600">${lang==='ar'?'ملاحظة':'Note'}</label><textarea id="crmLogCallNote" rows="3" style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--crm-card-border);border-radius:8px;font-size:13px;background:var(--crm-card-bg);color:var(--crm-text-primary)"></textarea></div>
+    <div><label style="font-size:12px;font-weight:600">${lang==='ar'?'تسجيل صوتي (اختياري)':'Audio Recording (optional)'}</label>
+      <label class="crm-prof-filebtn" style="margin-top:6px"><i class="fas fa-microphone"></i> ${lang==='ar'?'اختيار ملف':'Choose File'}<input type="file" accept="audio/*" id="crmLogCallAudio" style="display:none" onchange="crmLoadCallAudio(event)"></label>
+      <div id="crmLogCallAudioName" style="font-size:11px;color:var(--text-light);margin-top:4px"></div>
+    </div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn btn-success" onclick="crmSaveCallFromModal('${clientId}')"><i class="fas fa-check"></i> ${lang==='ar'?'حفظ المكالمة':'Save Call'}</button>
+    <button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button>
+  </div>`;
+  document.getElementById('modalContainer').innerHTML = html;
+  document.getElementById('modalContainer').style.width = '480px';
+}
+
+function crmActionLogMessage(clientId){
+  const c = getCrmClients().find(x => x.id === clientId);
+  if(!c) return;
+  const html = `<h3><i class="fas fa-comment-dots" style="color:#3b82f6"></i> ${lang==='ar'?'تسجيل رسالة':'Log a Message'} — ${c.name}</h3>
+  <div style="padding:14px 0">
+    <div><label style="font-size:12px;font-weight:600">${lang==='ar'?'نص الرسالة':'Message text'}</label><textarea id="crmLogMsgNote" rows="4" style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--crm-card-border);border-radius:8px;font-size:13px;background:var(--crm-card-bg);color:var(--crm-text-primary)"></textarea></div>
+    <div style="margin-top:10px;font-size:12px"><i class="fas fa-info-circle" style="color:var(--crm-primary)"></i> ${lang==='ar'?'سيتم تسجيل الرسالة في سجل النشاطات':'The message will be recorded in the activity log'}</div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn btn-primary" onclick="crmSaveMessage('${clientId}')"><i class="fas fa-check"></i> ${lang==='ar'?'حفظ':'Save'}</button>
+    <button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button>
+  </div>`;
+  document.getElementById('modalContainer').innerHTML = html;
+  document.getElementById('modalContainer').style.width = '480px';
+}
+
+function crmActionSetMeeting(clientId){
+  const c = getCrmClients().find(x => x.id === clientId);
+  if(!c) return;
+  const html = `<h3><i class="fas fa-handshake" style="color:#f59e0b"></i> ${lang==='ar'?'جدولة اجتماع':'Schedule Meeting'} — ${c.name}</h3>
+  <div style="padding:14px 0;display:flex;flex-direction:column;gap:12px">
+    <div><label style="font-size:12px;font-weight:600">${lang==='ar'?'التاريخ والوقت':'Date & Time'}</label><input type="datetime-local" id="crmMeetingDate" style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--crm-card-border);border-radius:8px;font-size:13px;background:var(--crm-card-bg);color:var(--crm-text-primary)"></div>
+    <div><label style="font-size:12px;font-weight:600">${lang==='ar'?'الملاحظات':'Notes'}</label><textarea id="crmMeetingNotes" rows="3" style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--crm-card-border);border-radius:8px;font-size:13px;background:var(--crm-card-bg);color:var(--crm-text-primary)"></textarea></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn btn-primary" onclick="crmSaveMeeting('${clientId}')"><i class="fas fa-check"></i> ${lang==='ar'?'جدولة':'Schedule'}</button>
+    <button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button>
+  </div>`;
+  document.getElementById('modalContainer').innerHTML = html;
+  document.getElementById('modalContainer').style.width = '480px';
+}
+
+function crmActionMeetingFeedback(clientId){
+  const c = getCrmClients().find(x => x.id === clientId);
+  if(!c) return;
+  const html = `<h3><i class="fas fa-clipboard-check" style="color:#10b981"></i> ${lang==='ar'?'تقييم الاجتماع':'Meeting Feedback'} — ${c.name}</h3>
+  <div style="padding:14px 0;display:flex;flex-direction:column;gap:12px">
+    <div><label style="font-size:12px;font-weight:600">${lang==='ar'?'النتيجة':'Outcome'}</label><select id="crmMtgOutcome" style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--crm-card-border);border-radius:8px;font-size:13px;background:var(--crm-card-bg);color:var(--crm-text-primary)">
+      <option value="interested">${lang==='ar'?'مهتم':'Interested'}</option>
+      <option value="not_interested">${lang==='ar'?'غير مهتم':'Not Interested'}</option>
+      <option value="will_decide">${lang==='ar'?'سيقرر لاحقاً':'Will Decide Later'}</option>
+      <option value="reservation">${lang==='ar'?'حجز':'Reservation'}</option>
+    </select></div>
+    <div><label style="font-size:12px;font-weight:600">${lang==='ar'?'ملاحظات':'Notes'}</label><textarea id="crmMtgFeedbackNotes" rows="3" style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--crm-card-border);border-radius:8px;font-size:13px;background:var(--crm-card-bg);color:var(--crm-text-primary)"></textarea></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn btn-primary" onclick="crmSaveMeetingFeedback('${clientId}')"><i class="fas fa-check"></i> ${lang==='ar'?'حفظ':'Save'}</button>
+    <button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button>
+  </div>`;
+  document.getElementById('modalContainer').innerHTML = html;
+  document.getElementById('modalContainer').style.width = '480px';
+}
+
+function crmActionNewDeal(clientId){
+  const c = getCrmClients().find(x => x.id === clientId);
+  if(!c) return;
+  const html = `<h3><i class="fas fa-hand-holding-usd" style="color:#8b5cf6"></i> ${lang==='ar'?'صفقة جديدة':'New Deal'} — ${c.name}</h3>
+  <div style="padding:14px 0;display:flex;flex-direction:column;gap:12px">
+    <div><label style="font-size:12px;font-weight:600">${lang==='ar'?'عنوان الصفقة':'Deal Title'} *</label><input type="text" id="crmDealTitle" style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--crm-card-border);border-radius:8px;font-size:13px;background:var(--crm-card-bg);color:var(--crm-text-primary)"></div>
+    <div><label style="font-size:12px;font-weight:600">${lang==='ar'?'القيمة':'Value'} *</label><input type="number" id="crmDealValue" min="0" style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--crm-card-border);border-radius:8px;font-size:13px;background:var(--crm-card-bg);color:var(--crm-text-primary)"></div>
+    <div><label style="font-size:12px;font-weight:600">${lang==='ar'?'المرحلة':'Stage'}</label><select id="crmDealStage" style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--crm-card-border);border-radius:8px;font-size:13px;background:var(--crm-card-bg);color:var(--crm-text-primary)">${CRM_STAGES.map(s => `<option value="${s}" ${s==='reservation'?'selected':''}> ${t('crm_stage_'+s)}</option>`).join('')}</select></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn btn-primary" onclick="crmSaveNewDeal('${clientId}')"><i class="fas fa-check"></i> ${lang==='ar'?'إنشاء':'Create'}</button>
+    <button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button>
+  </div>`;
+  document.getElementById('modalContainer').innerHTML = html;
+  document.getElementById('modalContainer').style.width = '480px';
+}
+
+function crmActionTags(clientId){
+  const c = getCrmClients().find(x => x.id === clientId);
+  if(!c) return;
+  const current = (c.tags || []).map(t => `<span class="crm-prof-tag">${t} <i class="fas fa-times" onclick="crmRemoveTag('${clientId}','${t}',true)" style="cursor:pointer;font-size:9px;margin-left:2px;opacity:.7"></i></span>`).join('') || (lang==='ar'?'لا توجد وسوم':'No tags');
+  const html = `<h3><i class="fas fa-tags" style="color:#ef4444"></i> ${lang==='ar'?'إدارة الوسوم':'Manage Tags'} — ${c.name}</h3>
+  <div style="padding:14px 0;display:flex;flex-direction:column;gap:12px">
+    <div>${current}</div>
+    <div class="crm-prof-addbox"><input type="text" id="crmNewTag" placeholder="${lang==='ar'?'وسم جديد':'New tag'}" style="flex:1;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)"><button class="btn btn-primary btn-sm" onclick="crmAddTag('${clientId}')"><i class="fas fa-plus"></i> ${lang==='ar'?'إضافة':'Add'}</button></div>
+  </div>
+  <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">${t('close')||'Close'}</button></div>`;
+  document.getElementById('modalContainer').innerHTML = html;
+  document.getElementById('modalContainer').style.width = '480px';
+}
+
+function crmActionStatistics(clientId){
+  const c = getCrmClients().find(x => x.id === clientId);
+  if(!c) return;
+  const acts = getCrmActivities().filter(a => a.clientId === clientId);
+  const calls = (c.calls || []).length;
+  const meetings = (c.meetings || []).length;
+  const todos = c.todos || [];
+  const doneTodos = todos.filter(t => t.done).length;
+  const deals = STORAGE.get('crmDeals',[]).filter(d => d.clientId === clientId);
+  const wonDeals = deals.filter(d => d.stage === 'done_deal').length;
+  const totalDealValue = deals.reduce((s,d) => s + (parseFloat(d.value) || 0), 0);
+  const firstAct = acts.length ? new Date(Math.min(...acts.map(a => new Date(a.date).getTime()))).toLocaleDateString(lang==='ar'?'ar-EG':'en-GB') : '-';
+  const lastAct = acts.length ? new Date(Math.max(...acts.map(a => new Date(a.date).getTime()))).toLocaleDateString(lang==='ar'?'ar-EG':'en-GB') : '-';
+  const bars = [
+    {label: lang==='ar'?'مكالمات':'Calls', val: calls, pct: 100},
+    {label: lang==='ar'?'اجتماعات':'Meetings', val: meetings, pct: calls ? Math.round(meetings/calls*100) : 0},
+    {label: lang==='ar'?'مهام منجزة':'Done Todos', val: doneTodos, pct: todos.length ? Math.round(doneTodos/todos.length*100) : 0},
+    {label: lang==='ar'?'صفقات':'Deals', val: deals.length, pct: 100},
+    {label: lang==='ar'?'صفقات ناجحة':'Won Deals', val: wonDeals, pct: deals.length ? Math.round(wonDeals/deals.length*100) : 0}
+  ];
+  const barHtml = bars.map(b => `
+    <div style="margin-bottom:10px">
+      <div style="display:flex;justify-content:space-between;font-size:12px"><span>${b.label}</span><strong>${b.val}</strong></div>
+      <div style="height:6px;background:var(--crm-card-bg);border-radius:4px;margin-top:4px;overflow:hidden"><div style="width:${b.pct}%;height:100%;background:linear-gradient(90deg,#6366f1,#8b5cf6);border-radius:4px"></div></div>
+    </div>`).join('');
+  const html = `<h3><i class="fas fa-chart-bar" style="color:var(--crm-primary)"></i> ${lang==='ar'?'إحصائيات العميل':'Lead Statistics'} — ${c.name}</h3>
+  <div style="padding:14px 0">
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px">
+      <div class="crm-prof-stat"><i class="fas fa-history" style="color:#6366f1"></i><div class="crm-prof-stat-val">${acts.length}</div><div class="crm-prof-stat-label">${lang==='ar'?'نشاطات':'Activities'}</div></div>
+      <div class="crm-prof-stat"><i class="fas fa-hand-holding-usd" style="color:#8b5cf6"></i><div class="crm-prof-stat-val">${fmt(totalDealValue)}</div><div class="crm-prof-stat-label">${lang==='ar'?'قيمة الصفقات':'Deal Value'}</div></div>
+      <div class="crm-prof-stat"><i class="fas fa-calendar" style="color:#10b981"></i><div class="crm-prof-stat-val" style="font-size:14px">${firstAct} → ${lastAct}</div><div class="crm-prof-stat-label">${lang==='ar'?'النشاط من/إلى':'Active Period'}</div></div>
+    </div>
+    ${barHtml}
+  </div>
+  <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">${t('close')||'Close'}</button></div>`;
+  document.getElementById('modalContainer').innerHTML = html;
+  document.getElementById('modalContainer').style.width = '560px';
+}
+
+function crmActionNewContact(clientId){
+  const html = `<h3><i class="fas fa-user-plus" style="color:#10b981"></i> ${lang==='ar'?'جهة اتصال جديدة':'New Related Contact'}</h3>
+  <div style="padding:14px 0;display:flex;flex-direction:column;gap:12px">
+    <div><label style="font-size:12px;font-weight:600">${lang==='ar'?'الاسم':'Name'} *</label><input type="text" id="crmNcName" style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--crm-card-border);border-radius:8px;font-size:13px;background:var(--crm-card-bg);color:var(--crm-text-primary)"></div>
+    <div><label style="font-size:12px;font-weight:600">${lang==='ar'?'الهاتف':'Phone'}</label><input type="text" id="crmNcPhone" style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--crm-card-border);border-radius:8px;font-size:13px;background:var(--crm-card-bg);color:var(--crm-text-primary)"></div>
+    <div><label style="font-size:12px;font-weight:600">${lang==='ar'?'العلاقة':'Relation'}</label><input type="text" id="crmNcRelation" placeholder="${lang==='ar'?'زوج/شقيق/صديق...':'Spouse/Sibling/Friend...'}" style="width:100%;margin-top:6px;padding:10px;border:1px solid var(--crm-card-border);border-radius:8px;font-size:13px;background:var(--crm-card-bg);color:var(--crm-text-primary)"></div>
+  </div>
+  <div class="modal-actions">
+    <button class="btn btn-primary" onclick="crmSaveNewContact('${clientId}')"><i class="fas fa-check"></i> ${lang==='ar'?'إضافة':'Add'}</button>
+    <button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button>
+  </div>`;
+  document.getElementById('modalContainer').innerHTML = html;
+  document.getElementById('modalContainer').style.width = '440px';
+}
+
+
+// ---- PROFILE DATA MUTATIONS ----
+let _pendingCallAudio = null;
+function crmLoadCallAudio(e){
+  const f = e.target.files && e.target.files[0];
+  if(!f) return;
+  if(f.size > 8*1024*1024){ alert(lang==='ar'?'التسجيل يتجاوز 8MB':'Recording exceeds 8MB'); return; }
+  const reader = new FileReader();
+  reader.onload = function(ev){ _pendingCallAudio = {name: f.name, dataUrl: ev.target.result}; const el = document.getElementById('crmLogCallAudioName'); if(el) el.textContent = f.name; };
+  reader.readAsDataURL(f);
+}
+function crmSaveCall(clientId){
+  const note = document.getElementById('crmCallNote') ? document.getElementById('crmCallNote').value.trim() : '';
+  const dur = document.getElementById('crmCallDur') ? document.getElementById('crmCallDur').value : '';
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c) return;
+  const calls = c.calls || [];
+  calls.push({date: new Date().toISOString(), duration: dur || null, note, audioUrl: _pendingCallAudio ? _pendingCallAudio.dataUrl : null});
+  c.calls = calls;
+  c.lastActivity = new Date().toISOString();
+  saveCrmClients(clients);
+  addCrmActivity(clientId, 'call', lang==='ar'?'تسجيل مكالمة':'Logged a call' + (note ? ': ' + note : ''));
+  _pendingCallAudio = null;
+  openCrmClientDetail(clientId);
+}
+function crmSaveCallFromModal(clientId){
+  const dur = document.getElementById('crmLogCallDur') ? document.getElementById('crmLogCallDur').value : '';
+  const note = document.getElementById('crmLogCallNote') ? document.getElementById('crmLogCallNote').value.trim() : '';
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c) return;
+  const calls = c.calls || [];
+  calls.push({date: new Date().toISOString(), duration: dur || null, note, audioUrl: _pendingCallAudio ? _pendingCallAudio.dataUrl : null});
+  c.calls = calls;
+  c.lastActivity = new Date().toISOString();
+  saveCrmClients(clients);
+  addCrmActivity(clientId, 'call', lang==='ar'?'تسجيل مكالمة':'Logged a call' + (note ? ': ' + note : ''));
+  _pendingCallAudio = null;
+  openCrmClientDetail(clientId);
+}
+function crmDeleteCall(clientId, idx){
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c || !c.calls) return;
+  c.calls.splice(idx, 1);
+  saveCrmClients(clients);
+  openCrmClientDetail(clientId);
+}
+function crmSaveMessage(clientId){
+  const note = document.getElementById('crmLogMsgNote').value.trim();
+  if(!note) return alert(lang==='ar'?'أدخل نص الرسالة':'Enter message text');
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c) return;
+  c.lastActivity = new Date().toISOString();
+  saveCrmClients(clients);
+  addCrmActivity(clientId, 'message', lang==='ar'?'رسالة: ':'Message: ' + note);
+  openCrmClientDetail(clientId);
+}
+function crmSaveMeeting(clientId){
+  const date = document.getElementById('crmMeetingDate').value;
+  if(!date) return alert(lang==='ar'?'اختر تاريخ الاجتماع':'Pick meeting date');
+  const notes = document.getElementById('crmMeetingNotes').value.trim();
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c) return;
+  const meetings = c.meetings || [];
+  meetings.push({date: new Date(date).toISOString(), notes, created: new Date().toISOString(), by: currentUser ? currentUser.username : 'system'});
+  c.meetings = meetings;
+  c.nextFollowUp = date.slice(0,10);
+  c.lastActivity = new Date().toISOString();
+  saveCrmClients(clients);
+  addCrmActivity(clientId, 'meeting', lang==='ar'?'تمت جدولة اجتماع في ':'Scheduled meeting on ' + new Date(date).toLocaleString());
+  openCrmClientDetail(clientId);
+}
+function crmSaveMeetingFeedback(clientId){
+  const outcome = document.getElementById('crmMtgOutcome').value;
+  const notes = document.getElementById('crmMtgFeedbackNotes').value.trim();
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c) return;
+  const feedback = c.meetingFeedback || [];
+  feedback.push({outcome, notes, date: new Date().toISOString(), by: currentUser ? currentUser.username : 'system'});
+  c.meetingFeedback = feedback;
+  c.lastActivity = new Date().toISOString();
+  if(outcome === 'not_interested') c.stage = 'not_interested';
+  if(outcome === 'reservation') c.stage = 'reservation';
+  saveCrmClients(clients);
+  addCrmActivity(clientId, 'meeting_feedback', lang==='ar'?'تقييم الاجتماع: ':'Meeting feedback: ' + (lang==='ar'?({interested:'مهتم',not_interested:'غير مهتم',will_decide:'سيقرر لاحقاً',reservation:'حجز'}[outcome]||outcome):outcome));
+  openCrmClientDetail(clientId);
+}
+function crmSaveNewDeal(clientId){
+  const title = document.getElementById('crmDealTitle').value.trim();
+  const value = parseFloat(document.getElementById('crmDealValue').value) || 0;
+  if(!title) return alert(lang==='ar'?'أدخل عنوان الصفقة':'Enter deal title');
+  const stage = document.getElementById('crmDealStage').value;
+  const deals = STORAGE.get('crmDeals',[]);
+  deals.push({id:'deal_' + Date.now(), clientId, title, value, stage, status: stage === 'done_deal' ? 'won' : 'open', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), by: currentUser ? currentUser.username : 'system'});
+  STORAGE.set('crmDeals', deals);
+  addCrmActivity(clientId, 'deal', lang==='ar'?'صفقة جديدة: ':'New deal: ' + title + ' (' + fmt(value) + ')');
+  openCrmClientDetail(clientId);
+}
+function crmAddTag(clientId){
+  const val = document.getElementById('crmNewTag').value.trim();
+  if(!val) return;
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c) return;
+  const tags = c.tags || [];
+  if(!tags.includes(val)) tags.push(val);
+  c.tags = tags;
+  saveCrmClients(clients);
+  addCrmActivity(clientId, 'tag', lang==='ar'?'أضيف وسم ':'Added tag ' + val);
+  openCrmClientDetail(clientId);
+}
+function crmRemoveTag(clientId, tag, reopen){
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c) return;
+  c.tags = (c.tags || []).filter(t => t !== tag);
+  saveCrmClients(clients);
+  if(reopen) crmActionTags(clientId); else openCrmClientDetail(clientId);
+}
+function crmAddTodo(clientId){
+  const title = document.getElementById('crmTodoTitle').value.trim();
+  if(!title) return alert(lang==='ar'?'أدخل عنوان المهمة':'Enter task title');
+  const due = document.getElementById('crmTodoDue').value || null;
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c) return;
+  const todos = c.todos || [];
+  todos.push({title, due, done: false, created: new Date().toISOString()});
+  c.todos = todos;
+  saveCrmClients(clients);
+  addCrmActivity(clientId, 'todo', lang==='ar'?'مهمة جديدة: ':'New task: ' + title);
+  openCrmClientDetail(clientId);
+}
+function crmToggleTodo(clientId, idx, done){
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c || !c.todos) return;
+  c.todos[idx].done = done;
+  saveCrmClients(clients);
+}
+function crmDeleteTodo(clientId, idx){
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c || !c.todos) return;
+  c.todos.splice(idx, 1);
+  saveCrmClients(clients);
+  openCrmClientDetail(clientId);
+}
+function crmAddUnit(clientId){
+  const name = document.getElementById('crmUnitName').value.trim();
+  if(!name) return alert(lang==='ar'?'أدخل اسم الوحدة':'Enter unit name');
+  const amount = document.getElementById('crmUnitAmount').value || '';
+  const type = document.getElementById('crmUnitType').value;
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c) return;
+  const key = type === 'purchased' ? 'purchasedUnits' : 'sellingUnits';
+  const list = c[key] || [];
+  list.push({name, amount, added: new Date().toISOString()});
+  c[key] = list;
+  saveCrmClients(clients);
+  addCrmActivity(clientId, 'updated', lang==='ar'?'أضيفت وحدة ':'Added unit ' + name);
+  openCrmClientDetail(clientId);
+}
+function crmDeleteAttachment(clientId, idx){
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c || !c.attachments) return;
+  c.attachments.splice(idx, 1);
+  saveCrmClients(clients);
+  openCrmClientDetail(clientId);
+}
+function crmProfileUploadAtt(clientId, event){
+  const files = event.target.files;
+  if(!files || !files.length) return;
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c) return;
+  const atts = c.attachments || [];
+  let remaining = files.length;
+  Array.from(files).forEach(f => {
+    if(f.size > 5*1024*1024){ alert(lang==='ar'?'الملف يتجاوز 5MB':'File exceeds 5MB'); remaining--; if(remaining === 0) openCrmClientDetail(clientId); return; }
+    const reader = new FileReader();
+    reader.onload = function(ev){
+      atts.push({name: f.name, size: (f.size/1024).toFixed(1)+'KB', dataUrl: ev.target.result});
+      remaining--;
+      if(remaining === 0){ c.attachments = atts; saveCrmClients(clients); openCrmClientDetail(clientId); }
+    };
+    reader.readAsDataURL(f);
+  });
+}
+function crmAddContact(clientId){
+  const name = document.getElementById('crmContactName').value.trim();
+  if(!name) return alert(lang==='ar'?'أدخل الاسم':'Enter name');
+  const phone = document.getElementById('crmContactPhone').value.trim();
+  const relation = document.getElementById('crmContactRelation').value.trim();
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c) return;
+  const contacts = c.relatedContacts || [];
+  contacts.push({name, phone, relation});
+  c.relatedContacts = contacts;
+  saveCrmClients(clients);
+  addCrmActivity(clientId, 'updated', lang==='ar'?'أضيفت جهة اتصال ':'Added contact ' + name);
+  openCrmClientDetail(clientId);
+}
+function crmDeleteContact(clientId, idx){
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c || !c.relatedContacts) return;
+  c.relatedContacts.splice(idx, 1);
+  saveCrmClients(clients);
+  openCrmClientDetail(clientId);
+}
+function crmSaveNewContact(clientId){
+  const name = document.getElementById('crmNcName').value.trim();
+  if(!name) return alert(lang==='ar'?'أدخل الاسم':'Enter name');
+  const phone = document.getElementById('crmNcPhone').value.trim();
+  const relation = document.getElementById('crmNcRelation').value.trim();
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c) return;
+  const contacts = c.relatedContacts || [];
+  contacts.push({name, phone, relation});
+  c.relatedContacts = contacts;
+  saveCrmClients(clients);
+  addCrmActivity(clientId, 'updated', lang==='ar'?'أضيفت جهة اتصال ':'Added contact ' + name);
+  openCrmClientDetail(clientId);
+}
+function crmSaveJourney(clientId){
+  const stage = document.getElementById('crmJourneyStage').value;
+  const clients = getCrmClients();
+  const c = clients.find(x => x.id === clientId);
+  if(!c) return;
+  const journey = c.journey || [];
+  journey.push({from: c.stage || 'fresh_leads', to: stage, stage, date: new Date().toISOString(), by: currentUser ? currentUser.username : 'system'});
+  c.journey = journey;
+  c.stage = stage;
+  saveCrmClients(clients);
+  addCrmActivity(clientId, 'status_changed', lang==='ar'?'تغيرت المرحلة إلى ':'Stage changed to ' + t('crm_stage_'+stage));
+  openCrmClientDetail(clientId);
+}
+function crmMergeDuplicates(keepId, mergeId){
+  if(!confirm(lang==='ar'?'دمج العميل المكرر مع هذا العميل؟ سيتم نقل النشاطات':'Merge the duplicate into this lead? Activities will be transferred')) return;
+  const clients = getCrmClients();
+  const keep = clients.find(x => x.id === keepId);
+  const merge = clients.find(x => x.id === mergeId);
+  if(!keep || !merge) return;
+  keep.tags = [...new Set([...(keep.tags||[]), ...(merge.tags||[])])];
+  keep.todos = [...(keep.todos||[]), ...(merge.todos||[])];
+  keep.relatedContacts = [...(keep.relatedContacts||[]), ...(merge.relatedContacts||[])];
+  keep.attachments = [...(keep.attachments||[]), ...(merge.attachments||[])];
+  keep.calls = [...(keep.calls||[]), ...(merge.calls||[])];
+  keep.journey = [...(keep.journey||[]), ...(merge.journey||[])];
+  if(!keep.phone && merge.phone) keep.phone = merge.phone;
+  if(!keep.email && merge.email) keep.email = merge.email;
+  const acts = getCrmActivities();
+  acts.forEach(a => { if(a.clientId === mergeId) a.clientId = keepId; });
+  saveCrmActivities(acts);
+  const deals = STORAGE.get('crmDeals',[]);
+  deals.forEach(d => { if(d.clientId === mergeId) d.clientId = keepId; });
+  STORAGE.set('crmDeals', deals);
+  const filtered = clients.filter(x => x.id !== mergeId);
+  saveCrmClients(filtered);
+  addCrmActivity(keepId, 'updated', lang==='ar'?'دمج عميل مكرر':'Merged duplicate lead');
+  openCrmClientDetail(keepId);
+}
+
+// ---- PROFILE CSS ----
+const CRM_PROFILE_CSS = `
+.crm-prof{display:flex;flex-direction:column;gap:12px}
+.crm-prof-head{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:16px;background:linear-gradient(135deg,var(--crm-card-bg,#fff),var(--crm-card-bg-alt,#f8fafc));border:1px solid var(--crm-card-border);border-radius:14px}
+.crm-prof-avatar{width:56px;height:56px;border-radius:14px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:20px;flex-shrink:0}
+.crm-prof-head-info{flex:1;min-width:200px}
+.crm-prof-title{font-size:18px;font-weight:800;color:var(--crm-text-primary,#1f2937)}
+.crm-prof-id{font-size:12px;color:var(--text-light);font-weight:600}
+.crm-prof-sub{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.crm-prof-sub-item{font-size:12px;color:var(--crm-text-secondary,#4b5563)}
+.crm-prof-overdue{font-size:11px;font-weight:700;color:#ef4444;background:#ef444410;border:1px solid #ef444430;padding:2px 8px;border-radius:12px}
+.crm-prof-actions{display:flex;gap:6px;flex-wrap:wrap}
+.crm-prof-act{font-size:11px;font-weight:700;padding:7px 12px;border:none;border-radius:8px;cursor:pointer;background:#eef2ff;color:#3730a3;display:inline-flex;align-items:center;gap:6px;transition:.15s}
+.crm-prof-act:hover{transform:translateY(-1px);box-shadow:0 2px 8px rgba(0,0,0,.12)}
+.crm-prof-tabs{display:flex;gap:4px;flex-wrap:wrap;padding:6px;background:var(--crm-card-bg,#fff);border:1px solid var(--crm-card-border);border-radius:12px}
+.crm-prof-tab{font-size:11px;font-weight:700;padding:8px 12px;border-radius:8px;cursor:pointer;color:var(--crm-text-secondary,#4b5563);display:inline-flex;align-items:center;gap:6px;transition:.15s}
+.crm-prof-tab:hover{background:var(--crm-page-bg,#f1f5f9)}
+.crm-prof-tab.active{background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff}
+.crm-prof-body{padding:4px}
+.crm-prof-grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media(max-width:760px){.crm-prof-grid2{grid-template-columns:1fr}}
+.crm-prof-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.crm-prof-stat{background:var(--crm-card-bg,#fff);border:1px solid var(--crm-card-border);border-radius:12px;padding:12px;text-align:center}
+.crm-prof-stat-val{font-size:18px;font-weight:800;color:var(--crm-text-primary,#1f2937);margin:4px 0 2px}
+.crm-prof-stat-label{font-size:10px;color:var(--text-light,#6b7280)}
+.crm-prof-info{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px}
+.crm-prof-info-item{display:flex;align-items:center;gap:8px}
+.crm-prof-info-label{color:var(--text-light,#6b7280);min-width:70px;font-size:11px}
+.crm-prof-tag{display:inline-flex;align-items:center;gap:4px;background:#ef444410;border:1px solid #ef444430;color:#ef4444;font-size:11px;font-weight:700;padding:3px 10px;border-radius:12px;margin:2px}
+.crm-prof-call{display:flex;align-items:center;gap:12px;padding:10px;background:var(--crm-card-bg,#fff);border:1px solid var(--crm-card-border);border-radius:10px;margin-bottom:8px}
+.crm-prof-call-ic,.crm-prof-unit-ic,.crm-prof-campaign-ic{width:36px;height:36px;border-radius:10px;background:#22c55e15;color:#22c55e;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.crm-prof-call-info{flex:1;font-size:12px}
+.crm-prof-del{background:transparent;border:none;color:#ef4444;cursor:pointer;font-size:13px;padding:4px}
+.crm-prof-addbox{display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:12px;background:var(--crm-card-bg,#fff);border:1px dashed var(--crm-card-border);border-radius:10px;margin-top:10px}
+.crm-prof-filebtn{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border:1px solid var(--crm-card-border);border-radius:8px;font-size:12px;cursor:pointer;background:var(--crm-page-bg,#f1f5f9);color:var(--crm-text-primary,#1f2937)}
+.crm-prof-journey{position:relative;padding-left:20px}
+.crm-prof-journey-item{position:relative;padding-bottom:16px;border-left:2px solid #e2e8f0;padding-left:20px}
+.crm-prof-journey-dot{position:absolute;left:-6px;top:2px;width:10px;height:10px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 2px currentColor}
+.crm-prof-journey-content{font-size:13px}
+.crm-prof-todo{display:flex;align-items:center;gap:10px;padding:10px;background:var(--crm-card-bg,#fff);border:1px solid var(--crm-card-border);border-radius:10px;margin-bottom:8px;font-size:13px}
+.crm-prof-todo.done span{text-decoration:line-through;color:var(--text-light)}
+.crm-prof-todo-due{font-size:11px;color:var(--text-light);margin-left:auto}
+.crm-prof-todo-due.over{color:#ef4444;font-weight:700}
+.crm-prof-unit{display:flex;align-items:center;gap:12px;padding:10px;background:var(--crm-card-bg,#fff);border:1px solid var(--crm-card-border);border-radius:10px;margin-bottom:8px}
+.crm-prof-unit-info{flex:1;font-size:13px}
+.crm-prof-unit-tag{font-size:10px;font-weight:700;padding:3px 10px;border-radius:12px}
+.crm-prof-unit-tag.sold{background:#10b98115;color:#10b981}
+.crm-prof-unit-tag.sell{background:#3b82f615;color:#3b82f6}
+.crm-prof-att-row{display:flex;align-items:center;gap:8px;padding:8px;background:var(--crm-card-bg,#fff);border:1px solid var(--crm-card-border);border-radius:8px;margin-bottom:6px}
+.crm-prof-att{display:inline-flex;align-items:center;gap:8px;font-size:12px;color:var(--crm-primary,#6366f1);text-decoration:none;flex:1}
+.crm-prof-att span{font-size:10px;color:var(--text-light)}
+.crm-prof-contact{display:flex;align-items:center;gap:10px;padding:10px;background:var(--crm-card-bg,#fff);border:1px solid var(--crm-card-border);border-radius:10px;margin-bottom:8px}
+.crm-prof-contact-avatar{width:34px;height:34px;border-radius:50%;background:#3b82f615;color:#3b82f6;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.crm-prof-contact-info{flex:1;font-size:13px}
+.crm-prof-contact-wa{color:#25d366;font-size:18px;text-decoration:none}
+.crm-prof-campaign{display:flex;align-items:center;gap:12px;padding:10px;background:var(--crm-card-bg,#fff);border:1px solid var(--crm-card-border);border-radius:10px;margin-bottom:8px}
+.crm-prof-campaign-info{flex:1;font-size:13px}
+.crm-prof-current-assign{display:flex;align-items:center;gap:8px;padding:12px;background:#6366f110;border:1px solid #6366f130;border-radius:10px;margin-bottom:12px;font-size:13px}
+.crm-prof-dup{display:flex;align-items:center;gap:12px;padding:10px;background:var(--crm-card-bg,#fff);border:1px solid var(--crm-card-border);border-radius:10px;margin-bottom:8px}
+.crm-prof-dup-info{flex:1;font-size:13px}
+.crm-prof-dup-actions{display:flex;gap:6px}
+.crm-prof-empty{padding:30px;text-align:center;color:var(--text-light)}
+`;
+if(typeof CRM_PROFILE_CSS !== 'undefined' && !document.getElementById('crmProfileStyle')){
+  const st = document.createElement('style');
+  st.id = 'crmProfileStyle';
+  st.textContent = CRM_PROFILE_CSS;
+  document.head.appendChild(st);
+}
+
+// ===== LEAD PROFILE v2 END =====
 function logCrmActivity(clientId,type){
   const labels={call:t('crm_call'),meeting:t('crm_meeting'),email:t('crm_email')};
   const desc=prompt(t('crm_addNote')+': '+labels[type]);
@@ -26926,7 +27754,59 @@ function renderCrmSettingsFull(){
     .crm-badge-v2{background:#8B5CF6;color:#fff}
     .crm-set-empty{text-align:center;padding:16px;color:var(--text-light,#6b7280);font-size:12px}
     @media(max-width:768px){.crm-set-grid{grid-template-columns:1fr}.crm-set-tab{padding:8px 12px;font-size:11px}}
-  </style>
+  
+/* Lead Profile v2 */
+.crm-prof{font-family:inherit}.crm-prof-head{display:flex;align-items:center;gap:14px;padding:16px;background:linear-gradient(135deg,#1e293b,#334155);border-radius:12px;margin-bottom:14px;color:#fff;flex-wrap:wrap}
+.crm-prof-avatar{width:48px;height:48px;border-radius:50%;background:linear-gradient(135deg,#6366f1,#8b5cf6);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;flex-shrink:0}
+.crm-prof-head-info{flex:1;min-width:220px}.crm-prof-title{font-size:18px;font-weight:700}.crm-prof-id{color:#94a3b8;font-size:12px;font-weight:400}
+.crm-prof-sub{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px;align-items:center;font-size:11px}.crm-prof-sub-item{color:#cbd5e1;background:rgba(255,255,255,.12);padding:2px 8px;border-radius:12px}
+.crm-prof-overdue{background:#ef4444;color:#fff;padding:2px 8px;border-radius:12px;font-weight:600}
+.crm-prof-actions{display:flex;gap:6px;flex-wrap:wrap;max-width:100%}
+.crm-prof-actions .crm-prof-act{border:none;border-radius:8px;padding:7px 10px;font-size:11px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:5px;transition:transform .15s,box-shadow .15s}
+.crm-prof-actions .crm-prof-act:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,.25)}
+.crm-prof-tabs{display:flex;gap:2px;overflow-x:auto;padding-bottom:6px;margin-bottom:12px;border-bottom:1px solid var(--crm-card-border)}
+.crm-prof-tab{white-space:nowrap;padding:8px 12px;font-size:12px;font-weight:600;color:var(--crm-text-muted);cursor:pointer;border-radius:8px 8px 0 0;border-bottom:2px solid transparent;display:flex;align-items:center;gap:6px}
+.crm-prof-tab:hover{background:var(--crm-card-bg);color:var(--crm-text-primary)}
+.crm-prof-tab.active{color:var(--crm-primary);border-bottom-color:var(--crm-primary);background:var(--crm-card-bg)}
+.crm-prof-body{max-height:60vh;overflow-y:auto;padding-right:4px}
+.crm-prof-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.crm-prof-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.crm-prof-stat{background:var(--crm-card-bg);border:1px solid var(--crm-card-border);border-radius:10px;padding:10px;text-align:center;font-size:11px}
+.crm-prof-stat-val{font-size:18px;font-weight:700;margin:4px 0;color:var(--crm-text-primary)}
+.crm-prof-stat-label{color:var(--crm-text-muted)}
+.crm-prof-info{display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px}
+.crm-prof-info-item{display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px dashed var(--crm-card-border)}
+.crm-prof-info-label{color:var(--crm-text-muted);margin-left:auto;text-align:right}
+.crm-prof-info-item strong{font-size:12px}
+.crm-prof-tag{display:inline-block;background:rgba(239,68,68,.12);color:#ef4444;padding:3px 10px;border-radius:12px;font-size:11px;margin:2px}
+.crm-prof-att-list{display:flex;flex-direction:column;gap:6px}
+.crm-prof-att{display:flex;align-items:center;gap:6px;font-size:12px;padding:6px 8px;background:var(--crm-card-bg);border:1px solid var(--crm-card-border);border-radius:6px;text-decoration:none;color:var(--crm-text-primary)}
+.crm-prof-att span{color:var(--crm-text-muted);font-size:10px;margin-left:auto}
+.crm-prof-call,.crm-prof-todo,.crm-prof-contact,.crm-prof-campaign,.crm-prof-unit,.crm-prof-dup,.crm-prof-att-row{display:flex;align-items:center;gap:10px;padding:10px;background:var(--crm-card-bg);border:1px solid var(--crm-card-border);border-radius:8px;margin-bottom:8px;font-size:12px}
+.crm-prof-call-ic,.crm-prof-unit-ic,.crm-prof-campaign-ic{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;background:rgba(34,197,94,.12);color:#22c55e;flex-shrink:0}
+.crm-prof-call-info,.crm-prof-unit-info,.crm-prof-campaign-info,.crm-prof-dup-info{flex:1}
+.crm-prof-del{border:none;background:transparent;color:#ef4444;cursor:pointer;font-size:12px;padding:4px}
+.crm-prof-addbox{display:flex;gap:8px;margin-top:12px;align-items:center;flex-wrap:wrap}
+.crm-prof-filebtn{display:inline-flex;align-items:center;gap:6px;padding:8px 12px;background:var(--crm-card-bg);border:1px dashed var(--crm-card-border);border-radius:6px;font-size:12px;cursor:pointer;color:var(--crm-text-primary)}
+.crm-prof-todo.done span{text-decoration:line-through;opacity:.6}
+.crm-prof-todo-due{font-size:10px;color:var(--crm-text-muted);white-space:nowrap}
+.crm-prof-todo-due.over{color:#ef4444;font-weight:700}
+.crm-prof-unit-tag{padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700}
+.crm-prof-unit-tag.sold{background:rgba(16,185,129,.14);color:#10b981}
+.crm-prof-unit-tag.sell{background:rgba(245,158,11,.14);color:#f59e0b}
+.crm-prof-journey{position:relative;padding-left:20px}
+.crm-prof-journey-item{position:relative;padding-bottom:14px;border-left:2px solid var(--crm-card-border);padding-left:18px}
+.crm-prof-journey-item:last-child{border-left-color:transparent}
+.crm-prof-journey-dot{position:absolute;left:-5px;top:0;width:10px;height:10px;border-radius:50%}
+.crm-prof-journey-content{font-size:12px}
+.crm-prof-current-assign{display:flex;align-items:center;gap:8px;padding:10px;background:rgba(99,102,241,.1);border:1px solid rgba(99,102,241,.3);border-radius:8px;margin-bottom:10px;font-size:12px}
+.crm-prof-contact-avatar{width:32px;height:32px;border-radius:50%;background:var(--crm-primary);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0}
+.crm-prof-contact-info{flex:1}
+.crm-prof-contact-wa{color:#22c55e;font-size:16px}
+.crm-prof-dup-actions{display:flex;gap:6px}
+@media(max-width:720px){.crm-prof-grid2{grid-template-columns:1fr}.crm-prof-stats{grid-template-columns:repeat(2,1fr)}}
+
+</style>
   <div class="crm-set-tabs">${tabs.map((tb,i)=>`<button class="crm-set-tab" onclick="switchCrmSetTab(${i})" style="--tc:${tb.color}"><i class="fas fa-${tb.icon}" style="color:${tb.color}"></i> ${tb.label}</button>`).join('')}</div>
   <div id="crmSetTabContent"></div>`;
 }
