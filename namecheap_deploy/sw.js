@@ -1,4 +1,4 @@
-const CACHE_NAME = 'marts-crm-v5.0';
+﻿const CACHE_NAME = 'marts-crm-v5.8';
 const ASSETS = [
   './Marts_System_Merged.html',
   './manifest.json',

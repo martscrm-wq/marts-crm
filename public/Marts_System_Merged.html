@@ -4087,6 +4087,14 @@ function initData() {
         changed=true;
       }
     });
+    // SAFE MERGE: add any missing default accounts (never removes/overwrites existing ones)
+    const localNames = new Set(users.map(x=>x.username));
+    const missing = defaultUsers.concat(generateMarketingTeam()).filter(u=>!localNames.has(u.username));
+    if(missing.length){
+      users.push(...missing);
+      changed=true;
+      console.log('[Init] Merged '+missing.length+' missing default users (login fix)');
+    }
     if(changed) safeStorage.set('users', JSON.stringify(users));
   }
   // SAFETY v3.0.1: migration MUST NEVER delete/clear any data key. It only sets a flag.
@@ -4137,6 +4145,17 @@ async function doLogin() {
       return;
     }
     let found = users.find(x => x.username === u && x.password === p);
+    if(!found){
+      // Local merge fallback: ensure all default accounts exist before failing
+      const localNames = new Set(users.map(x=>x.username));
+      const missing = defaultUsers.concat(generateMarketingTeam()).filter(x=>!localNames.has(x.username));
+      if(missing.length){
+        users.push(...missing);
+        safeStorage.set('users', JSON.stringify(users));
+        found = users.find(x => x.username === u && x.password === p);
+        if(found) console.log('[Login] Merged '+missing.length+' default users from local fallback');
+      }
+    }
     if(!found && _fbReady && FirebaseSync && !FirebaseSync._loadFailed) {
       // Login fallback: pull fresh users from cloud before failing (fixes stale local storage)
       try {
