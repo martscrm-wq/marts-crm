@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en" dir="ltr">
 <head>
 <meta charset="UTF-8">
@@ -2300,13 +2300,12 @@ setInterval(() => { if (_isOnline) FirebaseSync.flushPending(); }, 30000);
 // FIREBASE CLOUD SYNC
 // ============================================================
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyAVpOi-TH6jknNCeY-MoB9Lb6_A4DMIh_4",
-  authDomain: "marts-crm-6ca37.firebaseapp.com",
-  projectId: "marts-crm-6ca37",
-  storageBucket: "marts-crm-6ca37.firebasestorage.app",
-  messagingSenderId: "1093424193315",
-  appId: "1:1093424193315:web:65b4f79e8a4a45b2dd7696",
-  measurementId: "G-J9FKTNSJEH"
+  apiKey: "AIzaSyC1AbjRmEG12uMaZll1twCLl-dgxXUMHJ0",
+  authDomain: "marts-crm-v2.firebaseapp.com",
+  projectId: "marts-crm-v2",
+  storageBucket: "marts-crm-v2.firebasestorage.app",
+  messagingSenderId: "1083802037595",
+  appId: "1:1083802037595:web:ed9fec3432885ed615fe7e",
 };
 
 let _fbApp = null, _fbDb = null, _fbReady = false;
@@ -2612,7 +2611,7 @@ async function _pollCloudSync() {
       const data = doc.data();
       const cloudVal = data.value;
       if (cloudVal === undefined || cloudVal === null) return;
-      if (cloudVal._isChunked) return;
+      if (data._isChunked) return;
       const cloudTs = data.timestamp || 0;
       const localRaw = safeStorage.get(key);
       let localTs = localRaw ? (JSON.parse(safeStorage.get('_ts_' + key) || '0')) : 0;
@@ -2708,6 +2707,14 @@ const FirebaseSync = {
     }
     this.flushPending();
     this._startRealtimeListeners();
+    // === STATIC FALLBACK WATCHDOG: load full clients from bundled files if cloud data is partial/blocked ===
+    setTimeout(() => {
+      try {
+        const _cur = safeStorage.get('crm_clients');
+        const _n = _cur ? JSON.parse(_cur).length : 0;
+        if (_n < 39000) this._loadCrmClientsFallback();
+      } catch(e) {}
+    }, 8000);
   },
 
   _startRealtimeListeners() {
@@ -2743,7 +2750,7 @@ const FirebaseSync = {
             }
             _triggerDataRefresh(key);
           }
-        }, e => console.warn('[Firebase] Listener error for ' + key + ':', e.message));
+        }, e => { console.warn('[Firebase] Listener error for ' + key + ':', e.message); if (key === 'crm_clients' || key === 'users') setTimeout(() => this._loadCrmClientsFallback(), 1500); });
         this._listeners.push(unsub);
       } catch(e) {}
     });
@@ -2752,6 +2759,31 @@ const FirebaseSync = {
   _stopRealtimeListeners() {
     this._listeners.forEach(unsub => { try { unsub(); } catch(e) {} });
     this._listeners = [];
+  },
+
+  async _loadCrmClientsFallback() {
+    try {
+      const cur = safeStorage.get('crm_clients');
+      const curLen = cur ? JSON.parse(cur).length : 0;
+      if (curLen >= 39000) { console.log('[Fallback] crm_clients already complete (' + curLen + '), skip'); return; }
+      console.log('[Fallback] Loading crm_clients from static files (current: ' + curLen + ')');
+      const PARTS = 10;
+      let all = [];
+      for (let p = 0; p < PARTS; p++) {
+        const res = await fetch('data/crm_clients_' + p + '.json', { cache: 'no-store' });
+        if (!res.ok) throw new Error('HTTP ' + res.status + ' for part ' + p);
+        const arr = await res.json();
+        if (!Array.isArray(arr)) throw new Error('Invalid JSON in part ' + p);
+        all = all.concat(arr);
+      }
+      safeStorage.set('crm_clients', JSON.stringify(all));
+      safeStorage.set('_ts_crm_clients', String(Date.now()));
+      console.log('[Fallback] crm_clients loaded from static files:', all.length);
+      this._initialized = true;
+      _triggerDataRefresh('crm_clients');
+    } catch(e) {
+      console.warn('[Fallback] crm_clients static load failed:', e.message);
+    }
   },
 
   save(key, value) {
@@ -19998,9 +20030,135 @@ function closeAddMenu(){
   if(menu) menu.classList.remove('active');
 }
 function openCrmImportModal(){
-  alert(lang==='ar'?'قريباً - استيراد العملاء من ملف':'Coming soon - Import clients from file');
+  const lg = lang === 'ar';
+  const stageOpts = CRM_STAGES.map(s => `<option value="${s}">${t('crm_stage_'+s)}</option>`).join('');
+  const srcOpts = CRM_SOURCES.map(s => `<option value="${s}">${t('crm_source_'+s)}</option>`).join('');
+  openModal(`<h3><i class="fas fa-file-import" style="color:var(--primary)"></i> ${lg?'استيراد العملاء':'Import Clients'}</h3>
+    <div style="margin-bottom:12px">
+      <label style="font-weight:600;font-size:13px;margin-bottom:4px;display:block">${lg?'بيانات JSON (صيغة Marts أو 8X CRM):':'JSON Data (Marts or 8X CRM format):'}</label>
+      <textarea id="crmImportJson" rows="14" style="width:100%;font-family:monospace;font-size:11px;direction:ltr;box-sizing:border-box" placeholder='[{"name":"Client Name","phone":"01000000000","source":"facebook","stage":"fresh_leads"}, ...]'></textarea>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>${lg?'المرحلة الافتراضية':'Default Stage'}</label><select id="crmImportStage">${stageOpts}</select></div>
+      <div class="form-group"><label>${lg?'المصدر الافتراضي':'Default Source'}</label><select id="crmImportSource">${srcOpts}</select></div>
+    </div>
+    <div class="form-row">
+      <div class="form-group"><label>${lg?'الوضع':'Mode'}</label><select id="crmImportMode">
+        <option value="merge">${lg?'دمج (تجاهل المكرر بالهاتف)':'Merge (skip duplicate phone)'}</option>
+        <option value="replace">${lg?'استبدال جميع العملاء':'Replace all clients'}</option>
+      </select></div>
+    </div>
+    <div style="margin-top:18px;display:flex;gap:10px;justify-content:flex-end">
+      <button class="btn" onclick="closeModal()">${lg?'إلغاء':'Cancel'}</button>
+      <button class="btn btn-primary" onclick="crmRunImport()"><i class="fas fa-upload"></i> ${lg?'استيراد':'Import'}</button>
+    </div>`);
 }
-document.addEventListener('click', function(e){
+function crmRunImport(){
+  const lg = lang === 'ar';
+  const text = (document.getElementById('crmImportJson').value||'').trim();
+  const defStage = document.getElementById('crmImportStage').value;
+  const defSource = document.getElementById('crmImportSource').value;
+  const mode = document.getElementById('crmImportMode').value;
+  if(!text){ alert(lg?'الصق بيانات JSON أولاً':'Paste JSON data first'); return; }
+  let arr;
+  try { arr = JSON.parse(text); }
+  catch(e){ alert((lg?'صيغة JSON غير صالحة: ':'Invalid JSON: ')+e.message); return; }
+  if(!Array.isArray(arr)){ if(arr && Array.isArray(arr.data)) arr = arr.data; else { alert(lg?'يجب أن تكون البيانات مصفوفة':'Data must be an array'); return; } }
+  const STAGE_MAP = {69:'fresh_leads',70:'no_answer',161:'rotation',164:'rotation_trying',71:'follow_up',165:'hot_cases',162:'scheduled_meeting',216:'rotation_scheduled',73:'follow_up_after',74:'reservation',119:'done_deal',120:'not_interested',121:'low_budget',132:'bought',122:'listing',124:'request',125:'cancelled',126:'unreachable',167:'broker',176:'owners',245:'personal_leads',251:'listing_leads',256:'requests_resale'};
+  const STATUS_BY_STAGE = {done_deal:'converted',reservation:'negotiating',not_interested:'lost',low_budget:'lost',bought:'lost',cancelled:'lost',unreachable:'lost',no_answer:'contacted',rotation:'contacted',rotation_trying:'contacted',follow_up:'contacted',hot_cases:'contacted',scheduled_meeting:'contacted',rotation_scheduled:'contacted',follow_up_after:'contacted',request:'contacted',broker:'contacted',owners:'contacted',personal_leads:'contacted',listing_leads:'contacted',requests_resale:'contacted'};
+  const SRC_MAP = {facebook:'facebook','facebook campaign':'facebook',instgram:'instagram','whats app':'whatsapp','walk in':'walkin','web site':'website','web form':'website','google ads':'google','google form':'google','cold call':'coldcall','cold calls':'coldcall','personal connection':'personal',rotation:'rotation','owners data':'ownersdata','traders data':'tradersdata',meta:'meta',adzona:'ad',x:'x','linked in':'linkedin',snapchat:'snapchat',tiktok:'tiktok',referral:'referral','property finder':'ad','bh/shb data':'other'};
+  const slug = n => String(n||'').toLowerCase().trim().split(/\s+/).filter(Boolean).join('.');
+  const ALIAS_MAP = {'eslam.hussien':'eslam.hussein'};
+  const users = STORAGE.get('users',[]);
+  const userBySlug = {};
+  users.forEach(u=>{ userBySlug[slug(u.fullName||u.username)] = u.username; userBySlug[String(u.username||'').toLowerCase()] = u.username; });
+  let clients = getCrmClients();
+  if(mode === 'replace') clients = [];
+  const seen = new Set(clients.map(c=>String(c.phone||'').replace(/\D/g,'')));
+  let added = 0, skipped = 0;
+  arr.forEach(r=>{
+    let phone = String(r.phone||(r.phones&&r.phones[0])||'').replace(/\D/g,'');
+    const name = String(r.name||r.full_name||r.fullName||'').trim();
+    if(!name && !phone) { skipped++; return; }
+    if(!phone) phone = '';
+    const key = phone || ('n:'+name.toLowerCase());
+    if(seen.has(key)) { skipped++; return; }
+    seen.add(key);
+    let stage = STAGE_MAP[r.status_id] || r.stage || defStage;
+    if(!CRM_STAGES.includes(stage)) stage = defStage;
+    let source = null;
+    const srcName = String(r.source_name||r.source||r.lead_list||'').toLowerCase();
+    if(srcName) source = SRC_MAP[srcName] || null;
+    if(!source && r.source && CRM_SOURCES.includes(r.source)) source = r.source;
+    if(!source) source = defSource;
+    const status = r.status || STATUS_BY_STAGE[stage] || 'new';
+    let assignedUser = '';
+    const asg = r.assignment && r.assignment.assignees && r.assignment.assignees[0];
+    const asgName = asg ? (asg.name||asg) : (r.owner||r.assignee||'');
+    const notesParts = [];
+    if(asgName){
+      const s = slug(asgName);
+      const u = userBySlug[s] || userBySlug[ALIAS_MAP[s]];
+      if(u) assignedUser = u;
+      else notesParts.push((lg?'مكلف 8X: ':'8X assignee: ')+asgName);
+    }
+    if(r.notes) notesParts.push(String(r.notes));
+    if(r.creator_name) notesParts.push((lg?'أُنشئ بواسطة: ':'Created by: ')+r.creator_name);
+    if(r.wallet) notesParts.push((lg?'المحفظة: ':'Wallet: ')+r.wallet);
+    if(r.lead_classification) notesParts.push((lg?'التصنيف: ':'Classification: ')+r.lead_classification);
+    if(r.lead_quality) notesParts.push((lg?'الجودة: ':'Quality: ')+r.lead_quality);
+    const campaignSrc = r.source_name && !SRC_MAP[String(r.source_name||'').toLowerCase()] ? r.source_name : '';
+    const client = {
+      id: 'c_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+      name: name || (lg?'بدون اسم':'No name'),
+      phone: phone,
+      email: r.email||'',
+      nationalId: r.nationalId||'',
+      source: source,
+      status: status,
+      stage: stage,
+      budget: r.budget!=null ? String(r.budget) : '',
+      assignedTo: assignedUser,
+      assignedUser: assignedUser,
+      preferredProject: r.preferredProject||(r.interests&&r.interests[0])||'',
+      preferredUnit: r.preferredUnit||'',
+      address: r.address||'',
+      nextFollowUp: '',
+      notes: notesParts.join(' | '),
+      campaignName: r.campaignName||campaignSrc||'',
+      date: r.created_at ? String(r.created_at).slice(0,10) : today(),
+      lastContact: r.last_activity ? new Date(r.last_activity).toISOString() : '',
+      importedFrom: '8X'
+    };
+    if(r.tags && Array.isArray(r.tags) && r.tags.length) client.tags = r.tags;
+    if(r.interests && Array.isArray(r.interests) && r.interests.length) client.interests = r.interests;
+    if(r.rating) client.rating = r.rating;
+    if(r.wallet) client.wallet = r.wallet;
+    clients.push(client);
+    added++;
+    if(r.history && r.history.length){
+      const acts = getCrmActivities();
+      r.history.forEach(h=>{
+        if(!h || !h.desc) return;
+        const hType = h.type || 'note';
+        acts.push({
+          id: 'ca_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),
+          clientId: client.id,
+          type: ['call','meeting','email','note','message','todo','status_changed','tag','reassign','meeting_feedback'].includes(hType) ? hType : 'note',
+          desc: String(h.desc),
+          by: h.by || r.creator_name || '',
+          date: h.date || client.date || new Date().toISOString()
+        });
+      });
+      saveCrmActivities(acts);
+    }
+  });
+  saveCrmClients(clients);
+  closeModal();
+  alert((lg?'تم استيراد ':'Imported ')+added+(lg?' عميل':' clients')+(skipped?('، تم تخطي '+skipped+(lg?' مكرر/ناقص':' duplicate/invalid')):''));
+  if(typeof filterCrmClients==='function') filterCrmClients();
+  else if(typeof renderCrmClients==='function') renderCrmClients(document.getElementById('crmViewContent'));
+}document.addEventListener('click', function(e){
   const menu = document.getElementById('crmDropdownMenu');
   if(menu && !e.target.closest('.crm-dropdown')) menu.classList.remove('active');
   const addMenu = document.getElementById('crmAddMenu');

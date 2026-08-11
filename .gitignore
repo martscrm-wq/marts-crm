@@ -37,3 +37,6 @@ backups/
 test-results/
 
 .vercel
+
+marts-crm-v2-firebase-adminsdk*.json
+restore_cloud_v2.js
