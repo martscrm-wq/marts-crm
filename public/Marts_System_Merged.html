@@ -4029,7 +4029,30 @@ function canSeeClient(client){
 // INIT DATA
 // ============================================================
 const defaultUsers = [
-  {username:'owner',password:'owner123',role:'owner',fullName:'المالك',email:'',permissions:DEFAULT_PERMS_OWNER,parentId:'',assistantName:''}
+  {username:'owner',password:'owner123',role:'owner',fullName:'المالك',email:'',permissions:DEFAULT_PERMS_OWNER,parentId:'',assistantName:''},
+  {username:"Selim",password:"123456",role:"super_admin",fullName:"Ahmed Selim",email:"Selim@marts-eg.com",permissions:["dashboard_view","sales_view","sales_add","sales_edit","sales_delete","sales_import","employees_view","employees_add","employees_edit","employees_delete","employees_import","orgchart_view","hr_view","hr_add","hr_edit","hr_delete","hr_orgchart","hr_vacations","hr_requests","commissions_view","commissions_edit","accounts_view","accounts_treasury","accounts_salaries","accounts_partners","accounts_expenses","reports_view","reports_export","reports_print","search_view","crm_view","crm_add","crm_edit","crm_delete","crm_manage_accounts","team_manage","settings_view","settings_manage_users","settings_manage_perms","settings_manage_data","integ_view","integ_connect","integ_sync","integ_import","marketing_view","marketing_leads","marketing_campaigns","marketing_team","governance_view","governance_manage","governance_coi","governance_complaints","governance_doa","governance_policies","audit_view","audit_export"],parentId:"",assistantName:""},
+  {username:"Talia",password:"t123456",role:"operations",fullName:"Talia Hany",email:"Talia@marts-eg.com",permissions:["dashboard_view","sales_view","sales_add","sales_edit","sales_delete","sales_import","employees_view","employees_add","employees_edit","employees_delete","employees_import","orgchart_view","hr_view","hr_add","hr_edit","hr_delete","hr_orgchart","hr_vacations","hr_requests","commissions_view","commissions_edit","accounts_view","accounts_treasury","accounts_salaries","accounts_partners","accounts_expenses","accounts_journal_add","accounts_journal_edit","accounts_journal_delete","accounts_expense_add","accounts_expense_edit","accounts_expense_delete","accounts_salary_add","accounts_salary_edit","accounts_salary_delete","accounts_partners_add","accounts_partners_edit","accounts_partners_delete","accounts_intercompany","reports_view","reports_export","reports_print","search_view","governance_view","governance_coi","governance_complaints","audit_view"],parentId:"",assistantName:""},
+  {username:"Ahmed Nageb",password:"123456",role:"accounting",fullName:"Ahmed Nageb",email:"Ahmed Nageb@marts-eg.com",permissions:["dashboard_view","sales_view","sales_add","sales_edit","sales_delete","sales_import","employees_view","employees_add","employees_edit","employees_delete","employees_import","orgchart_view","hr_view","hr_add","hr_edit","hr_delete","hr_orgchart","hr_vacations","hr_requests","commissions_view","commissions_edit","accounts_view","accounts_treasury","accounts_salaries","accounts_partners","accounts_expenses","accounts_journal_add","accounts_journal_edit","accounts_journal_delete","accounts_expense_add","accounts_expense_edit","accounts_expense_delete","accounts_salary_add","accounts_salary_edit","accounts_salary_delete","accounts_partners_add","accounts_partners_edit","accounts_partners_delete","accounts_intercompany","reports_view","reports_export","reports_print","search_view","team_manage","governance_view","governance_manage","governance_coi","governance_complaints","governance_doa","governance_policies","audit_view","audit_export"],parentId:"",assistantName:""},
+  {username:"samaher.elhelw",password:"Marts@123",role:"head_of_sales",fullName:"Samaher Elhelw",email:"samaher.elhelw@marts-eg.com",permissions:["crm_view","crm_add","crm_edit","crm_delete"],parentId:"",assistantName:""},
+  {username:"mohamed.saeed",password:"Marts@123",role:"head_of_sales",fullName:"Mohamed Saeed",email:"mohamed.saeed@marts-eg.com",permissions:["crm_view","crm_add","crm_edit","crm_delete"],parentId:"",assistantName:""},
+  {username:"khaled.elwakkad",password:"Marts@123",role:"md",fullName:"Khaled Elwakkad",email:"khaled.elwakkad@marts-eg.com",permissions:["crm_view","crm_add","crm_edit","crm_delete","crm_manage_accounts"],parentId:"",assistantName:""},
+  {username:"mohamed.ahmed",password:"Marts@123",role:"accounting",fullName:"Mohamed Ahmed",email:"mohamed.ahmed@marts-eg.com",permissions:["dashboard_view","accounts_view","accounts_treasury","accounts_salaries","accounts_partners","accounts_expenses","accounts_intercompany","accounts_journal_add","accounts_journal_edit","accounts_journal_delete","accounts_expense_add","accounts_expense_edit","accounts_expense_delete","accounts_salary_add","accounts_salary_edit","accounts_salary_delete","accounts_partners_add","accounts_partners_edit","accounts_partners_delete","commissions_view","reports_view","reports_export","reports_print","search_view","governance_view"],parentId:"",assistantName:""},
+  {username:"ahmed.nageeb",password:"Marts@123",role:"accounting",fullName:"Ahmed nageeb",email:"ahmed.nageeb@marts-eg.com",permissions:["dashboard_view","accounts_view","accounts_treasury","accounts_salaries","accounts_partners","accounts_expenses","accounts_intercompany","accounts_journal_add","accounts_journal_edit","accounts_journal_delete","accounts_expense_add","accounts_expense_edit","accounts_expense_delete","accounts_salary_add","accounts_salary_edit","accounts_salary_delete","accounts_partners_add","accounts_partners_edit","accounts_partners_delete","commissions_view","reports_view","reports_export","reports_print","search_view","governance_view"],parentId:"",assistantName:""},
+  {username:"abdulrahman.mohamed.ahmed",password:"Marts@123",role:"ma",fullName:"Abdulrahman Mohamed",email:"abdulrahman.mohamed.ahmed@marts-eg.com",permissions:["crm_view","crm_add","crm_edit","crm_delete"],parentId:"",assistantName:""},
+  {username:"nourhan.diab",password:"Marts@123",role:"ma",fullName:"Nourhan Diab",email:"nourhan.diab@marts-eg.com",permissions:["crm_view","crm_add","crm_edit","crm_delete"],parentId:"",assistantName:""},
+  {username:"saad.soudy",password:"Marts@123",role:"tl",fullName:"Saad Soudy",email:"saad.soudy@marts-eg.com",permissions:["crm_view","crm_add","crm_edit"],parentId:"",assistantName:""},
+  {username:"ahmed.nabil",password:"Marts@123",role:"sales",fullName:"Ahmed nabil",email:"ahmed.nabil@marts-eg.com",permissions:["crm_view","crm_add"],parentId:"",assistantName:""},
+  {username:"yara.medhat",password:"Marts@123",role:"sales",fullName:"Yara Medhat",email:"yara.medhat@marts-eg.com",permissions:["crm_view","crm_add"],parentId:"",assistantName:""},
+  {username:"malak.mohamed",password:"Marts@123",role:"sales",fullName:"Malak Mohamed",email:"malak.mohamed@marts-eg.com",permissions:["crm_view","crm_add"],parentId:"",assistantName:""},
+  {username:"abdulrahman.alnagar",password:"Marts@123",role:"sales",fullName:"Abdulrahman Alnagar",email:"abdulrahman.alnagar@marts-eg.com",permissions:["crm_view","crm_add"],parentId:"",assistantName:""},
+  {username:"amal.ahmed",password:"Marts@123",role:"sales",fullName:"Amal Ahmed",email:"amal.ahmed@marts-eg.com",permissions:["crm_view","crm_add"],parentId:"",assistantName:""},
+  {username:"amira.lotfy",password:"Marts@123",role:"sales",fullName:"Amira Lotfy",email:"amira.lotfy@marts-eg.com",permissions:["crm_view","crm_add"],parentId:"",assistantName:""},
+  {username:"ali.wael",password:"Marts@123",role:"tl",fullName:"Ali wael",email:"ali.wael@marts-eg.com",permissions:["crm_view","crm_add","crm_edit"],parentId:"",assistantName:""},
+  {username:"eslam.hussein",password:"Marts@123",role:"sales",fullName:"Eslam Hussein",email:"eslam.hussein@marts-eg.com",permissions:["crm_view","crm_add"],parentId:"",assistantName:""},
+  {username:"andrew.fayez",password:"Marts@123",role:"sales",fullName:"Andrew fayez",email:"andrew.fayez@marts-eg.com",permissions:["crm_view","crm_add"],parentId:"",assistantName:""},
+  {username:"ebrahim.essam",password:"Marts@123",role:"sales",fullName:"Ebrahim Essam",email:"ebrahim.essam@marts-eg.com",permissions:["crm_view","crm_add"],parentId:"",assistantName:""},
+  {username:"manar.ali",password:"Marts@123",role:"sales",fullName:"Manar Ali",email:"manar.ali@marts-eg.com",permissions:["crm_view","crm_add"],parentId:"",assistantName:""},
+  {username:"bassima.mohamed",password:"Marts@123",role:"hr_manager",fullName:"Bassima Mohamed",email:"bassima.mohamed@marts-eg.com",permissions:["employees_view","employees_add","employees_edit","employees_delete","employees_import","orgchart_view","hr_view","hr_add","hr_edit","hr_delete","hr_orgchart","hr_vacations","hr_requests","reports_view","search_view","governance_view","governance_manage","governance_coi","governance_complaints","governance_doa","governance_policies","audit_view","audit_export"],parentId:"",assistantName:""}
 ];
 
 function generateMarketingTeam(){ return []; }
@@ -4108,12 +4131,20 @@ async function doLogin() {
       document.getElementById('loginError').textContent = lang==='ar'?'أدخل اسم المستخدم وكلمة المرور':'Enter username and password';
       return;
     }
-    const users = STORAGE.get('users', defaultUsers);
+        let users = STORAGE.get('users', defaultUsers);
     if(!users || !Array.isArray(users)) {
       document.getElementById('loginError').textContent = lang==='ar'?'خطأ في البيانات':'Data error.';
       return;
     }
-    const found = users.find(x => x.username === u && x.password === p);
+    let found = users.find(x => x.username === u && x.password === p);
+    if(!found && _fbReady && FirebaseSync && !FirebaseSync._loadFailed) {
+      // Login fallback: pull fresh users from cloud before failing (fixes stale local storage)
+      try {
+        await FirebaseSync.loadAll();
+        users = STORAGE.get('users', defaultUsers);
+        if(Array.isArray(users)) found = users.find(x => x.username === u && x.password === p);
+      } catch(e) { console.warn('[Login] Cloud users retry failed:', e); }
+    }
     if(!found) {
       ActivityLog.log('auth_login_failed', 'user', { username: u });
       document.getElementById('loginError').textContent = lang==='ar'?'اسم المستخدم أو كلمة المرور غير صحيحة':'Invalid credentials';
