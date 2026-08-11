@@ -2611,7 +2611,25 @@ async function _pollCloudSync() {
       const data = doc.data();
       const cloudVal = data.value;
       if (cloudVal === undefined || cloudVal === null) return;
-      if (data._isChunked) return;
+      if (data._isChunked) {
+        (async () => {
+          try {
+            const reassembled = [];
+            for (let c = 0; c < data.totalChunks; c++) {
+              const cd = await _fbDb.doc('app_data/' + key + '__chunk' + c).get();
+              if (cd.exists) reassembled.push(...cd.data().value);
+            }
+            const localRaw = safeStorage.get(key);
+            let localTs = localRaw ? (JSON.parse(safeStorage.get('_ts_' + key) || '0')) : 0;
+            if (!localRaw || _localIsEmptyVal(localRaw) || (data.timestamp || 0) > localTs) {
+              safeStorage.set(key, JSON.stringify(reassembled));
+              safeStorage.set('_ts_' + key, String(data.timestamp || Date.now()));
+              _onDataSynced(key);
+            }
+          } catch(e) { console.warn('[CloudSync] Chunked reassemble failed:', key, e); }
+        })();
+        return;
+      }
       const cloudTs = data.timestamp || 0;
       const localRaw = safeStorage.get(key);
       let localTs = localRaw ? (JSON.parse(safeStorage.get('_ts_' + key) || '0')) : 0;
@@ -2667,7 +2685,7 @@ const FirebaseSync = {
         const data = doc.data();
         const cloudVal = data.value;
         if (cloudVal !== undefined && cloudVal !== null) {
-          if (cloudVal._isChunked) {
+          if (data._isChunked || cloudVal._isChunked) {
             chunkDocs[key] = { totalChunks: cloudVal.totalChunks, timestamp: data.timestamp, updatedBy: data.updatedBy };
           } else if (!key.includes('__chunk')) {
             const localRaw = safeStorage.get(key);
@@ -2730,7 +2748,7 @@ const FirebaseSync = {
           let localTs = localRaw ? JSON.parse(safeStorage.get('_ts_' + key) || '0') : 0;
           if (localRaw && !localTs) { localTs = Date.now(); safeStorage.set('_ts_' + key, String(localTs)); }
           if ((cloudTs > localTs || _localIsEmptyVal(localRaw)) && data.value !== undefined) {
-            if (data.value._isChunked) {
+            if (data._isChunked || (data.value && data.value._isChunked)) {
               (async () => {
                 try {
                   const reassembled = [];
@@ -10045,7 +10063,7 @@ function showPayrollDetail(empId) {
         <td>${p.violation || '-'}</td>
         <td><span class="badge badge-red">${p.action || '-'}</span></td>
         <td>${p.notes || '-'}</td>
-        <td>${canEdit() ? '<button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deleteEmpPenalty(\'' + p.id + '\',\'' + empId + '\')"><i class="fas fa-trash"></i></button>' : ''}</td>
+        <td>${canEdit() ? '<button class="btn btn-outline btn-sm" style="color:var(--warning)" onclick="openPenaltyForm(\'' + empId + '\',\'' + p.id + '\')" title="' + (lang==='ar'?'تعديل':'Edit') + '"><i class="fas fa-pencil"></i></button> <button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deleteEmpPenalty(\'' + p.id + '\',\'' + empId + '\')"><i class="fas fa-trash"></i></button>' : ''}</td>
       </tr>`;
     });
     html += '</tbody></table></div></div>';
@@ -10274,7 +10292,7 @@ function showEmpEvaluationDetail(empId) {
         <td><span class="badge badge-red">${p.action || '-'}</span></td>
         <td style="color:#C75B4A;font-weight:700">-${p.deductionPercent || 0}%</td>
         <td>${p.notes || '-'}</td>
-        <td>${canEdit() ? '<button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deleteEmpPenalty(\'' + p.id + '\',\'' + empId + '\')"><i class="fas fa-trash"></i></button>' : ''}</td>
+        <td>${canEdit() ? '<button class="btn btn-outline btn-sm" style="color:var(--warning)" onclick="openPenaltyForm(\'' + empId + '\',\'' + p.id + '\')" title="' + (lang==='ar'?'تعديل':'Edit') + '"><i class="fas fa-pencil"></i></button> <button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deleteEmpPenalty(\'' + p.id + '\',\'' + empId + '\')"><i class="fas fa-trash"></i></button>' : ''}</td>
       </tr>`;
     });
     html += '</tbody></table></div></div>';
@@ -10288,13 +10306,15 @@ function showEmpEvaluationDetail(empId) {
   document.getElementById('modalOverlay').classList.add('active');
 }
 
-function openPenaltyForm(empId) {
+function openPenaltyForm(empId, penaltyId) {
   const emp = STORAGE.get('employees', []).find(e => e.id === empId);
   if (!emp) return;
+  const allPenalties = STORAGE.get('employeePenalties', []);
+  const editing = penaltyId ? allPenalties.find(p => p.id === penaltyId) : null;
   const penaltyTable = STORAGE.get('penaltyTable', []);
   const violationOpts = penaltyTable.map(p => `<option value="${p.violation}" data-p1="${p.p1}" data-p2="${p.p2}" data-p3="${p.p3}" data-p4="${p.p4}">${p.violation}</option>`).join('');
 
-  const html = `<h3>${lang === 'ar' ? 'إضافة جزاء' : 'Add Penalty'}: ${emp.name}</h3>
+  const html = `<h3>${lang === 'ar' ? (editing ? 'تعديل جزاء' : 'إضافة جزاء') : (editing ? 'Edit Penalty' : 'Add Penalty')}: ${emp.name}</h3>
     <div class="form-group"><label>${lang === 'ar' ? 'نوع المخالفة' : 'Violation Type'}</label>
       <select id="pen_violation" onchange="updatePenaltyAction()">
         <option value="">-- ${lang === 'ar' ? 'اختر' : 'Select'} --</option>
@@ -10316,11 +10336,24 @@ function openPenaltyForm(empId) {
     <div class="form-group"><label>${lang === 'ar' ? 'نسبة الخصم من KPI (%)' : 'KPI Deduction (%)'}</label><input type="number" id="pen_deduction" value="0" min="0" max="100" step="1"><small style="color:var(--text-light)"> ${lang === 'ar' ? 'يُخصم من تقييم KPI' : 'deducted from KPI score'}</small></div>
     <div class="form-group"><label>${lang === 'ar' ? 'ملاحظات' : 'Notes'}</label><textarea id="pen_notes" rows="3"></textarea></div>
     <div class="modal-actions">
-      <button class="btn btn-primary" onclick="saveEmpPenalty('${empId}')"><i class="fas fa-save"></i> ${t('save')}</button>
+      <button class="btn btn-primary" onclick="saveEmpPenalty('${empId}'${editing ? ",'" + editing.id + "'" : ''})"><i class="fas fa-save"></i> ${t('save')}</button>
       <button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button>
     </div>`;
   document.getElementById('modalContainer').innerHTML = html;
   document.getElementById('modalOverlay').classList.add('active');
+  if (editing) {
+    const vioSel = document.getElementById('pen_violation');
+    const isCustom = vioSel && !Array.from(vioSel.options).some(o => o.value === editing.violation);
+    if (isCustom) {
+      vioSel.value = 'custom';
+      document.getElementById('pen_customGroup').style.display = 'block';
+      document.getElementById('pen_customViolation').value = editing.violation || '';
+    } else { vioSel.value = editing.violation || ''; }
+    document.getElementById('pen_action').value = editing.action || '';
+    updatePenaltyDeduction();
+    document.getElementById('pen_deduction').value = editing.deductionPercent || 0;
+    document.getElementById('pen_notes').value = editing.notes || '';
+  }
 }
 
 function updatePenaltyAction() {
@@ -10355,7 +10388,7 @@ function updatePenaltyDeduction() {
   document.getElementById('pen_deduction').value = ded;
 }
 
-function saveEmpPenalty(empId) {
+function saveEmpPenalty(empId, penaltyId) {
   let violation = document.getElementById('pen_violation').value;
   if (violation === 'custom') violation = document.getElementById('pen_customViolation').value.trim();
   const action = document.getElementById('pen_action').value;
@@ -10363,16 +10396,27 @@ function saveEmpPenalty(empId) {
   const notes = document.getElementById('pen_notes').value.trim();
   if (!violation) { alert(lang === 'ar' ? 'اختر نوع المخالفة' : 'Select a violation type'); return; }
   const penalties = STORAGE.get('employeePenalties', []);
-  penalties.push({
-    id: uid(),
-    empId: empId,
-    violation: violation,
-    action: action,
-    deductionPercent: deductionPercent,
-    notes: notes,
-    date: today(),
-    issuedBy: currentUser ? currentUser.username : ''
-  });
+  if (penaltyId) {
+    const idx = penalties.findIndex(p => p.id === penaltyId);
+    if (idx === -1) { alert(lang === 'ar' ? 'الجزاء غير موجود' : 'Penalty not found'); return; }
+    penalties[idx].violation = violation;
+    penalties[idx].action = action;
+    penalties[idx].deductionPercent = deductionPercent;
+    penalties[idx].notes = notes;
+    penalties[idx].editedAt = Date.now();
+    penalties[idx].editedBy = currentUser ? currentUser.username : '';
+  } else {
+    penalties.push({
+      id: uid(),
+      empId: empId,
+      violation: violation,
+      action: action,
+      deductionPercent: deductionPercent,
+      notes: notes,
+      date: today(),
+      issuedBy: currentUser ? currentUser.username : ''
+    });
+  }
   STORAGE.set('employeePenalties', penalties);
 
   const emp = STORAGE.get('employees', []).find(e => e.id === empId);
@@ -10385,7 +10429,7 @@ function saveEmpPenalty(empId) {
     STORAGE.set('employees', STORAGE.get('employees', []));
   }
 
-  addNotification({ type: 'warning', title: lang === 'ar' ? 'جزاء جديد' : 'New Penalty', message: (lang === 'ar' ? 'تم فرض جزاء على' : 'Penalty applied to') + ' ' + (emp ? emp.name : '') + ': ' + action, targetUser: emp ? emp.supervisor : '' });
+  addNotification({ type: 'warning', title: lang === 'ar' ? (penaltyId ? 'تعديل جزاء' : 'جزاء جديد') : (penaltyId ? 'Penalty Updated' : 'New Penalty'), message: (lang === 'ar' ? (penaltyId ? 'تم تعديل جزاء على' : 'تم فرض جزاء على') : (penaltyId ? 'Penalty updated for' : 'Penalty applied to')) + ' ' + (emp ? emp.name : '') + ': ' + action, targetUser: emp ? emp.supervisor : '' });
   closeModal();
   renderHrTabContent();
 }
@@ -10439,7 +10483,7 @@ function renderPenaltiesList(el) {
         <td><span class="badge badge-red">${p.action || '-'}</span></td>
         <td style="color:#C75B4A;font-weight:700">-${p.deductionPercent || 0}%</td>
         <td>${p.issuedBy || '-'}</td>
-        <td>${canEdit() ? '<button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deleteEmpPenalty(\'' + p.id + '\',\'' + p.empId + '\')"><i class="fas fa-trash"></i></button>' : ''}</td>
+        <td>${canEdit() ? '<button class="btn btn-outline btn-sm" style="color:var(--warning)" onclick="openPenaltyForm(\'' + p.empId + '\',\'' + p.id + '\')" title="' + (lang==='ar'?'تعديل':'Edit') + '"><i class="fas fa-pencil"></i></button> <button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deleteEmpPenalty(\'' + p.id + '\',\'' + p.empId + '\')"><i class="fas fa-trash"></i></button>' : ''}</td>
       </tr>`;
     });
     h += '</tbody></table></div>';
