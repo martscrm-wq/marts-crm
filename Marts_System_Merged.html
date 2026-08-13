@@ -2474,7 +2474,7 @@ async function applyUpdate() {
   _showUpdateToast(lg ? 'جاري حفظ البيانات...' : 'Syncing data before update...', 10);
   try {
     // Step 1: Sync all data to Firestore before clearing caches
-    const keys = ['treasury','salaries','journalEntries','partners','users','empRoles','resaleTeam','chartOfAccounts','laborLaws','socialInsuranceLaws','internalRegulations','penaltyTable','kpiRules','employees','sales','crm_clients','crm_activities','expenses','vacations','attendance','attendanceLog','employeeAdvances','employeePenalties','employeeEvaluations','op_units','op_reservations','op_contracts','franchises','branches','integrations','notifications','jobRequests','activityLogs','pendingPayrolls','intercompanyRules','intercompanyAllocations','intercompanySettlements'];
+    const keys = ['treasury','salaries','journalEntries','partners','users','empRoles','resaleTeam','chartOfAccounts','laborLaws','socialInsuranceLaws','internalRegulations','penaltyTable','kpiRules','employees','sales','crm_clients','crm_activities','expenses','vacations','attendance','attendanceLog','employeeAdvances','employeePenalties','employeeDeductionHistory','employeeEvaluations','op_units','op_reservations','op_contracts','franchises','branches','integrations','notifications','jobRequests','activityLogs','pendingPayrolls','intercompanyRules','intercompanyAllocations','intercompanySettlements'];
     if (_fbReady && _fbDb && _isOnline) {
       _showUpdateToast(lg ? 'جاري رفع البيانات للسحابة...' : 'Uploading data to cloud...', 25);
       const syncPromises = keys.map(k => {
@@ -2738,7 +2738,7 @@ const FirebaseSync = {
 
   _startRealtimeListeners() {
     if (!_fbDb || this._listeners.length) return;
-    const criticalKeys = ['users','crm_clients','employees','treasury','salaries','sales','deals','commissions','journalEntries','attendance','expenses','inventory','franchises','partners','empRoles','resaleTeam','chartOfAccounts','op_units','op_reservations','op_contracts','branches','integrations','notifications','jobRequests','vacations','attendanceLog','employeeAdvances','employeePenalties','employeeEvaluations','kpiRules','penaltyTable','laborLaws','socialInsuranceLaws','internalRegulations','activityLogs','pendingPayrolls','intercompanyRules','intercompanyAllocations','intercompanySettlements'];
+    const criticalKeys = ['users','crm_clients','employees','treasury','salaries','sales','deals','commissions','journalEntries','attendance','expenses','inventory','franchises','partners','empRoles','resaleTeam','chartOfAccounts','op_units','op_reservations','op_contracts','branches','integrations','notifications','jobRequests','vacations','attendanceLog','employeeAdvances','employeePenalties','employeeDeductionHistory','employeeEvaluations','kpiRules','penaltyTable','laborLaws','socialInsuranceLaws','internalRegulations','activityLogs','pendingPayrolls','intercompanyRules','intercompanyAllocations','intercompanySettlements'];
     criticalKeys.forEach(key => {
       try {
         const unsub = _fbDb.doc(this.getDocPath(key)).onSnapshot(doc => {
@@ -4127,7 +4127,7 @@ function initData() {
       safeStorage.set(k, JSON.stringify(_defLocal[k]));
     }
   });
-  var _defArrs = ['employees','sales','treasurySafes','expenses','crm_clients','franchises','branches','attendance','employeeAdvances','jobRequests','employeePenalties','employeeEvaluations','attendanceLog','op_units','op_reservations','op_contracts','bankAccounts','intercompanyRules','intercompanyAllocations','intercompanySettlements'];
+  var _defArrs = ['employees','sales','treasurySafes','expenses','crm_clients','franchises','branches','attendance','employeeAdvances','jobRequests','employeePenalties','employeeDeductionHistory','employeeEvaluations','attendanceLog','op_units','op_reservations','op_contracts','bankAccounts','intercompanyRules','intercompanyAllocations','intercompanySettlements'];
   _defArrs.forEach(function(k){
     if(!STORAGE.get(k)){
       safeStorage.set(k, JSON.stringify([]));
@@ -6245,12 +6245,12 @@ function showAttTransTab(status, tabEl) {
 function approveAttendanceMonth(month) {
   const lg = lang === 'ar';
   const attendance = STORAGE.get('attendance',[]);
-  const penalties = STORAGE.get('employeePenalties',[]);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory',[]);
   let updated = 0;
   attendance.forEach(a => { if(a.month === month && a.approvalStatus === 'pending') { a.approvalStatus = 'approved'; a.approvedAt = Date.now(); a.approvedBy = currentUser?currentUser.username:'system'; updated++; }});
   penalties.forEach(p => { if(p.date && p.date.startsWith(month) && p.approvalStatus === 'pending') { p.approvalStatus = 'approved'; }});
   STORAGE.set('attendance', attendance);
-  STORAGE.set('employeePenalties', penalties);
+  STORAGE.set('employeePenalties','employeeDeductionHistory', penalties);
   wsToast(lg?'تمت الموافقة على حضور شهر '+month:'Attendance for '+month+' approved');
   renderTransactions(document.getElementById('pageContent'));
 }
@@ -6258,11 +6258,11 @@ function approveAttendanceMonth(month) {
 function rejectAttendanceMonth(month) {
   const lg = lang === 'ar';
   const attendance = STORAGE.get('attendance',[]);
-  const penalties = STORAGE.get('employeePenalties',[]);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory',[]);
   attendance.forEach(a => { if(a.month === month && a.approvalStatus === 'pending') { a.approvalStatus = 'rejected'; a.rejectedAt = Date.now(); }});
   penalties.forEach(p => { if(p.date && p.date.startsWith(month) && p.approvalStatus === 'pending') { p.approvalStatus = 'rejected'; }});
   STORAGE.set('attendance', attendance);
-  STORAGE.set('employeePenalties', penalties);
+  STORAGE.set('employeePenalties','employeeDeductionHistory', penalties);
   wsToast(lg?'تم رفض حضور شهر '+month:'Attendance for '+month+' rejected');
   renderTransactions(document.getElementById('pageContent'));
 }
@@ -6271,7 +6271,7 @@ function routeAttendanceToExpenses(month) {
   const lg = lang === 'ar';
   const employees = STORAGE.get('employees',[]);
   const attendance = STORAGE.get('attendance',[]).filter(a => a.month === month && a.approvalStatus === 'approved');
-  const penalties = STORAGE.get('employeePenalties',[]).filter(p => p.date && p.date.startsWith(month) && p.approvalStatus === 'approved');
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory',[]).filter(p => p.date && p.date.startsWith(month) && p.approvalStatus === 'approved');
   const expenses = STORAGE.get('expenses',[]);
   const salaries = STORAGE.get('salaries',[]);
   let totalPosted = 0;
@@ -7807,7 +7807,7 @@ function renderEmployeeProfile(empId, month) {
   if(!emp) return `<h3>${lg?'الموظف غير موجود':'Employee not found'}</h3>`;
   const allEmployees = STORAGE.get('employees', []);
   const attendance = STORAGE.get('attendance', []);
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const advances = STORAGE.get('employeeAdvances', []);
   const exceptions = STORAGE.get('attendanceExceptions', []);
   const salaries = STORAGE.get('salaries', []);
@@ -9077,7 +9077,7 @@ function penaltyDeductionDays(penalties) {
 function calcMonthDeductionDays(emp, month, opts) {
   opts = opts || {};
   const attendance = STORAGE.get('attendance', []);
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const recs = attendance.filter(a => a.month === month && ((a.empId && a.empId === emp.id) || (!a.empId && a.empName === emp.name)) && (!opts.approvedOnly || a.approvalStatus === 'approved'));
   const empPenalties = penalties.filter(p => p.empId === emp.id && !p.exempted && p.date && p.date.startsWith(month) && (!opts.approvedOnly || p.approvalStatus === 'approved'));
   let days = 0;
@@ -9103,7 +9103,7 @@ function calcMonthDeductionDays(emp, month, opts) {
 }
 
 function countPreviousViolations(empId, violationType, month) {
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   return penalties.filter(p => p.empId === empId && p.violation === violationType && p.date && p.date.startsWith(month) && !p.exempted).length;
 }
 
@@ -9132,7 +9132,7 @@ function getViolationAction(violationType, occurrence) {
 
 function processAttendance(rows, month) {
   const employees = STORAGE.get('employees', []);
-  let penalties = STORAGE.get('employeePenalties', []);
+  let penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const existingPenalties = penalties.filter(p => !p.date || !p.date.startsWith(month));
   const monthPenalties = [];
   let processedCount = 0;
@@ -9226,7 +9226,7 @@ function processAttendance(rows, month) {
   }));
   const newPenalties = monthPenalties.map(p => ({...p, approvalStatus: 'pending'}));
   STORAGE.set('attendance', [...existingMonth, ...rawRecords]);
-  STORAGE.set('employeePenalties', [...existingPenalties, ...newPenalties]);
+  STORAGE.set('employeePenalties','employeeDeductionHistory', [...existingPenalties, ...newPenalties]);
   return {processed: processedCount, penalties: monthPenalties.length};
 }
 
@@ -9457,7 +9457,7 @@ function processFingerprintFile(data, month, nameMap) {
 
   const attendance = STORAGE.get('attendance', []);
   const existingMonth = attendance.filter(a => a.month !== month || a.source !== 'fingerprint');
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const existingPenalties = penalties.filter(p => !p.date || !p.date.startsWith(month));
   const monthPenalties = [];
   const rawRecords = [];
@@ -9521,7 +9521,7 @@ function processFingerprintFile(data, month, nameMap) {
 
   STORAGE.set('attendance', [...existingMonth, ...rawRecords]);
   const newPenalties = monthPenalties.map(p => ({...p, approvalStatus: 'pending'}));
-  STORAGE.set('employeePenalties', [...existingPenalties, ...newPenalties]);
+  STORAGE.set('employeePenalties','employeeDeductionHistory', [...existingPenalties, ...newPenalties]);
   if(Object.keys(matchedNames).length) {
     STORAGE.set('employees', employees);
   }
@@ -9757,7 +9757,7 @@ function renderPayrollSubSearch() {
 
 function renderPayrollSalaries(el) {
   const employees = STORAGE.get('employees', []).filter(e => e.status === 'active');
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const currentMonth = today().slice(0, 7);
 
   let totalBase = 0;
@@ -9879,7 +9879,7 @@ function approvePayroll() {
   if(!confirm(lang==='ar'?'هل تريد إرسال الرواتب للموافقة؟':'Send payroll for approval?')) return;
   ActivityLog.log('approve', 'payroll', {});
   const employees = STORAGE.get('employees', []).filter(e => e.status === 'active');
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const currentMonth = today().slice(0, 7);
   const pendingPayrolls = STORAGE.get('pendingPayrolls', []);
   const existingPending = pendingPayrolls.filter(p => p.month === currentMonth && p.status === 'pending');
@@ -9995,7 +9995,7 @@ function routePayrollToTreasury(id) {
 function showPayrollDetail(empId) {
   const emp = STORAGE.get('employees', []).find(e => e.id === empId);
   if(!emp) return;
-  const penalties = STORAGE.get('employeePenalties', []).filter(p => p.empId === empId);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []).filter(p => p.empId === empId);
   const currentMonth = today().slice(0, 7);
   const monthPenalties = penalties.filter(p => p.date && p.date.startsWith(currentMonth));
 
@@ -10056,6 +10056,7 @@ function showPayrollDetail(empId) {
     html += '<th>' + (lang==='ar'?'المخالفة':'Violation') + '</th>';
     html += '<th>' + (lang==='ar'?'الإجراء':'Action') + '</th>';
     html += '<th>' + (lang==='ar'?'ملاحظات':'Notes') + '</th>';
+    html += '<th>' + (lang==='ar'?'النوع':'Type') + '</th>';
     html += '<th></th>';
     html += '</tr></thead><tbody>';
     monthPenalties.forEach(p => {
@@ -10064,12 +10065,25 @@ function showPayrollDetail(empId) {
         <td>${p.violation || '-'}</td>
         <td><span class="badge badge-red">${p.action || '-'}</span></td>
         <td>${p.notes || '-'}</td>
-        <td>${canEdit() ? '<button class="btn btn-outline btn-sm" style="color:var(--warning)" onclick="openPenaltyForm(\'' + empId + '\',\'' + p.id + '\')" title="' + (lang==='ar'?'تعديل':'Edit') + '"><i class="fas fa-pencil"></i></button> <button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deleteEmpPenalty(\'' + p.id + '\',\'' + empId + '\')"><i class="fas fa-trash"></i></button>' : ''}</td>
+        <td>${p.deductionType === 'non_entitled' ? '<span class="badge badge-red">' + (lang==='ar'?'غير مستحق':'Non-Entitled') + '</span>' : '<span class="badge badge-blue">' + (lang==='ar'?'مستحق':'Entitled') + '</span>'}</td>
+        <td>${canEdit() ? '<button class="btn btn-outline btn-sm" style="color:var(--warning)" onclick="openPenaltyForm(\'' + empId + '\',\'' + p.id + '\')" title="' + (lang==='ar'?'تعديل':'Edit') + '"><i class="fas fa-pencil"></i></button> <button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="askDeletePenaltyType(\'' + p.id + '\',\'' + empId + '\')"><i class="fas fa-trash"></i></button>' : ''}</td>
       </tr>`;
     });
     html += '</tbody></table></div></div>';
   } else {
     html += `<div style="background:rgba(39,174,96,0.05);padding:16px;border-radius:8px;text-align:center;margin-bottom:16px"><i class="fas fa-check-circle" style="color:#27ae60;font-size:24px;margin-bottom:8px;display:block"></i><span style="color:#27ae60;font-weight:700">${lang==='ar'?'لا توجدجزاء هذا الشهر':'No penalties this month'}</span></div>`;
+  }
+
+  const dedHist = STORAGE.get('employeeDeductionHistory', []).filter(h => h.empId === empId).sort((a,b) => (b.ts||0) - (a.ts||0));
+  if (dedHist.length > 0) {
+    html += `<div style="margin-bottom:16px"><h4 style="color:#827148;margin-bottom:8px"><i class="fas fa-history"></i> ${lang==='ar'?'سجل الخصومات (Entitled / Non-Entitled)':'Deduction History (Entitled / Non-Entitled)'} (${dedHist.length})</h4>`;
+    html += '<div class="table-wrap"><table><thead><tr><th>' + (lang==='ar'?'التاريخ':'Date') + '</th><th>' + (lang==='ar'?'العملية':'Action') + '</th><th>' + (lang==='ar'?'النوع':'Type') + '</th><th>' + (lang==='ar'?'المخالفة':'Violation') + '</th><th>' + (lang==='ar'?'الخصم':'Deduction') + '</th><th>' + (lang==='ar'?'بواسطة':'By') + '</th></tr></thead><tbody>';
+    dedHist.forEach(h => {
+      const typeBadge = h.deductionType === 'non_entitled' ? '<span class="badge badge-red">' + (lang==='ar'?'غير مستحق':'Non-Entitled') + '</span>' : '<span class="badge badge-blue">' + (lang==='ar'?'مستحق':'Entitled') + '</span>';
+      const actLabel = {add:(lang==='ar'?'إضافة':'Add'),edit:(lang==='ar'?'تعديل':'Edit'),delete:(lang==='ar'?'حذف':'Delete')}[h.action] || h.action;
+      html += `<tr><td>${h.date || '-'}</td><td>${actLabel}</td><td>${typeBadge}</td><td>${h.violation || '-'}</td><td>${h.actionDesc ? (h.actionDesc + (h.deductionPercent ? ' (' + h.deductionPercent + '%)' : '')) : '-'}</td><td>${h.byName || h.by || '-'}</td></tr>`;
+    });
+    html += '</tbody></table></div></div>';
   }
 
   html += `<div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
@@ -10080,7 +10094,7 @@ function showPayrollDetail(empId) {
 
 function exportPayroll() {
   const employees = STORAGE.get('employees', []).filter(e => e.status === 'active');
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const currentMonth = today().slice(0, 7);
   const headers = [
     lang==='ar'?'الموظف':'Employee',
@@ -10124,7 +10138,7 @@ let _kpiSubTab = 'evaluation';
 
 function renderKpiRules(el) {
   const employees = STORAGE.get('employees', []);
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const kpiRules = STORAGE.get('kpiRules', []);
   let tabsHtml = '<div class="tab-bar" style="flex-wrap:wrap;margin-bottom:16px">';
   tabsHtml += `<div class="tab ${_kpiSubTab==='evaluation'?'active':''}" onclick="_kpiSubTab='evaluation';renderHrTabContent()"><i class="fas fa-star"></i> ${lang==='ar'?'تقييم الموظفين':'Employee Evaluation'}</div>`;
@@ -10140,7 +10154,7 @@ function renderKpiRules(el) {
 
 function renderEmpEvaluation(el) {
   const employees = STORAGE.get('employees', []).filter(e => e.status === 'active');
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const kpiRules = STORAGE.get('kpiRules', []);
 
   function getEmpPenalties(empId) {
@@ -10233,7 +10247,7 @@ function renderEmpEvaluation(el) {
 function showEmpEvaluationDetail(empId) {
   const emp = STORAGE.get('employees', []).find(e => e.id === empId);
   if (!emp) return;
-  const penalties = STORAGE.get('employeePenalties', []).filter(p => p.empId === empId);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []).filter(p => p.empId === empId);
   const penaltyTable = STORAGE.get('penaltyTable', []);
   const kpiRules = STORAGE.get('kpiRules', []);
 
@@ -10293,7 +10307,7 @@ function showEmpEvaluationDetail(empId) {
         <td><span class="badge badge-red">${p.action || '-'}</span></td>
         <td style="color:#C75B4A;font-weight:700">-${p.deductionPercent || 0}%</td>
         <td>${p.notes || '-'}</td>
-        <td>${canEdit() ? '<button class="btn btn-outline btn-sm" style="color:var(--warning)" onclick="openPenaltyForm(\'' + empId + '\',\'' + p.id + '\')" title="' + (lang==='ar'?'تعديل':'Edit') + '"><i class="fas fa-pencil"></i></button> <button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deleteEmpPenalty(\'' + p.id + '\',\'' + empId + '\')"><i class="fas fa-trash"></i></button>' : ''}</td>
+        <td>${canEdit() ? '<button class="btn btn-outline btn-sm" style="color:var(--warning)" onclick="openPenaltyForm(\'' + empId + '\',\'' + p.id + '\')" title="' + (lang==='ar'?'تعديل':'Edit') + '"><i class="fas fa-pencil"></i></button> <button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="askDeletePenaltyType(\'' + p.id + '\',\'' + empId + '\')"><i class="fas fa-trash"></i></button>' : ''}</td>
       </tr>`;
     });
     html += '</tbody></table></div></div>';
@@ -10310,7 +10324,7 @@ function showEmpEvaluationDetail(empId) {
 function openPenaltyForm(empId, penaltyId) {
   const emp = STORAGE.get('employees', []).find(e => e.id === empId);
   if (!emp) return;
-  const allPenalties = STORAGE.get('employeePenalties', []);
+  const allPenalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const editing = penaltyId ? allPenalties.find(p => p.id === penaltyId) : null;
   const penaltyTable = STORAGE.get('penaltyTable', []);
   const violationOpts = penaltyTable.map(p => `<option value="${p.violation}" data-p1="${p.p1}" data-p2="${p.p2}" data-p3="${p.p3}" data-p4="${p.p4}">${p.violation}</option>`).join('');
@@ -10336,6 +10350,12 @@ function openPenaltyForm(empId, penaltyId) {
     </div>
     <div class="form-group"><label>${lang === 'ar' ? 'نسبة الخصم من KPI (%)' : 'KPI Deduction (%)'}</label><input type="number" id="pen_deduction" value="0" min="0" max="100" step="1"><small style="color:var(--text-light)"> ${lang === 'ar' ? 'يُخصم من تقييم KPI' : 'deducted from KPI score'}</small></div>
     <div class="form-group"><label>${lang === 'ar' ? 'ملاحظات' : 'Notes'}</label><textarea id="pen_notes" rows="3"></textarea></div>
+    <div class="form-group"><label>${lang === 'ar' ? 'نوع الخصم' : 'Deduction Type'}</label>
+      <select id="pen_dedType">
+        <option value="entitled">${lang === 'ar' ? 'خصم مستحق (Entitled Deduction)' : 'Entitled Deduction'}</option>
+        <option value="non_entitled">${lang === 'ar' ? 'خصم غير مستحق (Non-Entitled Deduction)' : 'Non-Entitled Deduction'}</option>
+      </select>
+    </div>
     <div class="modal-actions">
       <button class="btn btn-primary" onclick="saveEmpPenalty('${empId}'${editing ? ",'" + editing.id + "'" : ''})"><i class="fas fa-save"></i> ${t('save')}</button>
       <button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button>
@@ -10354,6 +10374,7 @@ function openPenaltyForm(empId, penaltyId) {
     updatePenaltyDeduction();
     document.getElementById('pen_deduction').value = editing.deductionPercent || 0;
     document.getElementById('pen_notes').value = editing.notes || '';
+    document.getElementById('pen_dedType').value = editing.deductionType || 'entitled';
   }
 }
 
@@ -10395,8 +10416,9 @@ function saveEmpPenalty(empId, penaltyId) {
   const action = document.getElementById('pen_action').value;
   const deductionPercent = parseInt(document.getElementById('pen_deduction').value) || 0;
   const notes = document.getElementById('pen_notes').value.trim();
+  const deductionType = (document.getElementById('pen_dedType')||{}).value || 'entitled';
   if (!violation) { alert(lang === 'ar' ? 'اختر نوع المخالفة' : 'Select a violation type'); return; }
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   if (penaltyId) {
     const idx = penalties.findIndex(p => p.id === penaltyId);
     if (idx === -1) { alert(lang === 'ar' ? 'الجزاء غير موجود' : 'Penalty not found'); return; }
@@ -10405,6 +10427,7 @@ function saveEmpPenalty(empId, penaltyId) {
     penalties[idx].deductionPercent = deductionPercent;
     penalties[idx].notes = notes;
     penalties[idx].editedAt = Date.now();
+    penalties[idx].deductionType = deductionType;
     penalties[idx].editedBy = currentUser ? currentUser.username : '';
   } else {
     penalties.push({
@@ -10413,12 +10436,13 @@ function saveEmpPenalty(empId, penaltyId) {
       violation: violation,
       action: action,
       deductionPercent: deductionPercent,
+      deductionType: deductionType,
       notes: notes,
       date: today(),
       issuedBy: currentUser ? currentUser.username : ''
     });
   }
-  STORAGE.set('employeePenalties', penalties);
+  STORAGE.set('employeePenalties','employeeDeductionHistory', penalties);
 
   const emp = STORAGE.get('employees', []).find(e => e.id === empId);
   if (emp) {
@@ -10435,17 +10459,37 @@ function saveEmpPenalty(empId, penaltyId) {
   renderHrTabContent();
 }
 
-function deleteEmpPenalty(penaltyId, empId) {
-  if (!confirm(lang === 'ar' ? 'هل أنت متأكد من حذف هذا الجزاء؟' : 'Delete this penalty?')) return;
+function askDeletePenaltyType(penaltyId, empId){
+  const p = STORAGE.get('employeePenalties', []).find(x => x.id === penaltyId);
+  const emp = STORAGE.get('employees', []).find(e => e.id === empId);
+  const html = `<h3>${lang==='ar'?'تأكيد حذف الخصم':'Confirm Deduction Delete'}</h3>
+    ${p ? `<p style="font-size:13px;color:var(--text-light);margin-bottom:12px">${emp?emp.name:''} — ${p.violation} (${p.action})</p>` : ''}
+    <div class="form-group"><label>${lang==='ar'?'نوع الخصم':'Deduction Type'}</label>
+      <select id="delPen_dedType">
+        <option value="entitled">${lang==='ar'?'خصم مستحق (Entitled Deduction)':'Entitled Deduction'}</option>
+        <option value="non_entitled">${lang==='ar'?'خصم غير مستحق (Non-Entitled Deduction)':'Non-Entitled Deduction'}</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" style="background:#C75B4A;border-color:#C75B4A" onclick="confirmDeleteEmpPenalty('${penaltyId}','${empId}')"><i class="fas fa-trash"></i> ${lang==='ar'?'تأكيد الحذف':'Confirm Delete'}</button>
+      <button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button>
+    </div>`;
+  document.getElementById('modalContainer').innerHTML = html;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+function confirmDeleteEmpPenalty(penaltyId, empId){
+  const dedType = document.getElementById('delPen_dedType').value;
   let penalties = STORAGE.get('employeePenalties', []);
-  penalties = penalties.filter(p => p.id !== penaltyId);
+  const p = penalties.find(x => x.id === penaltyId);
+  if (p) addDeductionHistory(empId, 'delete', {violation:p.violation, action:p.action, deductionPercent:p.deductionPercent, deductionType:dedType, notes:p.notes});
+  penalties = penalties.filter(x => x.id !== penaltyId);
+  addDeductionHistory(empId, penaltyId ? 'edit' : 'add', {violation: violation, action: action, deductionPercent: deductionPercent, deductionType: deductionType, notes: notes});
   STORAGE.set('employeePenalties', penalties);
-
   const emp = STORAGE.get('employees', []).find(e => e.id === empId);
   if (emp) {
-    const allPen = penalties.filter(p => p.empId === empId);
+    const allPen = penalties.filter(pp => pp.empId === empId);
     let totalDed = 0;
-    allPen.forEach(p => { totalDed += (p.deductionPercent || 0); });
+    allPen.forEach(pp => { totalDed += (pp.deductionPercent || 0); });
     totalDed = Math.min(totalDed, 100);
     emp.kpi = Math.max(0, 100 - totalDed);
     STORAGE.set('employees', STORAGE.get('employees', []));
@@ -10453,9 +10497,17 @@ function deleteEmpPenalty(penaltyId, empId) {
   closeModal();
   renderHrTabContent();
 }
+function addDeductionHistory(empId, action, info){
+  const hist = STORAGE.get('employeeDeductionHistory', []);
+  const uname = currentUser ? currentUser.username : 'system';
+  let byName = uname;
+  try{ const ux = (typeof getAllUsers==='function'?getAllUsers():[]).find(v=>v.username===uname); if(ux && ux.fullName) byName = ux.fullName; }catch(e){}
+  hist.push({id:'dh_'+Date.now()+'_'+Math.floor(Math.random()*1000), empId: empId, action: action, deductionType: (info&&info.deductionType)||'entitled', violation: info?info.violation:'', actionDesc: info?info.action:'', deductionPercent: info?info.deductionPercent:0, notes: info?info.notes:'', date: new Date().toLocaleString(lang==='ar'?'ar-EG':'en-GB'), ts: Date.now(), by: uname, byName: byName});
+  STORAGE.set('employeeDeductionHistory', hist);
+}
 
 function renderPenaltiesList(el) {
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const employees = STORAGE.get('employees', []);
   let h = `<div class="card">
     <div class="flex-between mb-16">
@@ -10484,7 +10536,7 @@ function renderPenaltiesList(el) {
         <td><span class="badge badge-red">${p.action || '-'}</span></td>
         <td style="color:#C75B4A;font-weight:700">-${p.deductionPercent || 0}%</td>
         <td>${p.issuedBy || '-'}</td>
-        <td>${canEdit() ? '<button class="btn btn-outline btn-sm" style="color:var(--warning)" onclick="openPenaltyForm(\'' + p.empId + '\',\'' + p.id + '\')" title="' + (lang==='ar'?'تعديل':'Edit') + '"><i class="fas fa-pencil"></i></button> <button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deleteEmpPenalty(\'' + p.id + '\',\'' + p.empId + '\')"><i class="fas fa-trash"></i></button>' : ''}</td>
+        <td>${canEdit() ? '<button class="btn btn-outline btn-sm" style="color:var(--warning)" onclick="openPenaltyForm(\'' + p.empId + '\',\'' + p.id + '\')" title="' + (lang==='ar'?'تعديل':'Edit') + '"><i class="fas fa-pencil"></i></button> <button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="askDeletePenaltyType(\'' + p.id + '\',\'' + p.empId + '\')"><i class="fas fa-trash"></i></button>' : ''}</td>
       </tr>`;
     });
     h += '</tbody></table></div>';
@@ -12964,7 +13016,7 @@ function togglePayrollSalSum(type) {
 // ATTENDANCE - EDIT / DELETE / REVERT (تعديل، مسح، الرجوع للبصمة)
 // ============================================================
 function recalcAutoPenalty(empId, dateStr, checkIn, isAbsent) {
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const month = (dateStr || '').slice(0, 7);
   const updated = penalties.filter(p => !(p.empId === empId && p.issuedBy === 'system_auto' && p.date && p.date === dateStr));
   const newP = [];
@@ -12985,7 +13037,7 @@ function recalcAutoPenalty(empId, dateStr, checkIn, isAbsent) {
       newP.push({ id: uid(), empId: empId, violation: violationType, action: viAction.action, deductionPercent: viAction.deductionDays * 4, notes: (lang==='ar'?'تأخير ':'Late ') + lateMin + (lang==='ar'?' دقيقة - تعديل':' min - edited'), date: dateStr, issuedBy: 'system_auto', approvalStatus: 'pending' });
     }
   }
-  STORAGE.set('employeePenalties', [...updated, ...newP]);
+  STORAGE.set('employeePenalties','employeeDeductionHistory', [...updated, ...newP]);
 }
 
 function openAttendanceEditModal(attId) {
@@ -13056,9 +13108,9 @@ function deleteAttendanceRecord(attId) {
   const att = attendance.find(a => a.id === attId);
   if(!att) return;
   if(!confirm(lang==='ar'?'هل تريد مسح هذا السجل؟':'Delete this record?')) return;
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const newPen = penalties.filter(p => !(p.empId === att.empId && p.issuedBy === 'system_auto' && p.date === att.date));
-  STORAGE.set('employeePenalties', newPen);
+  STORAGE.set('employeePenalties','employeeDeductionHistory', newPen);
   STORAGE.set('attendance', attendance.filter(a => a.id !== attId));
   renderPayrollSubSearch();
   wsToast(lang==='ar'?'تم مسح السجل':'Record deleted');
@@ -13211,7 +13263,7 @@ function revertException(excId) {
   if(!exc) return;
   if(exc.status !== 'approved') { alert(lang==='ar'?'يمكن التراجع عن الاستثناءات المعتمدة فقط':'Only approved exceptions can be reverted'); return; }
   const attendance = STORAGE.get('attendance', []);
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   attendance.forEach(a => {
     if(a.empId === exc.empId && (!exc.date || a.date === exc.date)) {
       if(exc.type === 'late') a.excusedLate = false;
@@ -13234,7 +13286,7 @@ function revertException(excId) {
   exc.revertedAt = Date.now();
   exc.revertedBy = currentUser ? currentUser.username : '';
   STORAGE.set('attendance', attendance);
-  STORAGE.set('employeePenalties', penalties);
+  STORAGE.set('employeePenalties','employeeDeductionHistory', penalties);
   STORAGE.set('attendanceExceptions', exceptions);
   renderPayrollSubSearch();
   wsToast(lang==='ar'?'تم التراجع عن الاستثناء':'Exception reverted');
@@ -13254,7 +13306,7 @@ function deleteException(excId) {
 
 function applyApprovedException(exc) {
   const attendance = STORAGE.get('attendance', []);
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   attendance.forEach(a => {
     if(a.empId === exc.empId && (!exc.date || a.date === exc.date)) {
       if(exc.type === 'late') a.excusedLate = true;
@@ -13275,7 +13327,7 @@ function applyApprovedException(exc) {
     }
   });
   STORAGE.set('attendance', attendance);
-  STORAGE.set('employeePenalties', penalties);
+  STORAGE.set('employeePenalties','employeeDeductionHistory', penalties);
 }
 
 function renderExceptionsTab(el) {
@@ -13353,7 +13405,7 @@ function renderAttendanceTab(el) {
   const employees = STORAGE.get('employees', []).filter(e => e.status === 'active');
   const allEmployees = STORAGE.get('employees', []);
   const attendance = STORAGE.get('attendance', []);
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const currentMonth = today().slice(0, 7);
   const monthAttendance = attendance.filter(a => a.month === currentMonth);
   const monthPenalties = penalties.filter(p => p.date && p.date.startsWith(currentMonth));
@@ -13681,7 +13733,7 @@ function renderAdvancesTab(el) {
   const employees = STORAGE.get('employees', []).filter(e => e.status === 'active');
   const advances = STORAGE.get('employeeAdvances', []);
   const attendance = STORAGE.get('attendance', []);
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const currentMonth = today().slice(0, 7);
   const dayOfMonth = parseInt(today().slice(8, 10));
   const monthAdvances = advances.filter(a => a.date && a.date.startsWith(currentMonth));
@@ -13880,7 +13932,7 @@ function saveAdvance() {
   const maxAdvance = Math.floor(emp.salary * 0.5);
   if(requestedAmount > maxAdvance) { alert((lang==='ar'?'المبلغ المطلوب '+fmt(requestedAmount)+' يتجاوز الحد الأقصى '+fmt(maxAdvance)+' (50% من الراتب)':'Amount '+fmt(requestedAmount)+' exceeds max '+fmt(maxAdvance)+' (50% of salary)')); return; }
 
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const monthPenalties = penalties.filter(p => p.empId === empId && p.date && p.date.startsWith(month));
   const hasSevereViolation = monthPenalties.some(p => p.action === 'فصل' || p.action === 'خصم 5 أيام' || p.action === 'خصم 3 أيام');
 
@@ -18277,7 +18329,7 @@ function finRiskShow(type) {
     const journalEntries = STORAGE.get('journalEntries', []);
     const sales = STORAGE.get('sales', []).filter(s=>s.approvalStatus==='approved');
     const employees = STORAGE.get('employees', []);
-    const penalties = STORAGE.get('employeePenalties', []);
+    const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
     const cashBalance = totalIncome - totalTreasuryExpense;
     const monthlyBurn = (totalTreasuryExpense + totalExpenses + totalSalaries + totalPartners) / 7;
     const currentRatio = monthlyBurn > 0 ? cashBalance / monthlyBurn : 999;
@@ -18302,7 +18354,7 @@ function renderRiskManagement() {
   const partners = STORAGE.get('partners', []);
   const sales = STORAGE.get('sales', []).filter(s=>s.approvalStatus==='approved');
   const employees = STORAGE.get('employees', []);
-  const penalties = STORAGE.get('employeePenalties', []);
+  const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const journalEntries = STORAGE.get('journalEntries', []);
 
   const totalIncome = treasury.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0);
@@ -19908,7 +19960,6 @@ const CRM_SOURCES = ['facebook','instagram','referral','walkin','website','ad','
 const CRM_STATUSES = ['new','contacted','negotiating','converted','lost'];
 const CRM_PIPELINE_STATUSES = ['new','contacted','negotiating','converted'];
 const CRM_STAGES = ['fresh_leads','no_answer','rotation','rotation_trying','follow_up','hot_cases','scheduled_meeting','rotation_scheduled','follow_up_after','reservation','done_deal','not_interested','low_budget','bought','listing','request','cancelled','unreachable','broker','owners','personal_leads','listing_leads','requests_resale'];
-const CRM_PIPELINE_ORDER = ['fresh_leads','no_answer','rotation','rotation_trying','follow_up','hot_cases','scheduled_meeting','rotation_scheduled','follow_up_after','reservation','done_deal','bought','not_interested','low_budget','cancelled','unreachable','listing','request','broker','owners','personal_leads','listing_leads','requests_resale'];
 let _crmTeamFilterUser='';
 
 function getCrmClients(){ return STORAGE.get('crm_clients',[]); }
@@ -19957,12 +20008,9 @@ function generateTrialPassword(){
   let p='';for(let i=0;i<12;i++) p+=chars.charAt(Math.floor(Math.random()*chars.length));
   return p;
 }
-function addCrmActivity(clientId,type,desc,feedback){
+function addCrmActivity(clientId,type,desc){
   const acts=getCrmActivities();
-  const uname=currentUser?currentUser.username:'system';
-  let byName=uname;
-  try{ const ux=(typeof getAllUsers==='function'?getAllUsers():[]).find(v=>v.username===uname); if(ux&&ux.fullName) byName=ux.fullName; }catch(e){}
-  acts.push({id:'ca_'+Date.now(),clientId,type,desc,date:new Date().toISOString(),by:uname,byName,feedback:feedback||''});
+  acts.push({id:'ca_'+Date.now(),clientId,type,desc,date:new Date().toISOString(),by:currentUser?currentUser.username:'system'});
   saveCrmActivities(acts);
 }
 function getCrmStatusLabel(s){ return t('crm_status_'+s); }
@@ -20834,7 +20882,7 @@ function renderCrmDashboardView(el){
   const activities = getCrmActivities().slice(-8).reverse();
   const topAgents = getTopAgents(8);
   const bestAgent = topAgents[0] || null;
-  const stages = CRM_PIPELINE_ORDER;
+  const stages = CRM_STAGES;
   const stageStats = stages.map(s => {
     const count = clients.filter(c => (c.stage || 'fresh_leads') === s).length;
     const pct = totalClients > 0 ? Math.round(count / totalClients * 100) : 0;
@@ -24756,33 +24804,14 @@ function crmProfileOverviewHtml(c){
 }
 
 // ---- TAB CONTENT: HISTORY ----
-function crmSaveFeedback(clientId){
-  const inp=document.getElementById('crmFeedbackInput');
-  const txt=inp?inp.value.trim():'';
-  if(!txt){ alert(lang==='ar'?'اكتب الـ Feedback أولاً':'Write feedback first'); return; }
-  addCrmActivity(clientId,'feedback',txt);
-  if(inp) inp.value='';
-  crmProfileSwitch('history');
-}
-
-// ---- TAB CONTENT: HISTORY ----
 function crmProfileHistoryHtml(c){
   const acts = getCrmActivities().filter(a => a.clientId === c.id).sort((a,b) => new Date(b.date) - new Date(a.date));
-  const uName = (un) => { try{ const x = (typeof getAllUsers==='function'?getAllUsers():[]).find(v => v.username === un); return x ? (x.fullName || x.username) : (un || '-'); }catch(e){ return un||'-'; } };
-  const iconMap = {created:'fa-user-plus',updated:'fa-pen',status_changed:'fa-arrow-right',call:'fa-phone',meeting:'fa-handshake',email:'fa-envelope',note:'fa-sticky-note',account_created:'fa-key',message:'fa-comment-dots',deal:'fa-hand-holding-usd',todo:'fa-tasks',tag:'fa-tags',reassign:'fa-user-friends',meeting_feedback:'fa-clipboard-check',feedback:'fa-comment-medical'};
-  const colorMap = {created:'#22c55e',updated:'#827148',status_changed:'#a855f7',call:'#eab308',meeting:'#f97316',email:'#827148',note:'#6b7280',account_created:'#22c55e',message:'#3b82f6',deal:'#8b5cf6',todo:'#3b82f6',tag:'#ef4444',reassign:'#6366f1',meeting_feedback:'#10b981',feedback:'#10b981'};
-  const addBox = (typeof canEditCrm==='function' && canEditCrm()) ? `
-    <div class="crm-prof-addbox" style="margin-bottom:12px">
-      <input type="text" id="crmFeedbackInput" placeholder="${lang==='ar'?'اكتب الـ Feedback بعد التواصل (من السيلز)':'Write feedback after contact (by sales)'}" style="flex:1;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)">
-      <button class="btn btn-primary btn-sm" onclick="crmSaveFeedback('${c.id}')"><i class="fas fa-comment-medical"></i> ${lang==='ar'?'إضافة Feedback':'Add Feedback'}</button>
-    </div>` : '';
-  if(!acts.length) return addBox + '<div class="empty-state"><p>'+ (lang==='ar'?'لا توجد نشاطات بعد':'No activities yet') +'</p></div>';
-  return addBox + acts.map(a => `<div class="crm-activity-item">
+  if(!acts.length) return '<div class="empty-state"><p>'+ (lang==='ar'?'لا توجد نشاطات بعد':'No activities yet') +'</p></div>';
+  const iconMap = {created:'fa-user-plus',updated:'fa-pen',status_changed:'fa-arrow-right',call:'fa-phone',meeting:'fa-handshake',email:'fa-envelope',note:'fa-sticky-note',account_created:'fa-key',message:'fa-comment-dots',deal:'fa-hand-holding-usd',todo:'fa-tasks',tag:'fa-tags',reassign:'fa-user-friends',meeting_feedback:'fa-clipboard-check'};
+  const colorMap = {created:'#22c55e',updated:'#827148',status_changed:'#a855f7',call:'#eab308',meeting:'#f97316',email:'#827148',note:'#6b7280',account_created:'#22c55e',message:'#3b82f6',deal:'#8b5cf6',todo:'#3b82f6',tag:'#ef4444',reassign:'#6366f1',meeting_feedback:'#10b981'};
+  return acts.map(a => `<div class="crm-activity-item">
     <div class="crm-activity-icon" style="background:${colorMap[a.type]||'#6b7280'}"><i class="fas ${iconMap[a.type]||'fa-circle'}"></i></div>
-    <div class="crm-activity-content"><h5>${a.desc}</h5>
-      <p style="margin-top:2px"><i class="fas fa-user-tie" style="font-size:10px;margin-right:3px"></i> <strong>${a.byName ? a.byName : uName(a.by)}</strong></p>
-      ${a.feedback ? `<div style="margin-top:5px;padding:6px 10px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:6px;font-size:12px"><i class="fas fa-comment-medical" style="color:#10b981;margin-right:4px"></i> <span style="color:#10b981;font-weight:600">${lang==='ar'?'Feedback':'Feedback'}:</span> ${a.feedback}</div>` : ''}
-    </div>
+    <div class="crm-activity-content"><h5>${a.desc}</h5><p>${a.by || ''}</p></div>
     <div class="crm-activity-time">${new Date(a.date).toLocaleString(lang==='ar'?'ar-EG':'en-GB')}</div>
   </div>`).join('');
 }
@@ -26744,7 +26773,7 @@ function resetCoaToDefault() {
 // ============================================================
 // COMPANY PROFILES
 // ============================================================
-const COMPANY_STORAGE_KEYS = ['chartOfAccounts','employees','sales','treasury','expenses','salaries','partners','journalEntries','franchises','branches','kpiRules','employeePenalties','attendance','employeeAdvances','jobRequests','jobApplications','crm_clients'];
+const COMPANY_STORAGE_KEYS = ['chartOfAccounts','employees','sales','treasury','expenses','salaries','partners','journalEntries','franchises','branches','kpiRules','employeePenalties','employeeDeductionHistory','attendance','employeeAdvances','jobRequests','jobApplications','crm_clients'];
 
 function getActiveCompanyId() { return STORAGE.get('activeCompanyId', 'default'); }
 
@@ -29697,7 +29726,7 @@ function deleteUser(idx) {
 function exportAllData() {
   ActivityLog.log('export', 'all_data', {});
   const data = {};
-  const allKeys = ['users','employees','sales','treasury','treasurySafes','salaries','partners','expenses','crm_clients','journalEntries','franchises','branches','attendance','employeeAdvances','jobRequests','employeePenalties','employeeEvaluations','attendanceLog','op_units','op_reservations','op_contracts','bankAccounts','chartOfAccounts','laborLaws','socialInsuranceLaws','internalRegulations','internalRegulationsFull','penaltyTable','kpiRules','vacations','vacationTypes','empRoles','resaleTeam','integrations','ollamaSettings','aiChatHistory','gpsConfig','gpsTracking','crmConfig','crmLeadFields','crmLocations','crmFblgiRoutings','crmWebFormRoutings','crmAutomationRules','crmGroups','crmModules','crmDocs','crmCompanies','crmAboutSections','crmResourceTypes','crmGalleries','crmTaskTypes','crmEventTypes','crmActivityTypes','crmPipelines','deals','commissions','inventory','system_config','lang','activityLogs','settings','marketingConfig','leads','pipelineStages','leadFields'];
+  const allKeys = ['users','employees','sales','treasury','treasurySafes','salaries','partners','expenses','crm_clients','journalEntries','franchises','branches','attendance','employeeAdvances','jobRequests','employeePenalties','employeeDeductionHistory','employeeEvaluations','attendanceLog','op_units','op_reservations','op_contracts','bankAccounts','chartOfAccounts','laborLaws','socialInsuranceLaws','internalRegulations','internalRegulationsFull','penaltyTable','kpiRules','vacations','vacationTypes','empRoles','resaleTeam','integrations','ollamaSettings','aiChatHistory','gpsConfig','gpsTracking','crmConfig','crmLeadFields','crmLocations','crmFblgiRoutings','crmWebFormRoutings','crmAutomationRules','crmGroups','crmModules','crmDocs','crmCompanies','crmAboutSections','crmResourceTypes','crmGalleries','crmTaskTypes','crmEventTypes','crmActivityTypes','crmPipelines','deals','commissions','inventory','system_config','lang','activityLogs','settings','marketingConfig','leads','pipelineStages','leadFields'];
   allKeys.forEach(k => { const v = STORAGE.get(k); if(v !== undefined && v !== null) data[k] = v; });
   Object.keys(mem).forEach(k => { if(!data.hasOwnProperty(k) && !k.startsWith('_ts_') && !k.startsWith('_pendingSync')) { try { data[k] = JSON.parse(mem[k]); } catch(e) { data[k] = mem[k]; } } });
   data._exportTimestamp = Date.now();
@@ -29715,7 +29744,7 @@ function backupAllToCloud(force) {
   if (!force && (now - _lastBackupTime) < _BACKUP_INTERVAL) { console.log('[Backup] Skipping � last backup was ' + Math.round((now - _lastBackupTime)/60000) + 'min ago'); return; }
   try {
     const backupData = {};
-    const backupKeys = ['users','employees','sales','treasury','treasurySafes','salaries','partners','expenses','crm_clients','journalEntries','franchises','branches','attendance','employeeAdvances','jobRequests','employeePenalties','employeeEvaluations','attendanceLog','op_units','op_reservations','op_contracts','bankAccounts','chartOfAccounts','deals','commissions','inventory','laborLaws','socialInsuranceLaws','internalRegulations','penaltyTable','kpiRules','vacations','vacationTypes','empRoles','resaleTeam','integrations','crmConfig','crmLeadFields','crmLocations','crmModules','crmPipelines','crmGroups','leads','marketingConfig','settings','system_config'];
+    const backupKeys = ['users','employees','sales','treasury','treasurySafes','salaries','partners','expenses','crm_clients','journalEntries','franchises','branches','attendance','employeeAdvances','jobRequests','employeePenalties','employeeDeductionHistory','employeeEvaluations','attendanceLog','op_units','op_reservations','op_contracts','bankAccounts','chartOfAccounts','deals','commissions','inventory','laborLaws','socialInsuranceLaws','internalRegulations','penaltyTable','kpiRules','vacations','vacationTypes','empRoles','resaleTeam','integrations','crmConfig','crmLeadFields','crmLocations','crmModules','crmPipelines','crmGroups','leads','marketingConfig','settings','system_config'];
     backupKeys.forEach(k => { const v = STORAGE.get(k); if(v !== undefined && v !== null) backupData[k] = v; });
     backupData._backupTimestamp = now;
     backupData._backupDate = new Date().toISOString();
