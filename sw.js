@@ -1,6 +1,8 @@
-const CACHE_NAME = 'marts-crm-v5.3';
+const CACHE_NAME = 'marts-crm-v2.10.1';
 const ASSETS = [
   './Marts_System_Merged.html',
+  './styles.css',
+  './pwa-install.js',
   './LogoMarts.png',
   './manifest.json',
   './version.json',
@@ -9,6 +11,7 @@ const ASSETS = [
   'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',
   'https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js',
+  'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.min.js',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js',
   'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js',

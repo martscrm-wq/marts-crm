@@ -1,0 +1,4 @@
+{
+  "version": "2.10.1",
+  "notes": "إصلاح المزامنة السحابية: إعادة توجيه التطبيق إلى مشروع Firebase marts-crm-6ca37 (المصادقة مفعّلة: Anonymous + Email/Password) لحل خطأ CONFIGURATION_NOT_FOUND. / Cloud sync fix: repointed the app to Firebase project marts-crm-6ca37 where Authentication is enabled (Anonymous + Email/Password) to resolve CONFIGURATION_NOT_FOUND."
+}
