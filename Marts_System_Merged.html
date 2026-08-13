@@ -12501,6 +12501,89 @@ function deleteSocialInsuranceLaw(lawId) {
   renderHrTabContent();
 }
 
+
+// ============================================================
+// INTERNAL REGULATIONS - EDIT/DELETE (Summary + Full)
+// ============================================================
+function openInternalRegulationForm(regId) {
+  const regs = STORAGE.get('internalRegulations', []);
+  const existing = regId ? regs.find(r => r.id === regId) : null;
+  const sections = Object.keys(IR_SECTION_LABELS).map(s => `<option value="${s}" ${existing&&existing.section===s?'selected':''}>${lang==='ar'?IR_SECTION_LABELS[s].ar:IR_SECTION_LABELS[s].en}</option>`).join('');
+  document.getElementById('modalContainer').innerHTML = `<h3>${existing?(lang==='ar'?'تعديل بند':'Edit Item'):(lang==='ar'?'إضافة بند جديد':'Add New Item')} - ${lang==='ar'?'اللائحة الداخلية (ملخص)':'Internal Reg. (Summary)'}</h3>
+    <div class="form-group"><label>${lang==='ar'?'القسم':'Section'}*</label><select id="ir_section">${sections}</select></div>
+    <div class="form-group"><label>${lang==='ar'?'محتوى البند':'Content'}*</label><textarea id="ir_content" rows="6">${existing?existing.content:''}</textarea></div>
+    <div class="modal-actions"><button class="btn btn-primary" onclick="saveInternalRegulation('${regId||''}')"><i class="fas fa-save"></i> ${t('save')}</button><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function saveInternalRegulation(regId) {
+  let regs = STORAGE.get('internalRegulations', []);
+  const data = {
+    id: regId || uid(),
+    section: document.getElementById('ir_section').value,
+    title: document.getElementById('ir_section').value,
+    content: document.getElementById('ir_content').value.trim()
+  };
+  if(!data.content) { alert(lang==='ar'?'أكمل محتوى البند':'Content is required'); return; }
+  if(regId) {
+    const idx = regs.findIndex(r => r.id === regId);
+    if(idx >= 0) regs[idx] = data;
+  } else {
+    regs.push(data);
+  }
+  STORAGE.set('internalRegulations', regs);
+  closeModal();
+  renderHrTabContent();
+}
+
+function deleteInternalRegulation(regId) {
+  if(!confirm(lang==='ar'?'هل أنت متأكد من حذف هذا البند؟':'Delete this item?')) return;
+  let regs = STORAGE.get('internalRegulations', []);
+  regs = regs.filter(r => r.id !== regId);
+  STORAGE.set('internalRegulations', regs);
+  renderHrTabContent();
+}
+
+function openInternalRegulationFullForm(regId) {
+  const regs = STORAGE.get('internalRegulationsFull', []);
+  const existing = regId ? regs.find(r => r.id === regId) : null;
+  const chapters = Object.keys(IRF_CHAPTER_LABELS).map(c => `<option value="${c}" ${existing&&existing.chapter===c?'selected':''}>${lang==='ar'?IRF_CHAPTER_LABELS[c].ar:IRF_CHAPTER_LABELS[c].en}</option>`).join('');
+  document.getElementById('modalContainer').innerHTML = `<h3>${existing?(lang==='ar'?'تعديل مادة':'Edit Article'):(lang==='ar'?'إضافة مادة جديدة':'Add New Article')} - ${lang==='ar'?'اللائحة الداخلية (تفصيلي)':'Internal Reg. (Full)'}</h3>
+    <div class="form-group"><label>${lang==='ar'?'الباب':'Chapter'}*</label><select id="irf_chapter">${chapters}</select></div>
+    <div class="form-group"><label>${lang==='ar'?'رقم المادة':'Article Number'}*</label><input type="text" id="irf_article" value="${existing?existing.article:''}"></div>
+    <div class="form-group"><label>${lang==='ar'?'محتوى المادة':'Content'}*</label><textarea id="irf_content" rows="8">${existing?existing.content:''}</textarea></div>
+    <div class="modal-actions"><button class="btn btn-primary" onclick="saveInternalRegulationFull('${regId||''}')"><i class="fas fa-save"></i> ${t('save')}</button><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+
+function saveInternalRegulationFull(regId) {
+  let regs = STORAGE.get('internalRegulationsFull', []);
+  const data = {
+    id: regId || uid(),
+    chapter: document.getElementById('irf_chapter').value,
+    article: document.getElementById('irf_article').value.trim(),
+    content: document.getElementById('irf_content').value.trim()
+  };
+  if(!data.article || !data.content) { alert(lang==='ar'?'أكمل رقم المادة والمحتوى':'Article number and content are required'); return; }
+  if(regId) {
+    const idx = regs.findIndex(r => r.id === regId);
+    if(idx >= 0) regs[idx] = data;
+  } else {
+    regs.push(data);
+  }
+  STORAGE.set('internalRegulationsFull', regs);
+  closeModal();
+  renderHrTabContent();
+}
+
+function deleteInternalRegulationFull(regId) {
+  if(!confirm(lang==='ar'?'هل أنت متأكد من حذف هذه المادة؟':'Delete this article?')) return;
+  let regs = STORAGE.get('internalRegulationsFull', []);
+  regs = regs.filter(r => r.id !== regId);
+  STORAGE.set('internalRegulationsFull', regs);
+  renderHrTabContent();
+}
+
 // ============================================================
 // INTERNAL REGULATIONS (ABBREVIATED)
 // ============================================================
@@ -12526,6 +12609,7 @@ function renderInternalRegulation(el) {
     <div class="flex-between mb-16">
       <h3><i class="fas fa-file-contract"></i> ${lang==='ar'?'اللائحة الداخلية للشركة (ملخص)':'Company Internal Regulation (Summary)'}</h3>
       <div>
+        ${canEdit()?'<button class="btn btn-primary btn-sm" onclick="openInternalRegulationForm()" style="margin-left:8px"><i class="fas fa-plus"></i> '+(lang==='ar'?'إضافة بند':'Add Item')+'</button>':''}
         <button class="btn btn-outline btn-sm" onclick="showHrTab('internalRegulationFull')" style="margin-left:8px"><i class="fas fa-book"></i> ${lang==='ar'?'عرض التفصيلي':'View Full Version'}</button>
       </div>
     </div>
@@ -12567,7 +12651,7 @@ function renderInternalRegulation(el) {
         });
         h += `</div>`;
       }
-      h += `</div></div>`;
+      h += `</div>${canEdit()?`<div style="margin-top:8px;display:flex;gap:8px"><button class="btn btn-outline btn-sm" onclick="openInternalRegulationForm('${item.id}')"><i class="fas fa-pen"></i> ${lang==='ar'?'تعديل':'Edit'}</button> <button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deleteInternalRegulation('${item.id}')"><i class="fas fa-trash"></i> ${lang==='ar'?'حذف':'Delete'}</button></div>`:''}</div>`;
     });
     h += `</div></div>`;
   });
@@ -12602,6 +12686,7 @@ function renderInternalRegulationFull(el) {
     <div class="flex-between mb-16">
       <h3><i class="fas fa-book"></i> ${lang==='ar'?'اللائحة الداخلية للشركة (النسخة التفصيلية)':'Company Internal Regulation (Full Version)'}</h3>
       <div>
+        ${canEdit()?'<button class="btn btn-primary btn-sm" onclick="openInternalRegulationFullForm()" style="margin-left:8px"><i class="fas fa-plus"></i> '+(lang==='ar'?'إضافة مادة':'Add Article')+'</button>':''}
         <button class="btn btn-outline btn-sm" onclick="showHrTab('internalRegulation')" style="margin-left:8px"><i class="fas fa-file-contract"></i> ${lang==='ar'?'عرض الملخص':'View Summary'}</button>
       </div>
     </div>
@@ -12643,7 +12728,7 @@ function renderInternalRegulationFull(el) {
           h += `<div style="margin-top:6px">${trimmed}</div>`;
         }
       });
-      h += `</div></div></div>`;
+      h += `</div></div>${canEdit()?`<div style="margin-top:10px;display:flex;gap:8px"><button class="btn btn-outline btn-sm" onclick="openInternalRegulationFullForm('${item.id}')"><i class="fas fa-pen"></i> ${lang==='ar'?'تعديل':'Edit'}</button> <button class="btn btn-outline btn-sm" style="color:var(--danger)" onclick="deleteInternalRegulationFull('${item.id}')"><i class="fas fa-trash"></i> ${lang==='ar'?'حذف':'Delete'}</button></div>`:''}</div>`;
     });
     h += `</div>`;
   });
