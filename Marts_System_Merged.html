@@ -8744,18 +8744,22 @@ function renderVacations(el) {
 
   h += `<div class="card" style="margin-top:16px"><h4 style="margin-bottom:12px">${lang==='ar'?'رصيد الإجازات':'Leave Balance'}</h4>`;
   h += `<div class="table-wrap"><table><thead><tr><th>${lang==='ar'?'الموظف':'Employee'}</th>`;
+  h += `<th>${lang==='ar'?'سنوات الخدمة':'Service Years'}</th>`;
   vacationTypes.forEach(vt => { h += `<th>${lang==='ar'?vt.ar:vt.en}</th>`; });
   h += `<th>${lang==='ar'?'المجموع':'Total'}</th></tr></thead><tbody>`;
 
   employees.filter(e => e.status === 'active').forEach(emp => {
-    h += `<tr><td>${emp.name}</td>`;
+    const sy = serviceYears(emp);
+    h += `<tr><td>${emp.name}</td><td style="color:#827148;font-weight:700">${sy} ${lang==='ar'?'سنة':'yr'}</td>`;
     let totalUsed = 0;
     vacationTypes.forEach(vt => {
+      const isAnnual = isAnnualVacation(vt);
+      const avail = isAnnual ? annualLeaveEntitlement(emp) : (vt.days || 0);
       const used = vacations.filter(v => v.empId === emp.id && v.typeId === vt.id && v.status === 'approved').reduce((s,v) => s + (v.days||0), 0);
       totalUsed += used;
-      const remaining = vt.days - used;
+      const remaining = avail - used;
       const color = remaining <= 0 ? '#C75B4A' : remaining <= 3 ? '#E8A07C' : '#333';
-      h += `<td style="color:${color}">${used} / ${vt.days}</td>`;
+      h += `<td style="color:${color}">${used} / ${avail}${isAnnual ? (avail >= 30 ? ' ⭐' : '') : ''}</td>`;
     });
     h += `<td><strong>${totalUsed}</strong></td></tr>`;
   });
@@ -8809,10 +8813,11 @@ function saveVacation() {
   const vacationTypes = STORAGE.get('vacationTypes',[]);
   const vtype = vacationTypes.find(vt => vt.id === typeId);
 
-  if(vtype && days > vtype.days) { wsToast(lang==='ar'?'الأيام تتجاوز الحد':'Days exceed limit'); return; }
+  const availDays = vtype ? (isAnnualVacation(vtype) ? annualLeaveEntitlement(emp) : (vtype.days || 0)) : 0;
+  if(vtype && days > availDays) { wsToast(lang==='ar'?'الأيام تتجاوز الحد المتاح ('+availDays+')':'Days exceed available limit ('+availDays+')'); return; }
 
   const usedDays = vacations.filter(v => v.empId === empId && v.typeId === typeId && v.status === 'approved').reduce((s,v) => s + (v.days||0), 0);
-  if(vtype && (usedDays + days) > vtype.days) { wsToast(lang==='ar'?'الرصيد غير كافي':'Insufficient balance'); return; }
+  if(vtype && (usedDays + days) > availDays) { wsToast(lang==='ar'?'الرصيد غير كافي':'Insufficient balance'); return; }
 
   vacations.push({id:uid(),empId:empId,empName:emp?emp.name:'',typeId:typeId,from:from,to:to,days:days,reason:reason,status:'pending',requestedAt:new Date().toISOString(),approvedBy:null,approvedAt:null});
   STORAGE.set('vacations', vacations);
@@ -9992,6 +9997,38 @@ function routePayrollToTreasury(id) {
   renderTransactions(document.getElementById('pageContent'));
 }
 
+const PAYROLL_INSURANCE = { employeeRate: 0.11, employerRate: 0.1875, maxInsurableSalary: 12600 };
+const INCOME_TAX_BRACKETS = [[15000,0],[30000,0.025],[45000,0.10],[60000,0.15],[200000,0.20],[400000,0.225],[Infinity,0.25]];
+function calcIncomeTaxMonthly(monthlySalary) {
+  const annual = (monthlySalary || 0) * 12;
+  let tax = 0, prev = 0;
+  for (const [cap, rate] of INCOME_TAX_BRACKETS) {
+    if (annual <= prev) break;
+    tax += (Math.min(annual, cap) - prev) * rate;
+    prev = cap;
+  }
+  return Math.max(0, Math.round(tax / 12));
+}
+function calcSocialInsurance(salary, isEmployer) {
+  const base = Math.min(salary || 0, PAYROLL_INSURANCE.maxInsurableSalary);
+  return Math.round(base * (isEmployer ? PAYROLL_INSURANCE.employerRate : PAYROLL_INSURANCE.employeeRate));
+}
+function serviceYears(emp) {
+  const hire = emp.hireDate || emp.joiningDate || '';
+  if (!hire) return 0;
+  const diff = new Date(today()) - new Date(hire);
+  return diff > 0 ? Math.floor(diff / (365.25 * 24 * 3600 * 1000)) : 0;
+}
+function annualLeaveEntitlement(emp) {
+  if (serviceYears(emp) >= 10 || (emp.age || 0) >= 50) return 30;
+  return 21;
+}
+function isAnnualVacation(vtype) {
+  return vtype && /annual|سنوية|سنوى/i.test((vtype.id || '') + ' ' + (vtype.ar || '') + ' ' + (vtype.en || ''));
+}
+function calcAdvanceRepayment(empId) {
+  return STORAGE.get('employeeAdvances', []).filter(a => a.empId === empId && a.status === 'approved').reduce((s, a) => s + (a.amount || 0), 0);
+}
 function showPayrollDetail(empId) {
   const emp = STORAGE.get('employees', []).find(e => e.id === empId);
   if(!emp) return;
@@ -10014,7 +10051,13 @@ function showPayrollDetail(empId) {
   const finalKpi = Math.max(0, (emp.kpi || 0) - Math.min(penaltyDeduction, 100));
   const kpiBonus = finalKpi >= 80 ? 0.25 : finalKpi >= 60 ? 0.15 : finalKpi >= 40 ? 0.05 : 0;
   const bonusAmount = Math.round(emp.salary * kpiBonus);
-  const netSalary = Math.max(0, emp.salary + bonusAmount - monthDeductionAmount);
+  const socialInsEmp = calcSocialInsurance(emp.salary, false);
+  const socialInsEmpComp = calcSocialInsurance(emp.salary, true);
+  const incomeTax = calcIncomeTaxMonthly(emp.salary);
+  const advanceRepay = calcAdvanceRepayment(empId);
+  const grossSalary = emp.salary + bonusAmount;
+  const totalDeductions = monthDeductionAmount + socialInsEmp + incomeTax + advanceRepay;
+  const netSalary = Math.max(0, grossSalary - totalDeductions);
 
   let html = `<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button class="btn btn-outline btn-sm" onclick="showEmployeeProfile('${empId}','${currentMonth}')"><i class="fas fa-id-card"></i> ${lang==='ar'?'الملف الكامل':'Full Profile'}</button></div>`;
   html += `<h3>${lang==='ar'?'تفاصيل راتب':'Payroll Detail'}: ${emp.name}</h3>`;
@@ -10035,6 +10078,25 @@ function showPayrollDetail(empId) {
     <div style="background:rgba(39,174,96,0.08);padding:14px;border-radius:8px;text-align:center">
       <div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'صافي الراتب':'Net Salary'}</div>
       <div style="font-size:22px;font-weight:800;color:#27ae60">${fmt(netSalary)}</div>
+    </div>
+  </div>`;
+
+  html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin:16px 0">
+    <div style="background:rgba(13,110,253,0.06);padding:12px;border-radius:8px;text-align:center">
+      <div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'تأمينات الموظف (11%)':'Employee Insurance (11%)'}</div>
+      <div style="font-size:18px;font-weight:700;color:#0d6efd">-${fmt(socialInsEmp)}</div>
+    </div>
+    <div style="background:rgba(108,117,125,0.06);padding:12px;border-radius:8px;text-align:center">
+      <div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'تأمينات الشركة (18.75%)':'Employer Insurance (18.75%)'}</div>
+      <div style="font-size:18px;font-weight:700;color:#6c757d">${fmt(socialInsEmpComp)}</div>
+    </div>
+    <div style="background:rgba(220,53,69,0.06);padding:12px;border-radius:8px;text-align:center">
+      <div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'ضريبة كسب العمل':'Income Tax'}</div>
+      <div style="font-size:18px;font-weight:700;color:#dc3545">-${fmt(incomeTax)}</div>
+    </div>
+    <div style="background:rgba(255,193,7,0.06);padding:12px;border-radius:8px;text-align:center">
+      <div style="font-size:11px;color:var(--text-light)">${lang==='ar'?'سلف مستحقة':'Pending Advances'}</div>
+      <div style="font-size:18px;font-weight:700;color:#e0a800">${advanceRepay > 0 ? '-' + fmt(advanceRepay) : '-'}</div>
     </div>
   </div>`;
 
@@ -10104,6 +10166,9 @@ function exportPayroll() {
     lang==='ar'?'مكافأة KPI':'KPI Bonus',
     lang==='ar'?'أيام الخصم':'Deduction Days',
     lang==='ar'?'مبلغ الخصم':'Deduction Amount',
+    lang==='ar'?'تأمين الموظف':'Employee Insurance',
+    lang==='ar'?'ضريبة كسب العمل':'Income Tax',
+    lang==='ar'?'سلف مستحقة':'Advances',
     lang==='ar'?'صافي الراتب':'Net Salary',
     lang==='ar'?'الجزاءات':'Penalties'
   ];
@@ -10121,8 +10186,11 @@ function exportPayroll() {
     const finalKpi = Math.max(0, (emp.kpi || 0) - Math.min(penaltyDeduction, 100));
     const kpiBonus = finalKpi >= 80 ? 0.25 : finalKpi >= 60 ? 0.15 : finalKpi >= 40 ? 0.05 : 0;
     const bonusAmount = Math.round(emp.salary * kpiBonus);
-    const netSalary = Math.max(0, emp.salary + bonusAmount - monthDeductionAmount);
-    return [emp.name, getRoleLabel(emp.role), emp.salary, finalKpi + '%', bonusAmount, monthDeductionDays, monthDeductionAmount, netSalary, monthPenalties.length];
+    const socialInsEmp = calcSocialInsurance(emp.salary, false);
+    const incomeTax = calcIncomeTaxMonthly(emp.salary);
+    const advRepay = calcAdvanceRepayment(emp.id);
+    const netSalary = Math.max(0, emp.salary + bonusAmount - monthDeductionAmount - socialInsEmp - incomeTax - advRepay);
+    return [emp.name, getRoleLabel(emp.role), emp.salary, finalKpi + '%', bonusAmount, monthDeductionDays, monthDeductionAmount, socialInsEmp, incomeTax, advRepay, netSalary, monthPenalties.length];
   });
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
   ws['!cols'] = headers.map(() => ({wch: 18}));
