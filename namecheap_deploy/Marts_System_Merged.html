@@ -4376,6 +4376,7 @@ function toggleSidebar() {
 }
 if(STORAGE.get('sidebarCollapsed')) {
   document.addEventListener('DOMContentLoaded', function(){
+  setTimeout(function(){ try{ checkAutoNotifications(); }catch(e){ console.error('auto notifications error', e); } }, 3000);
     var sb = document.getElementById('sidebar');
     if(sb) sb.classList.add('collapsed');
     document.body.classList.add('sidebar-collapsed');
@@ -9804,6 +9805,7 @@ function renderPayrollSalaries(el) {
       <div><h3 style="margin:0;color:#fff"><i class="fas fa-money-check-alt"></i> ${lang==='ar'?'رواتب شهر ' + currentMonth:'Payroll for ' + currentMonth}</h3>
       <p style="margin:4px 0 0;opacity:0.85;font-size:13px">${lang==='ar'?'إجمالي الموظفين النشطين: ' + employees.length:'Total active employees: ' + employees.length}</p></div>
       ${canEdit()?'<button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.3)" onclick="exportPayroll()"><i class="fas fa-download"></i> '+lang==='ar'?'تصدير':'Export'+'</button>':''}
+      ${canEdit()?'<button class="btn btn-sm" style="background:rgba(255,255,255,0.2);color:#fff;border:1px solid rgba(255,255,255,0.3)" onclick="openTaxFormsModal()"><i class="fas fa-file-invoice"></i> '+(lang==='ar'?'النماذج الضريبية':'Tax Forms')+'</button>':''}
     </div>
   </div>`;
 
@@ -9930,6 +9932,9 @@ function approvePayrollBatch(id) {
   const pendingPayrolls = STORAGE.get('pendingPayrolls', []);
   const batch = pendingPayrolls.find(p => p.id === id);
   if(!batch || batch.status !== 'pending') return;
+  if(currentUser && batch.createdBy && batch.createdBy === currentUser.username) {
+    alert(lg?'لا يمكن لمن أرسل الرواتب أن يعتمدها بنفسه (فصل مهام SoD)':'The person who submitted the payroll cannot approve it (SoD)'); return;
+  }
   const salaries = STORAGE.get('salaries', []);
   const newSalaries = [];
   batch.employees.forEach(emp => {
@@ -10154,6 +10159,76 @@ function showPayrollDetail(empId) {
   document.getElementById('modalOverlay').classList.add('active');
 }
 
+function payrollTaxData() {
+  const month = today().slice(0, 7);
+  return STORAGE.get('employees', []).filter(e => e.status === 'active').map(emp => {
+    const socBase = Math.min(emp.salary || 0, PAYROLL_INSURANCE.maxInsurableSalary);
+    const socIns = Math.round(socBase * PAYROLL_INSURANCE.employeeRate);
+    const incomeTax = calcIncomeTaxMonthly(emp.salary || 0);
+    const gross = emp.salary || 0;
+    const net = Math.max(0, gross - socIns - incomeTax);
+    return { emp, socIns, incomeTax, gross, net, nationalId: emp.nationalId || emp.nid || emp.idNumber || '-' };
+  });
+}
+function openTaxFormsModal() {
+  const lg = lang==='ar';
+  const month = today().slice(0, 7);
+  const rows = payrollTaxData();
+  let table = '<div class="table-wrap"><table><thead><tr><th>'+(lg?'الرقم القومي':'National ID')+'</th><th>'+(lg?'الاسم':'Name')+'</th><th>'+(lg?'الأجر الخاضع':'Taxable Salary')+'</th><th>'+(lg?'تأمينات الموظف':'Employee Insurance')+'</th><th>'+(lg?'ضريبة كسب العمل':'Income Tax')+'</th><th>'+(lg?'صافي الأجر':'Net Pay')+'</th></tr></thead><tbody>';
+  rows.forEach(r => { table += `<tr><td>${r.nationalId}</td><td>${r.emp.name}</td><td>${fmt(r.gross)}</td><td>${fmt(r.socIns)}</td><td>${fmt(r.incomeTax)}</td><td>${fmt(r.net)}</td></tr>`; });
+  table += '</tbody></table></div>';
+  const totals = rows.reduce((a, r) => { a.gross += r.gross; a.ins += r.socIns; a.tax += r.incomeTax; a.net += r.net; return a; }, {gross:0, ins:0, tax:0, net:0});
+  const summary = `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin:12px 0">
+    <div style="background:rgba(130,113,72,0.06);padding:12px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--text-light)">${lg?'عدد الموظفين':'Employees'}</div><div style="font-size:20px;font-weight:800;color:#827148">${rows.length}</div></div>
+    <div style="background:rgba(130,113,72,0.06);padding:12px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي الأجور':'Gross Salaries'}</div><div style="font-size:20px;font-weight:800;color:#827148">${fmt(totals.gross)}</div></div>
+    <div style="background:rgba(220,53,69,0.06);padding:12px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي الضريبة':'Total Tax'}</div><div style="font-size:20px;font-weight:800;color:#dc3545">${fmt(totals.tax)}</div></div>
+    <div style="background:rgba(39,174,96,0.06);padding:12px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي الصافي':'Total Net'}</div><div style="font-size:20px;font-weight:800;color:#27ae60">${fmt(totals.net)}</div></div>
+  </div>`;
+  document.getElementById('modalContainer').innerHTML = `<h3><i class="fas fa-file-invoice"></i> ${lg?'النماذج الضريبية - شهر ':'Tax Forms - Month '}${month}</h3>
+    <p style="margin:8px 0;color:var(--text-light)">${lg?'نموذج 4: كشف الرواتب والأجور الشهري لضريبة كسب العمل':'Form 4: Monthly salary schedule for income tax'}</p>
+    ${table}
+    ${summary}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:12px">
+      <button class="btn btn-primary" onclick="exportTaxForm4()"><i class="fas fa-file-excel"></i> ${lg?'تصدير نموذج 4':'Export Form 4'}</button>
+      <button class="btn btn-outline" onclick="exportTaxForm6()"><i class="fas fa-file-excel"></i> ${lg?'تصدير نموذج 6 (إقرار مجمع)':'Export Form 6 (Summary)'}</button>
+      <button class="btn btn-outline" onclick="window.print()"><i class="fas fa-print"></i> ${lg?'طباعة':'Print'}</button>
+    </div>
+    <div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  document.getElementById('modalOverlay').classList.add('active');
+}
+function exportTaxForm4() {
+  const month = today().slice(0, 7);
+  const rows = payrollTaxData();
+  const headers = [lang==='ar'?'الرقم القومي':'National ID', lang==='ar'?'الاسم':'Name', lang==='ar'?'الأجر الخاضع':'Taxable Salary', lang==='ar'?'تأمينات الموظف':'Employee Insurance', lang==='ar'?'ضريبة كسب العمل':'Income Tax', lang==='ar'?'صافي الأجر':'Net Pay'];
+  const data = rows.map(r => [r.nationalId, r.emp.name, r.gross, r.socIns, r.incomeTax, r.net]);
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'TaxForm4');
+  XLSX.writeFile(wb, 'tax_form4_' + month + '.xlsx');
+}
+function exportTaxForm6() {
+  const month = today().slice(0, 7);
+  const rows = payrollTaxData();
+  const totals = rows.reduce((a, r) => { a.gross += r.gross; a.ins += r.socIns; a.tax += r.incomeTax; a.net += r.net; return a; }, {gross:0, ins:0, tax:0, net:0});
+  const headers = [lang==='ar'?'الشهر':'Month', lang==='ar'?'عدد الموظفين':'Employees', lang==='ar'?'إجمالي الأجور':'Gross Salaries', lang==='ar'?'إجمالي التأمينات':'Total Insurance', lang==='ar'?'إجمالي ضريبة كسب العمل':'Total Income Tax', lang==='ar'?'صافي المدفوع':'Net Paid'];
+  const data = [[month, rows.length, totals.gross, totals.ins, totals.tax, totals.net]];
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...data]);
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'TaxForm6');
+  XLSX.writeFile(wb, 'tax_form6_' + month + '.xlsx');
+}
+function checkAutoNotifications() {
+  const lg = lang === 'ar';
+  const notifications = STORAGE.get('notifications', []);
+  const exists = ref => notifications.some(n => n.ref === ref);
+  const add = (ref, type, title, message) => { if(!exists(ref)) addNotification({ref, type, title, message, date: today(), department:'hr'}); };
+  const inDays = (dateStr, n) => { if(!dateStr) return false; const d = new Date(dateStr); if(isNaN(d)) return false; const diff = (d - new Date()) / (1000*60*60*24); return diff >= 0 && diff <= n; };
+  STORAGE.get('employees', []).filter(e => e.status === 'active').forEach(emp => {
+    if(inDays(emp.contractEnd, 30)) add('contract_'+emp.id, 'contract_expiry', lg?'انتهاء عقد':'Contract Expiry', (emp.name||'')+' - '+(lg?'ينتهي العقد خلال 30 يوم':'contract ends within 30 days')+' ('+emp.contractEnd+')');
+    if(inDays(emp.licenseEnd, 30)) add('license_'+emp.id, 'license_expiry', lg?'انتهاء رخصة/تصريح':'License Expiry', (emp.name||'')+' - '+(lg?'تنتهي الرخصة خلال 30 يوم':'license ends within 30 days')+' ('+emp.licenseEnd+')');
+    if(inDays(emp.testDate, 15)) add('test_'+emp.id, 'test_period', lg?'انتهاء فترة الاختبار':'Probation End', (emp.name||'')+' - '+(lg?'تنتهي فترة الاختبار خلال 15 يوم':'probation ends within 15 days'));
+  });
+}
 function exportPayroll() {
   const employees = STORAGE.get('employees', []).filter(e => e.status === 'active');
   const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
@@ -14013,7 +14088,8 @@ function saveAdvance() {
   advances.push({
     id: uid(), empId: empId, amount: advanceAmount, date: today(),
     month: month, status: 'pending', notes: notesText,
-    salaryAtTime: emp.salary, percentage: pct
+    salaryAtTime: emp.salary, percentage: pct,
+    createdBy: currentUser ? currentUser.username : 'system'
   });
   STORAGE.set('employeeAdvances', advances);
   closeModal();
@@ -14024,6 +14100,9 @@ function approveAdvance(advId) {
   const advances = STORAGE.get('employeeAdvances', []);
   const adv = advances.find(a => a.id === advId);
   if(!adv) return;
+  if(currentUser && adv.createdBy && adv.createdBy === currentUser.username) {
+    alert(lang==='ar'?'لا يمكن لمن أضاف السلفة أن يعتمدها بنفسه (فصل مهام SoD)':'The person who created this advance cannot approve it (SoD)'); return;
+  }
   if(!confirm(lang==='ar'?'هل تريد اعتماد هذه السلفة؟':'Approve this advance?')) return;
   adv.status = 'approved';
   adv.approvedDate = today();
@@ -16515,6 +16594,8 @@ function renderJournalTable(entries) {
     const _lk = e.locked;
     const canEdit = hasPermission('accounts_journal_edit');
     const canDelete = hasPermission('accounts_journal_delete');
+    const canExc = hasPermission('accounts_journal_exception');
+    const isAuto = e.autoGenerated && e.sourceId;
     h += `<tr style="cursor:pointer" onclick="${(_lk||!canEdit)?'':'openJournalModal(\''+e.id+'\')'}">
       <td>${fmtDate(e.date)}</td>
       <td><strong>${e.ref||''}</strong> ${_lk?'<i class="fas fa-lock" style="color:#f39c12;font-size:11px" title="'+(lang==='ar'?'مقفل':'Locked')+'"></i>':''}</td>
@@ -16524,7 +16605,7 @@ function renderJournalTable(entries) {
       <td style="color:#C75B4A;font-weight:600;direction:ltr;text-align:right">${fmt(totalDr)}</td>
       <td style="color:#A5AF79;font-weight:600;direction:ltr;text-align:right">${fmt(totalCr)}</td>
       <td><span class="badge ${balanced?'badge-green':'badge-red'}">${balanced?t('acc_journalBalanced'):t('acc_journalUnbalanced')}</span></td>
-      <td onclick="event.stopPropagation()">${(canEdit||canDelete)?(_lk?'':(canEdit?`<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry('journalEntries','${e.id}')"><i class="fas fa-lock-open"></i></button>`:'')+(canDelete?`<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteJournalEntry('${e.id}')"><i class="fas fa-trash"></i></button>`:'')):''}</td>
+      <td onclick="event.stopPropagation()">${(canEdit||canDelete||(isAuto&&canExc))?((canEdit&&!_lk?`<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#f39c12;border-color:#f39c12" onclick="toggleLockEntry('journalEntries','${e.id}')"><i class="fas fa-lock-open"></i></button>`:'')+(canDelete&&!_lk?`<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteJournalEntry('${e.id}')"><i class="fas fa-trash"></i></button>`:'')+(isAuto&&canExc?`<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#8e44ad;border-color:#8e44ad" onclick="openJournalModal('${e.id}',true)" title="`+(lang==='ar'?'استثناء مراجع - تعديل قيد تلقائي':'Reviewer exception - edit auto entry')+`"><i class="fas fa-unlock-alt"></i></button>`:'')):''}</td>
     </tr>`;
     (e.lines||[]).forEach(l => {
       const acct = STORAGE.get('chartOfAccounts',[]).find(a => a.code === l.code);
@@ -16541,16 +16622,21 @@ function renderJournalTable(entries) {
   document.getElementById('journalTable').innerHTML = h;
 }
 
-function openJournalModal(editId) {
+function openJournalModal(editId, allowAuto) {
   const lg = lang==='ar';
-  if(editId && !hasPermission('accounts_journal_edit')) { wsToast(lg?'لا يمكنك تعديل هذا القيد':'No permission to edit journal entry'); return; }
+  if(editId && !hasPermission('accounts_journal_edit') && !allowAuto) { wsToast(lg?'لا يمكنك تعديل هذا القيد':'No permission to edit journal entry'); return; }
+  if(editId && allowAuto && !hasPermission('accounts_journal_exception')) { wsToast(lg?'استثناء المراجع يتطلب صلاحية خاصة':'Reviewer exception requires special permission'); return; }
   if(!editId && !hasPermission('accounts_journal_add')) { wsToast(lg?'لا يمكنك إضافة قيد':'No permission to add journal entry'); return; }
   const entries = STORAGE.get('journalEntries', []);
   if(editId) {
     const existingEntry = entries.find(e => e.id === editId);
-    if(existingEntry && existingEntry.autoGenerated && existingEntry.sourceId) {
-      wsToast(lg?'هذا القيد تلقائي مرتبط بالخزينة/المصروفات/الرواتب ويُعدّل من مصدره الأصلي':'This auto-generated entry is linked to treasury/expenses/salaries and must be edited from its source');
-      return;
+    if(existingEntry && existingEntry.autoGenerated && existingEntry.sourceId && !allowAuto) {
+      if(hasPermission('accounts_journal_exception')) {
+        if(!confirm(lg?'قيد تلقائي — استثناء المراجع يتيح تعديله. متابعة؟':'Auto-generated entry — reviewer exception allows editing. Continue?')) return;
+      } else {
+        wsToast(lg?'هذا القيد تلقائي مرتبط بالخزينة/المصروفات/الرواتب ويُعدّل من مصدره الأصلي أو باستثناء مراجع':'This auto-generated entry is linked to treasury/expenses/salaries and must be edited from its source or via reviewer exception');
+        return;
+      }
     }
   }
   const coa = STORAGE.get('chartOfAccounts', []);
@@ -16721,8 +16807,10 @@ function saveJournalEntry(editId) {
   if(editId) {
     const idx = entries.findIndex(e => e.id === editId);
     if(idx >= 0) {
-      entries[idx] = {id: editId, date, ref, desc, franchiseId, branchId, lines};
+      const prev = entries[idx];
+      entries[idx] = Object.assign({}, prev, {id: editId, date, ref, desc, franchiseId, branchId, lines});
       govAuditLog('journal_edit', 'journal', {id: editId, amount: totalDr, ref});
+      if(prev && prev.autoGenerated) govAuditLog('journal_exception_edit', 'journal', {id: editId, amount: totalDr, ref, by: currentUser ? currentUser.username : 'system'});
     }
   } else {
     const newId = uid();
