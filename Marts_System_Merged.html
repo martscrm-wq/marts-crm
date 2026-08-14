@@ -2474,7 +2474,7 @@ async function applyUpdate() {
   _showUpdateToast(lg ? 'جاري حفظ البيانات...' : 'Syncing data before update...', 10);
   try {
     // Step 1: Sync all data to Firestore before clearing caches
-    const keys = ['treasury','salaries','journalEntries','partners','users','empRoles','resaleTeam','chartOfAccounts','laborLaws','socialInsuranceLaws','internalRegulations','penaltyTable','kpiRules','employees','sales','crm_clients','crm_activities','expenses','vacations','attendance','attendanceLog','employeeAdvances','employeePenalties','employeeDeductionHistory','employeeEvaluations','op_units','op_reservations','op_contracts','franchises','branches','integrations','notifications','jobRequests','activityLogs','pendingPayrolls','intercompanyRules','intercompanyAllocations','intercompanySettlements'];
+    const keys = ['treasury','salaries','journalEntries','partners','users','empRoles','resaleTeam','chartOfAccounts','laborLaws','socialInsuranceLaws','internalRegulations','penaltyTable','kpiRules','employees','sales','crm_clients','crm_activities','expenses','vacations','attendance','attendanceLog','employeeAdvances','employeePenalties','employeeDeductionHistory','employeeEvaluations','op_units','op_reservations','op_contracts','franchises','branches','integrations','notifications','jobRequests','activityLogs','pendingPayrolls','intercompanyRules','intercompanyAllocations','intercompanySettlements','fixedAssets','employeeDocs'];
     if (_fbReady && _fbDb && _isOnline) {
       _showUpdateToast(lg ? 'جاري رفع البيانات للسحابة...' : 'Uploading data to cloud...', 25);
       const syncPromises = keys.map(k => {
@@ -2738,7 +2738,7 @@ const FirebaseSync = {
 
   _startRealtimeListeners() {
     if (!_fbDb || this._listeners.length) return;
-    const criticalKeys = ['users','crm_clients','employees','treasury','salaries','sales','deals','commissions','journalEntries','attendance','expenses','inventory','franchises','partners','empRoles','resaleTeam','chartOfAccounts','op_units','op_reservations','op_contracts','branches','integrations','notifications','jobRequests','vacations','attendanceLog','employeeAdvances','employeePenalties','employeeDeductionHistory','employeeEvaluations','kpiRules','penaltyTable','laborLaws','socialInsuranceLaws','internalRegulations','activityLogs','pendingPayrolls','intercompanyRules','intercompanyAllocations','intercompanySettlements'];
+    const criticalKeys = ['users','crm_clients','employees','treasury','salaries','sales','deals','commissions','journalEntries','attendance','expenses','inventory','franchises','partners','empRoles','resaleTeam','chartOfAccounts','op_units','op_reservations','op_contracts','branches','integrations','notifications','jobRequests','vacations','attendanceLog','employeeAdvances','employeePenalties','employeeDeductionHistory','employeeEvaluations','kpiRules','penaltyTable','laborLaws','socialInsuranceLaws','internalRegulations','activityLogs','pendingPayrolls','intercompanyRules','intercompanyAllocations','intercompanySettlements','fixedAssets','employeeDocs'];
     criticalKeys.forEach(key => {
       try {
         const unsub = _fbDb.doc(this.getDocPath(key)).onSnapshot(doc => {
@@ -4127,7 +4127,7 @@ function initData() {
       safeStorage.set(k, JSON.stringify(_defLocal[k]));
     }
   });
-  var _defArrs = ['employees','sales','treasurySafes','expenses','crm_clients','franchises','branches','attendance','employeeAdvances','jobRequests','employeePenalties','employeeDeductionHistory','employeeEvaluations','attendanceLog','op_units','op_reservations','op_contracts','bankAccounts','intercompanyRules','intercompanyAllocations','intercompanySettlements'];
+  var _defArrs = ['employees','sales','treasurySafes','expenses','crm_clients','franchises','branches','attendance','employeeAdvances','jobRequests','employeePenalties','employeeDeductionHistory','employeeEvaluations','attendanceLog','op_units','op_reservations','op_contracts','bankAccounts','intercompanyRules','intercompanyAllocations','intercompanySettlements','fixedAssets','employeeDocs'];
   _defArrs.forEach(function(k){
     if(!STORAGE.get(k)){
       safeStorage.set(k, JSON.stringify([]));
@@ -10064,7 +10064,7 @@ function showPayrollDetail(empId) {
   const totalDeductions = monthDeductionAmount + socialInsEmp + incomeTax + advanceRepay;
   const netSalary = Math.max(0, grossSalary - totalDeductions);
 
-  let html = `<div style="display:flex;justify-content:flex-end;margin-bottom:8px"><button class="btn btn-outline btn-sm" onclick="showEmployeeProfile('${empId}','${currentMonth}')"><i class="fas fa-id-card"></i> ${lang==='ar'?'الملف الكامل':'Full Profile'}</button></div>`;
+  let html = `<div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px"><button class="btn btn-outline btn-sm" onclick="openEmployeeDocs('${empId}')"><i class="fas fa-folder-open"></i> ${lang==='ar'?'المستندات':'Documents'}</button><button class="btn btn-outline btn-sm" onclick="showEmployeeProfile('${empId}','${currentMonth}')"><i class="fas fa-id-card"></i> ${lang==='ar'?'الملف الكامل':'Full Profile'}</button></div>`;
   html += `<h3>${lang==='ar'?'تفاصيل راتب':'Payroll Detail'}: ${emp.name}</h3>`;
 
   html += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:12px;margin:16px 0">
@@ -14972,7 +14972,7 @@ function renderEmpPayouts() {
 // ============================================================
 // ACCOUNTING
 // ============================================================
-const ACC_TABS = ['unified','treasury','bank','salaries','partners','expenses','coa','journal','franchises','financials','analysis','cashFlow','expenseAnalysis','revenueAnalysis','risk','transactions','intercompany'];
+const ACC_TABS = ['unified','treasury','bank','salaries','partners','expenses','coa','journal','franchises','financials','analysis','cashFlow','expenseAnalysis','revenueAnalysis','risk','fixedassets','transactions','intercompany'];
 
 function renderAccounting(el) {
   el.innerHTML = `
@@ -14997,6 +14997,7 @@ function renderAccounting(el) {
     <div class="tab" onclick="showAccTab('expenseAnalysis')"><i class="fas fa-chart-pie"></i> ${t('acc_expenseAnalysis')}</div>
     <div class="tab" onclick="showAccTab('revenueAnalysis')"><i class="fas fa-chart-line"></i> ${t('acc_revenueAnalysis')}</div>
     <div class="tab" onclick="showAccTab('risk')" style="color:#C75B4A"><i class="fas fa-shield-alt"></i> ${lang==='ar'?'إدارة المخاطر':'Risk Mgmt'}</div>
+    <div class="tab" onclick="showAccTab('fixedassets')"><i class="fas fa-box"></i> ${lang==='ar'?'الأصول الثابتة':'Fixed Assets'}</div>
     <div class="tab" onclick="showAccTab('transactions')"><i class="fas fa-exchange-alt"></i> ${t('trans_pendingList')}</div>
     ${hasPermission('accounts_intercompany')?`<div class="tab" onclick="showAccTab('intercompany')"><i class="fas fa-building"></i> ${t('nav_intercompany')}</div>`:''}
   </div>
@@ -15009,9 +15010,10 @@ function renderAccounting(el) {
   <div id="accTab_cashFlow" style="display:none"></div>
   <div id="accTab_expenseAnalysis" style="display:none"></div><div id="accTab_revenueAnalysis" style="display:none"></div>
   <div id="accTab_risk" style="display:none"></div>
+  <div id="accTab_fixedassets" style="display:none"></div>
   <div id="accTab_transactions" style="display:none"></div>
   ${hasPermission('accounts_intercompany')?`<div id="accTab_intercompany" style="display:none"></div>`:''}`;
-  [renderUnified, renderTreasury, renderBank, renderSalaries, renderPartners, renderExpenses, renderCoa, renderJournal, renderFranchises, renderFinancials, renderAnalysis, renderCashFlow, renderExpenseAnalysis, renderRevenueAnalysis, renderRiskManagement].forEach(fn=>{try{fn();}catch(e){console.error('Accounting render error:',fn.name,e);}});
+  [renderUnified, renderTreasury, renderBank, renderSalaries, renderPartners, renderExpenses, renderCoa, renderJournal, renderFranchises, renderFinancials, renderAnalysis, renderCashFlow, renderExpenseAnalysis, renderRevenueAnalysis, renderRiskManagement, renderFixedAssets].forEach(fn=>{try{fn();}catch(e){console.error('Accounting render error:',fn.name,e);}});
   try{renderTransactions(document.getElementById('accTab_transactions'));}catch(e){console.error('Accounting render error: renderTransactions',e);}
   if(hasPermission('accounts_intercompany')) try{renderIntercompany(document.getElementById('accTab_intercompany'));}catch(e){console.error('Accounting render error: renderIntercompany',e);}
 }
@@ -15079,6 +15081,7 @@ function refreshCurrentAccTab() {
   else if(activeTab === 'expenseAnalysis') renderExpenseAnalysis();
   else if(activeTab === 'revenueAnalysis') renderRevenueAnalysis();
   else if(activeTab === 'risk') renderRiskManagement();
+  else if(activeTab === 'fixedassets') renderFixedAssets();
   else if(activeTab === 'transactions') renderTransactions(document.getElementById('accTab_transactions'));
   else if(activeTab === 'intercompany' && hasPermission('accounts_intercompany')) renderIntercompany(document.getElementById('accTab_intercompany'));
 }
@@ -16563,6 +16566,216 @@ function saveCoaBulkAdd() {
 // ============================================================
 // JOURNAL ENTRIES
 // ============================================================
+// ============================================================
+// FIXED ASSETS & DEPRECIATION (الأصول الثابتة والإهلاك)
+// ============================================================
+function renderFixedAssets() {
+  const lg = lang === 'ar';
+  const el = document.getElementById('accTab_fixedassets');
+  if(!el) return;
+  const assets = STORAGE.get('fixedAssets', []);
+  const totalCost = assets.reduce((s,a) => s + (parseFloat(a.cost)||0), 0);
+  const totalAccDep = assets.reduce((s,a) => s + (parseFloat(a.accumDep)||0), 0);
+  let h = `<div class="flex-between mb-16"><h3><i class="fas fa-box"></i> ${lg?'الأصول الثابتة والإهلاك':'Fixed Assets & Depreciation'}</h3>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    ${hasPermission('accounts_journal_add')?'<button class="btn btn-primary btn-sm" onclick="openFixedAssetForm()"><i class="fas fa-plus"></i> '+(lg?'إضافة أصل':'Add Asset')+'</button>':''}
+    <button class="btn btn-success btn-sm" onclick="postAllDepreciation()"><i class="fas fa-calculator"></i> '+(lg?'ترحيل إهلاك الشهر':'Post Monthly Depreciation')+'</button>
+  </div></div>`;
+  h += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
+    <div style="background:rgba(130,113,72,0.06);padding:12px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي التكلفة':'Total Cost'}</div><div style="font-size:20px;font-weight:800;color:#827148">${fmt(totalCost)}</div></div>
+    <div style="background:rgba(220,53,69,0.06);padding:12px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--text-light)">${lg?'مجمع الإهلاك':'Accumulated Depreciation'}</div><div style="font-size:20px;font-weight:800;color:#dc3545">${fmt(totalAccDep)}</div></div>
+    <div style="background:rgba(39,174,96,0.06);padding:12px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--text-light)">${lg?'القيمة الدفترية':'Net Book Value'}</div><div style="font-size:20px;font-weight:800;color:#27ae60">${fmt(totalCost - totalAccDep)}</div></div>
+  </div>`;
+  if(assets.length === 0) { h += '<div class="empty-state"><p>'+(lg?'لا توجد أصول ثابتة بعد':'No fixed assets yet')+'</p></div>'; el.innerHTML = h; return; }
+  h += '<div class="table-wrap"><table><thead><tr><th>'+(lg?'الأصل':'Asset')+'</th><th>'+(lg?'التصنيف':'Category')+'</th><th>'+(lg?'التكلفة':'Cost')+'</th><th>'+(lg?'تاريخ الشراء':'Purchase Date')+'</th><th>'+(lg?'العمر (سنوات)':'Life (yrs)')+'</th><th>'+(lg?'إهلاك شهري':'Monthly Dep')+'</th><th>'+(lg?'مجمع الإهلاك':'Accum Dep')+'</th><th>'+(lg?'القيمة الدفترية':'NBV')+'</th><th>'+(lg?'آخر ترحيل':'Last Post')+'</th><th></th></tr></thead><tbody>';
+  assets.forEach(a => {
+    const monthly = calcAssetMonthlyDep(a);
+    h += `<tr>
+      <td><strong>${a.name}</strong></td>
+      <td>${a.category||'-'}</td>
+      <td>${fmt(a.cost)}</td>
+      <td>${fmtDate(a.purchaseDate)}</td>
+      <td>${a.usefulLife||'-'}</td>
+      <td>${fmt(monthly)}</td>
+      <td>${fmt(a.accumDep||0)}</td>
+      <td>${fmt((parseFloat(a.cost)||0) - (parseFloat(a.accumDep)||0))}</td>
+      <td>${a.lastDepMonth||'-'}</td>
+      <td>${hasPermission('accounts_journal_edit')?`<button class="btn btn-outline btn-sm" style="color:#C75B4A;border-color:#C75B4A" onclick="deleteFixedAsset('${a.id}')"><i class="fas fa-trash"></i></button>`:''}</td>
+    </tr>`;
+  });
+  h += '</tbody></table></div>';
+  el.innerHTML = h;
+}
+function calcAssetMonthlyDep(a) {
+  const cost = parseFloat(a.cost)||0;
+  const salvage = parseFloat(a.salvage)||0;
+  const life = parseInt(a.usefulLife)||1;
+  return Math.max(0, Math.round(((cost - salvage) / (life * 12)) * 100) / 100);
+}
+function openFixedAssetForm(editId) {
+  const lg = lang === 'ar';
+  const assets = STORAGE.get('fixedAssets', []);
+  const existing = editId ? assets.find(a => a.id === editId) : null;
+  const coa = STORAGE.get('chartOfAccounts', []);
+  const acctOpts = coa.map(a => `<option value="${a.code}">${a.code} - ${lg?a.name_ar:a.name_en}</option>`).join('');
+  document.getElementById('modalContainer').innerHTML = `<h3>${existing?(lg?'تعديل أصل':'Edit Asset'):(lg?'إضافة أصل ثابت':'Add Fixed Asset')}</h3>
+    <div class="form-row"><div class="form-group" style="flex:2"><label>${lg?'اسم الأصل':'Asset Name'}</label><input type="text" id="fa_name" value="${existing?existing.name:''}"></div>
+    <div class="form-group"><label>${lg?'التصنيف':'Category'}</label><input type="text" id="fa_category" value="${existing?existing.category:''}" placeholder="${lg?'معدات/أثاث/سيارات...':'Equipment/Furniture/Cars...'}"></div></div>
+    <div class="form-row"><div class="form-group"><label>${lg?'التكلفة':'Cost'}</label><input type="number" id="fa_cost" min="0" step="0.01" value="${existing?existing.cost:0}"></div>
+    <div class="form-group"><label>${lg?'تاريخ الشراء':'Purchase Date'}</label><input type="date" id="fa_purchaseDate" value="${existing?existing.purchaseDate:today()}"></div>
+    <div class="form-group"><label>${lg?'العمر الإنتاجي (سنوات)':'Useful Life (years)'}</label><input type="number" id="fa_usefulLife" min="1" value="${existing?existing.usefulLife:5}"></div>
+    <div class="form-group"><label>${lg?'قيمة الخردة':'Salvage Value'}</label><input type="number" id="fa_salvage" min="0" step="0.01" value="${existing?existing.salvage:0}"></div></div>
+    <div class="form-row"><div class="form-group" style="flex:1"><label>${lg?'حساب الأصل':'Asset Account'}</label><select id="fa_coaCode"><option value="">${lg?'— اختر —':'— Select —'}</option>${acctOpts}</select></div>
+    <div class="form-group" style="flex:1"><label>${lg?'حساب مصروف الإهلاك':'Depreciation Expense Account'}</label><select id="fa_depCode"><option value="">${lg?'— اختر —':'— Select —'}</option>${acctOpts}</select></div></div>
+    <div class="modal-actions"><button class="btn btn-primary" onclick="saveFixedAsset('${editId||''}')"><i class="fas fa-save"></i> ${t('save')}</button><button class="btn btn-outline" onclick="closeModal()">${t('cancel')}</button></div>`;
+  document.getElementById('modalOverlay').classList.add('active');
+  if(existing) { if(document.getElementById('fa_coaCode')) document.getElementById('fa_coaCode').value = existing.coaCode||''; if(document.getElementById('fa_depCode')) document.getElementById('fa_depCode').value = existing.depExpenseCode||''; }
+}
+function saveFixedAsset(editId) {
+  const lg = lang === 'ar';
+  const name = document.getElementById('fa_name').value.trim();
+  const cost = parseFloat(document.getElementById('fa_cost').value) || 0;
+  if(!name || cost <= 0) { wsToast(lg?'أدخل اسم الأصل والتكلفة':'Enter asset name and cost'); return; }
+  const assets = STORAGE.get('fixedAssets', []);
+  const data = {
+    name, category: document.getElementById('fa_category').value.trim(),
+    cost, purchaseDate: document.getElementById('fa_purchaseDate').value,
+    usefulLife: parseInt(document.getElementById('fa_usefulLife').value) || 5,
+    salvage: parseFloat(document.getElementById('fa_salvage').value) || 0,
+    coaCode: document.getElementById('fa_coaCode').value,
+    depExpenseCode: document.getElementById('fa_depCode').value,
+    accumDep: 0
+  };
+  if(editId) {
+    const idx = assets.findIndex(a => a.id === editId);
+    if(idx >= 0) assets[idx] = Object.assign({}, assets[idx], data);
+  } else {
+    data.id = uid();
+    data.createdAt = new Date().toISOString();
+    data.lastDepMonth = '';
+    assets.push(data);
+  }
+  STORAGE.set('fixedAssets', assets);
+  govAuditLog('fixed_asset_' + (editId ? 'edit' : 'create'), 'fixed_assets', {id: editId || data.id, name, cost});
+  closeModal(); renderFixedAssets();
+}
+function deleteFixedAsset(id) {
+  const lg = lang === 'ar';
+  if(!hasPermission('accounts_journal_delete')) { wsToast(lg?'لا تملك صلاحية الحذف':'No delete permission'); return; }
+  if(!confirm(lg?'حذف هذا الأصل نهائيًا؟':'Delete this asset permanently?')) return;
+  const assets = STORAGE.get('fixedAssets', []);
+  STORAGE.set('fixedAssets', assets.filter(a => a.id !== id));
+  govAuditLog('fixed_asset_delete', 'fixed_assets', {id});
+  renderFixedAssets();
+}
+function postAllDepreciation() {
+  const lg = lang === 'ar';
+  const assets = STORAGE.get('fixedAssets', []);
+  const month = today().slice(0, 7);
+  if(assets.length === 0) { wsToast(lg?'لا توجد أصول':'No assets'); return; }
+  let posted = 0;
+  assets.forEach(a => {
+    if(a.lastDepMonth === month) return;
+    const monthly = calcAssetMonthlyDep(a);
+    if(monthly <= 0) return;
+    a.accumDep = (parseFloat(a.accumDep)||0) + monthly;
+    a.lastDepMonth = month;
+    postDepreciationEntry(a, monthly, month);
+    posted++;
+  });
+  if(posted > 0) {
+    STORAGE.set('fixedAssets', assets);
+    wsToast(lg?('تم ترحيل إهلاك ' + posted + ' أصل'):('Depreciation posted for ' + posted + ' assets'));
+    renderFixedAssets();
+  } else {
+    wsToast(lg?'تم ترحيل إهلاك هذا الشهر مسبقًا':'Depreciation already posted for this month');
+  }
+}
+function postDepreciationEntry(asset, amount, month) {
+  const lg = lang === 'ar';
+  if(!asset.depExpenseCode) return;
+  const journalEntries = STORAGE.get('journalEntries', []);
+  journalEntries.push({
+    id: uid(), date: today(), ref: 'DEP-' + String(asset.id).slice(-6) + '-' + month,
+    desc: (lg?'إهلاك أصل ':'Depreciation ')+asset.name+' - '+month,
+    franchiseId: asset.franchiseId||'', branchId: asset.branchId||'',
+    lines: [
+      {code: asset.depExpenseCode, debit: amount, credit: 0},
+      {code: asset.coaCode || '', debit: 0, credit: amount}
+    ],
+    autoGenerated: true, sourceId: asset.id, locked: true
+  });
+  STORAGE.set('journalEntries', journalEntries);
+  govAuditLog('depreciation_post', 'fixed_assets', {id: asset.id, amount, month});
+}
+// ============================================================
+// EMPLOYEE DOCUMENTS ARCHIVE (أرشيف عقود ومستندات الموظفين)
+// ============================================================
+function employeeDocsHtml(empId) {
+  const lg = lang === 'ar';
+  const docs = STORAGE.get('employeeDocs', []).filter(d => d.empId === empId).sort((a,b) => (b.ts||0) - (a.ts||0));
+  let h = `<div style="margin-bottom:12px;padding:14px;background:rgba(130,113,72,0.05);border-radius:8px">
+    <div class="form-row"><div class="form-group" style="flex:1"><label>${lg?'اسم المستند (عقد / شهادة / رخصة)':'Doc name (contract/certificate/license)'}</label><input type="text" id="edoc_name" placeholder="${lg?'مثال: عقد عمل 2026':'e.g. Employment Contract 2026'}"></div>
+    <div class="form-group"><label>${lg?'تاريخ الانتهاء':'Expiry Date'}</label><input type="date" id="edoc_expiry"></div></div>
+    <div style="margin-bottom:8px"><input type="file" id="edoc_file" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"></div>
+    <button class="btn btn-primary btn-sm" onclick="uploadEmployeeDoc('${empId}')"><i class="fas fa-upload"></i> ${lg?'رفع المستند':'Upload Document'}</button>
+  </div>`;
+  if(docs.length === 0) { h += '<div class="empty-state"><p>'+(lg?'لا توجد مستندات':'No documents')+'</p></div>'; return h; }
+  h += '<div class="table-wrap"><table><thead><tr><th>'+(lg?'المستند':'Document')+'</th><th>'+(lg?'النوع':'Type')+'</th><th>'+(lg?'الانتهاء':'Expiry')+'</th><th>'+(lg?'الحجم':'Size')+'</th><th>'+(lg?'الرفع':'Uploaded')+'</th><th></th></tr></thead><tbody>';
+  docs.forEach(d => {
+    const ext = (d.fileName||'').split('.').pop() || 'file';
+    const sizeKb = Math.round((d.size||0)/1024);
+    const expColor = d.expiry && new Date(d.expiry) < new Date() ? '#C75B4A' : '#333';
+    h += `<tr>
+      <td><strong>${d.name||d.fileName||'-'}</strong></td>
+      <td><span class="badge badge-blue">${d.type||ext}</span></td>
+      <td style="color:${expColor}">${d.expiry||'-'}</td>
+      <td>${sizeKb} KB</td>
+      <td>${d.byName||'-'} ${d.date||''}</td>
+      <td><a class="btn btn-outline btn-sm" style="padding:2px 6px" href="${d.dataUrl}" download="${d.fileName||'doc'}" title="${lg?'تحميل':'Download'}"><i class="fas fa-download"></i></a>
+      ${canEdit()?`<button class="btn btn-outline btn-sm" style="padding:2px 6px;color:#C75B4A;border-color:#C75B4A" onclick="deleteEmployeeDoc('${d.id}','${empId}')"><i class="fas fa-trash"></i></button>`:''}</td>
+    </tr>`;
+  });
+  h += '</tbody></table></div>';
+  return h;
+}
+function openEmployeeDocs(empId) {
+  const lg = lang === 'ar';
+  const emp = STORAGE.get('employees', []).find(e => e.id === empId);
+  document.getElementById('modalContainer').innerHTML = '<h3 style="margin-bottom:16px"><i class="fas fa-folder-open"></i> ' + (lg?'مستندات ':'Documents: ') + (emp?emp.name:'') + '</h3><div id="employeeDocsBody">' + employeeDocsHtml(empId) + '</div><div class="modal-actions"><button class="btn btn-outline" onclick="closeModal()">' + t('cancel') + '</button></div>';
+  document.getElementById('modalOverlay').classList.add('active');
+}
+function uploadEmployeeDoc(empId) {
+  const lg = lang === 'ar';
+  const fileInput = document.getElementById('edoc_file');
+  const name = (document.getElementById('edoc_name').value || '').trim();
+  const expiry = document.getElementById('edoc_expiry').value || '';
+  if(!fileInput || !fileInput.files || fileInput.files.length === 0) { wsToast(lg?'اختر ملفًا أولاً':'Choose a file first'); return; }
+  const file = fileInput.files[0];
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const docs = STORAGE.get('employeeDocs', []);
+    docs.push({
+      id: uid(), empId, name, expiry,
+      fileName: file.name, type: (file.name||'').split('.').pop() || 'file',
+      size: file.size, dataUrl: e.target.result,
+      date: today(), ts: Date.now(),
+      byName: currentUser ? currentUser.username : 'system'
+    });
+    STORAGE.set('employeeDocs', docs);
+    const body = document.getElementById('employeeDocsBody');
+    if(body) body.innerHTML = employeeDocsHtml(empId);
+    wsToast(lg?'تم رفع المستند':'Document uploaded');
+  };
+  reader.readAsDataURL(file);
+}
+function deleteEmployeeDoc(id, empId) {
+  if(!confirm(lang==='ar'?'حذف المستند؟':'Delete document?')) return;
+  const docs = STORAGE.get('employeeDocs', []);
+  STORAGE.set('employeeDocs', docs.filter(d => d.id !== id));
+  const body = document.getElementById('employeeDocsBody');
+  if(body) body.innerHTML = employeeDocsHtml(empId);
+}
 function renderJournal() {
   const entries = getFilteredJournalEntries();
   let h = renderFranchiseFilterBar();
@@ -26952,7 +27165,7 @@ function resetCoaToDefault() {
 // ============================================================
 // COMPANY PROFILES
 // ============================================================
-const COMPANY_STORAGE_KEYS = ['chartOfAccounts','employees','sales','treasury','expenses','salaries','partners','journalEntries','franchises','branches','kpiRules','employeePenalties','employeeDeductionHistory','attendance','employeeAdvances','jobRequests','jobApplications','crm_clients'];
+const COMPANY_STORAGE_KEYS = ['chartOfAccounts','employees','sales','treasury','expenses','salaries','partners','journalEntries','franchises','branches','kpiRules','employeePenalties','employeeDeductionHistory','attendance','employeeAdvances','jobRequests','jobApplications','crm_clients','fixedAssets','employeeDocs'];
 
 function getActiveCompanyId() { return STORAGE.get('activeCompanyId', 'default'); }
 
@@ -29905,7 +30118,7 @@ function deleteUser(idx) {
 function exportAllData() {
   ActivityLog.log('export', 'all_data', {});
   const data = {};
-  const allKeys = ['users','employees','sales','treasury','treasurySafes','salaries','partners','expenses','crm_clients','journalEntries','franchises','branches','attendance','employeeAdvances','jobRequests','employeePenalties','employeeDeductionHistory','employeeEvaluations','attendanceLog','op_units','op_reservations','op_contracts','bankAccounts','chartOfAccounts','laborLaws','socialInsuranceLaws','internalRegulations','internalRegulationsFull','penaltyTable','kpiRules','vacations','vacationTypes','empRoles','resaleTeam','integrations','ollamaSettings','aiChatHistory','gpsConfig','gpsTracking','crmConfig','crmLeadFields','crmLocations','crmFblgiRoutings','crmWebFormRoutings','crmAutomationRules','crmGroups','crmModules','crmDocs','crmCompanies','crmAboutSections','crmResourceTypes','crmGalleries','crmTaskTypes','crmEventTypes','crmActivityTypes','crmPipelines','deals','commissions','inventory','system_config','lang','activityLogs','settings','marketingConfig','leads','pipelineStages','leadFields'];
+  const allKeys = ['users','employees','sales','treasury','treasurySafes','salaries','partners','expenses','crm_clients','journalEntries','franchises','branches','attendance','employeeAdvances','jobRequests','employeePenalties','employeeDeductionHistory','employeeEvaluations','attendanceLog','op_units','op_reservations','op_contracts','bankAccounts','chartOfAccounts','laborLaws','socialInsuranceLaws','internalRegulations','internalRegulationsFull','penaltyTable','kpiRules','vacations','vacationTypes','empRoles','resaleTeam','integrations','ollamaSettings','aiChatHistory','gpsConfig','gpsTracking','crmConfig','crmLeadFields','crmLocations','crmFblgiRoutings','crmWebFormRoutings','crmAutomationRules','crmGroups','crmModules','crmDocs','crmCompanies','crmAboutSections','crmResourceTypes','crmGalleries','crmTaskTypes','crmEventTypes','crmActivityTypes','crmPipelines','deals','commissions','inventory','system_config','lang','activityLogs','settings','marketingConfig','leads','pipelineStages','leadFields','fixedAssets','employeeDocs'];
   allKeys.forEach(k => { const v = STORAGE.get(k); if(v !== undefined && v !== null) data[k] = v; });
   Object.keys(mem).forEach(k => { if(!data.hasOwnProperty(k) && !k.startsWith('_ts_') && !k.startsWith('_pendingSync')) { try { data[k] = JSON.parse(mem[k]); } catch(e) { data[k] = mem[k]; } } });
   data._exportTimestamp = Date.now();
@@ -29923,7 +30136,7 @@ function backupAllToCloud(force) {
   if (!force && (now - _lastBackupTime) < _BACKUP_INTERVAL) { console.log('[Backup] Skipping � last backup was ' + Math.round((now - _lastBackupTime)/60000) + 'min ago'); return; }
   try {
     const backupData = {};
-    const backupKeys = ['users','employees','sales','treasury','treasurySafes','salaries','partners','expenses','crm_clients','journalEntries','franchises','branches','attendance','employeeAdvances','jobRequests','employeePenalties','employeeDeductionHistory','employeeEvaluations','attendanceLog','op_units','op_reservations','op_contracts','bankAccounts','chartOfAccounts','deals','commissions','inventory','laborLaws','socialInsuranceLaws','internalRegulations','penaltyTable','kpiRules','vacations','vacationTypes','empRoles','resaleTeam','integrations','crmConfig','crmLeadFields','crmLocations','crmModules','crmPipelines','crmGroups','leads','marketingConfig','settings','system_config'];
+    const backupKeys = ['users','employees','sales','treasury','treasurySafes','salaries','partners','expenses','crm_clients','journalEntries','franchises','branches','attendance','employeeAdvances','jobRequests','employeePenalties','employeeDeductionHistory','employeeEvaluations','attendanceLog','op_units','op_reservations','op_contracts','bankAccounts','chartOfAccounts','deals','commissions','inventory','laborLaws','socialInsuranceLaws','internalRegulations','penaltyTable','kpiRules','vacations','vacationTypes','empRoles','resaleTeam','integrations','crmConfig','crmLeadFields','crmLocations','crmModules','crmPipelines','crmGroups','leads','marketingConfig','settings','system_config','fixedAssets','employeeDocs'];
     backupKeys.forEach(k => { const v = STORAGE.get(k); if(v !== undefined && v !== null) backupData[k] = v; });
     backupData._backupTimestamp = now;
     backupData._backupDate = new Date().toISOString();
