@@ -1,4 +1,4 @@
 {
-  "version": "2.10.1",
-  "notes": "إصلاح المزامنة السحابية: إعادة توجيه التطبيق إلى مشروع Firebase marts-crm-6ca37 (المصادقة مفعّلة: Anonymous + Email/Password) لحل خطأ CONFIGURATION_NOT_FOUND. / Cloud sync fix: repointed the app to Firebase project marts-crm-6ca37 where Authentication is enabled (Anonymous + Email/Password) to resolve CONFIGURATION_NOT_FOUND."
+    "version":  "2.11.0",
+    "notes":  "تم تنفيذ كامل خطة التحسينات (14 بندًا): التأمين الاجتماعي (قانون 148/2019) وضريبة الدخل في الرواتب، رصيد الإجازات السنوية التلقائي، خصم السلف من صافي الراتب، النماذج الضريبية 4/6 بتصدير Excel، استثناء مراجع للقيود التلقائية مع أثر تدقيق، الإشعارات التلقائية لانتهاء العقود/التراخيص/فترة الاختبار، فصل المهام (المصادق لا يعتمد عمله)، وحدة الأصول الثابتة والإهلاك، أرشيف عقود ومستندات الموظفين."
 }
