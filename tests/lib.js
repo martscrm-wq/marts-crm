@@ -312,6 +312,54 @@ function empAutoCreateUser(emp){
   return user;
 }
 
+// ============================================================
+// PAYROLL LOGIC (mirrors showPayrollDetail helpers in HTML)
+// ============================================================
+const PAYROLL_INSURANCE = { employeeRate: 0.11, employerRate: 0.1875, maxInsurableSalary: 12600 };
+const INCOME_TAX_BRACKETS = [[15000,0],[30000,0.025],[45000,0.10],[60000,0.15],[200000,0.20],[400000,0.225],[Infinity,0.25]];
+function calcIncomeTaxMonthly(monthlySalary) {
+  const annual = (monthlySalary || 0) * 12;
+  let tax = 0, prev = 0;
+  for (const [cap, rate] of INCOME_TAX_BRACKETS) {
+    if (annual <= prev) break;
+    tax += (Math.min(annual, cap) - prev) * rate;
+    prev = cap;
+  }
+  return Math.max(0, Math.round(tax / 12));
+}
+function calcSocialInsurance(salary, isEmployer) {
+  const base = Math.min(salary || 0, PAYROLL_INSURANCE.maxInsurableSalary);
+  return Math.round(base * (isEmployer ? PAYROLL_INSURANCE.employerRate : PAYROLL_INSURANCE.employeeRate));
+}
+function serviceYears(emp) {
+  const hire = emp.hireDate || emp.joiningDate || '';
+  if (!hire) return 0;
+  const diff = new Date(today()) - new Date(hire);
+  return diff > 0 ? Math.floor(diff / (365.25 * 24 * 3600 * 1000)) : 0;
+}
+function annualLeaveEntitlement(emp) {
+  if (serviceYears(emp) >= 10 || (emp.age || 0) >= 50) return 30;
+  return 21;
+}
+function isAnnualVacation(vtype) {
+  return vtype && /annual|سنوية|سنوى/i.test((vtype.id || '') + ' ' + (vtype.ar || '') + ' ' + (vtype.en || ''));
+}
+function calcAdvanceRepayment(empId) {
+  return STORAGE.get('employeeAdvances', []).filter(a => a.empId === empId && a.status === 'approved').reduce((s, a) => s + (a.amount || 0), 0);
+}
+// ============================================================
+// FIXED ASSETS & ESCAPING (mirrors phase-3 module)
+// ============================================================
+function calcAssetMonthlyDep(a) {
+  const cost = parseFloat(a.cost)||0;
+  const salvage = parseFloat(a.salvage)||0;
+  const life = parseInt(a.usefulLife)||1;
+  return Math.max(0, Math.round(((cost - salvage) / (life * 12)) * 100) / 100);
+}
+function escapeHtml(s) {
+  if(s === null || s === undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 module.exports = {
   uid, fmt, today, fmtDate, daysBetween, addDays, getInitials,
   getAllRoles, getResaleTeam, getRoleLabel, getRoleType, getRoleConfig,
@@ -321,6 +369,9 @@ module.exports = {
   isSalesSide, isMarketingSide,
   isLocked, toggleLockEntry,
   createAutoJournalEntry, _removeAutoJournal, _syncAutoJournal,
+  PAYROLL_INSURANCE, INCOME_TAX_BRACKETS, calcIncomeTaxMonthly, calcSocialInsurance,
+  serviceYears, annualLeaveEntitlement, isAnnualVacation, calcAdvanceRepayment,
+  calcAssetMonthlyDep, escapeHtml,
   empToUserRole, arabicToLatin, empDefaultPerms, empAutoCreateUser,
   STORAGE, safeStorage, ActivityLog,
   PERMISSIONS_LIST, DEFAULT_PERMS_OWNER, DEFAULT_PERMS_SALES, DEFAULT_PERMS_ACCOUNTING,

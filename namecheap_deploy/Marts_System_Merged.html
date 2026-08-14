@@ -10197,6 +10197,7 @@ function openTaxFormsModal() {
   document.getElementById('modalOverlay').classList.add('active');
 }
 function exportTaxForm4() {
+  if(!hasPermission('accounts_salaries')) { wsToast(lang==='ar'?'لا تملك صلاحية الرواتب':'No payroll permission'); return; }
   const month = today().slice(0, 7);
   const rows = payrollTaxData();
   const headers = [lang==='ar'?'الرقم القومي':'National ID', lang==='ar'?'الاسم':'Name', lang==='ar'?'الأجر الخاضع':'Taxable Salary', lang==='ar'?'تأمينات الموظف':'Employee Insurance', lang==='ar'?'ضريبة كسب العمل':'Income Tax', lang==='ar'?'صافي الأجر':'Net Pay'];
@@ -10207,6 +10208,7 @@ function exportTaxForm4() {
   XLSX.writeFile(wb, 'tax_form4_' + month + '.xlsx');
 }
 function exportTaxForm6() {
+  if(!hasPermission('accounts_salaries')) { wsToast(lang==='ar'?'لا تملك صلاحية الرواتب':'No payroll permission'); return; }
   const month = today().slice(0, 7);
   const rows = payrollTaxData();
   const totals = rows.reduce((a, r) => { a.gross += r.gross; a.ins += r.socIns; a.tax += r.incomeTax; a.net += r.net; return a; }, {gross:0, ins:0, tax:0, net:0});
@@ -16566,6 +16568,10 @@ function saveCoaBulkAdd() {
 // ============================================================
 // JOURNAL ENTRIES
 // ============================================================
+function escapeHtml(s) {
+  if(s === null || s === undefined) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
 // ============================================================
 // FIXED ASSETS & DEPRECIATION (الأصول الثابتة والإهلاك)
 // ============================================================
@@ -16579,7 +16585,7 @@ function renderFixedAssets() {
   let h = `<div class="flex-between mb-16"><h3><i class="fas fa-box"></i> ${lg?'الأصول الثابتة والإهلاك':'Fixed Assets & Depreciation'}</h3>
   <div style="display:flex;gap:8px;flex-wrap:wrap">
     ${hasPermission('accounts_journal_add')?'<button class="btn btn-primary btn-sm" onclick="openFixedAssetForm()"><i class="fas fa-plus"></i> '+(lg?'إضافة أصل':'Add Asset')+'</button>':''}
-    <button class="btn btn-success btn-sm" onclick="postAllDepreciation()"><i class="fas fa-calculator"></i> '+(lg?'ترحيل إهلاك الشهر':'Post Monthly Depreciation')+'</button>
+    ${hasPermission('accounts_journal_add')?'<button class="btn btn-success btn-sm" onclick="postAllDepreciation()"><i class="fas fa-calculator"></i> '+(lg?'ترحيل إهلاك الشهر':'Post Monthly Depreciation')+'</button>':''}
   </div></div>`;
   h += `<div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:16px">
     <div style="background:rgba(130,113,72,0.06);padding:12px;border-radius:8px;text-align:center"><div style="font-size:11px;color:var(--text-light)">${lg?'إجمالي التكلفة':'Total Cost'}</div><div style="font-size:20px;font-weight:800;color:#827148">${fmt(totalCost)}</div></div>
@@ -16591,8 +16597,8 @@ function renderFixedAssets() {
   assets.forEach(a => {
     const monthly = calcAssetMonthlyDep(a);
     h += `<tr>
-      <td><strong>${a.name}</strong></td>
-      <td>${a.category||'-'}</td>
+      <td><strong>${escapeHtml(a.name)}</strong></td>
+      <td>${escapeHtml(a.category)||'-'}</td>
       <td>${fmt(a.cost)}</td>
       <td>${fmtDate(a.purchaseDate)}</td>
       <td>${a.usefulLife||'-'}</td>
@@ -16619,8 +16625,8 @@ function openFixedAssetForm(editId) {
   const coa = STORAGE.get('chartOfAccounts', []);
   const acctOpts = coa.map(a => `<option value="${a.code}">${a.code} - ${lg?a.name_ar:a.name_en}</option>`).join('');
   document.getElementById('modalContainer').innerHTML = `<h3>${existing?(lg?'تعديل أصل':'Edit Asset'):(lg?'إضافة أصل ثابت':'Add Fixed Asset')}</h3>
-    <div class="form-row"><div class="form-group" style="flex:2"><label>${lg?'اسم الأصل':'Asset Name'}</label><input type="text" id="fa_name" value="${existing?existing.name:''}"></div>
-    <div class="form-group"><label>${lg?'التصنيف':'Category'}</label><input type="text" id="fa_category" value="${existing?existing.category:''}" placeholder="${lg?'معدات/أثاث/سيارات...':'Equipment/Furniture/Cars...'}"></div></div>
+    <div class="form-row"><div class="form-group" style="flex:2"><label>${lg?'اسم الأصل':'Asset Name'}</label><input type="text" id="fa_name" value="${escapeHtml(existing?existing.name:'')}"></div>
+    <div class="form-group"><label>${lg?'التصنيف':'Category'}</label><input type="text" id="fa_category" value="${escapeHtml(existing?existing.category:'')}" placeholder="${lg?'معدات/أثاث/سيارات...':'Equipment/Furniture/Cars...'}"></div></div>
     <div class="form-row"><div class="form-group"><label>${lg?'التكلفة':'Cost'}</label><input type="number" id="fa_cost" min="0" step="0.01" value="${existing?existing.cost:0}"></div>
     <div class="form-group"><label>${lg?'تاريخ الشراء':'Purchase Date'}</label><input type="date" id="fa_purchaseDate" value="${existing?existing.purchaseDate:today()}"></div>
     <div class="form-group"><label>${lg?'العمر الإنتاجي (سنوات)':'Useful Life (years)'}</label><input type="number" id="fa_usefulLife" min="1" value="${existing?existing.usefulLife:5}"></div>
@@ -16633,6 +16639,7 @@ function openFixedAssetForm(editId) {
 }
 function saveFixedAsset(editId) {
   const lg = lang === 'ar';
+  if(!hasPermission('accounts_journal_add')) { wsToast(lg?'لا تملك صلاحية الإضافة':'No add permission'); return; }
   const name = document.getElementById('fa_name').value.trim();
   const cost = parseFloat(document.getElementById('fa_cost').value) || 0;
   if(!name || cost <= 0) { wsToast(lg?'أدخل اسم الأصل والتكلفة':'Enter asset name and cost'); return; }
@@ -16670,6 +16677,7 @@ function deleteFixedAsset(id) {
 }
 function postAllDepreciation() {
   const lg = lang === 'ar';
+  if(!hasPermission('accounts_journal_add')) { wsToast(lg?'لا تملك صلاحية ترحيل الإهلاك':'No depreciation permission'); return; }
   const assets = STORAGE.get('fixedAssets', []);
   const month = today().slice(0, 7);
   if(assets.length === 0) { wsToast(lg?'لا توجد أصول':'No assets'); return; }
@@ -16697,7 +16705,7 @@ function postDepreciationEntry(asset, amount, month) {
   const journalEntries = STORAGE.get('journalEntries', []);
   journalEntries.push({
     id: uid(), date: today(), ref: 'DEP-' + String(asset.id).slice(-6) + '-' + month,
-    desc: (lg?'إهلاك أصل ':'Depreciation ')+asset.name+' - '+month,
+    desc: (lg?'إهلاك أصل ':'Depreciation ')+escapeHtml(asset.name)+' - '+month,
     franchiseId: asset.franchiseId||'', branchId: asset.branchId||'',
     lines: [
       {code: asset.depExpenseCode, debit: amount, credit: 0},
@@ -16727,8 +16735,8 @@ function employeeDocsHtml(empId) {
     const sizeKb = Math.round((d.size||0)/1024);
     const expColor = d.expiry && new Date(d.expiry) < new Date() ? '#C75B4A' : '#333';
     h += `<tr>
-      <td><strong>${d.name||d.fileName||'-'}</strong></td>
-      <td><span class="badge badge-blue">${d.type||ext}</span></td>
+      <td><strong>${escapeHtml(d.name||d.fileName)||'-'}</strong></td>
+      <td><span class="badge badge-blue">${escapeHtml(d.type)||ext}</span></td>
       <td style="color:${expColor}">${d.expiry||'-'}</td>
       <td>${sizeKb} KB</td>
       <td>${d.byName||'-'} ${d.date||''}</td>
@@ -16747,11 +16755,13 @@ function openEmployeeDocs(empId) {
 }
 function uploadEmployeeDoc(empId) {
   const lg = lang === 'ar';
+  if(!hasPermission('accounts_salary_edit')) { wsToast(lg?'لا تملك صلاحية تعديل الموظفين':'No employee edit permission'); return; }
   const fileInput = document.getElementById('edoc_file');
   const name = (document.getElementById('edoc_name').value || '').trim();
   const expiry = document.getElementById('edoc_expiry').value || '';
   if(!fileInput || !fileInput.files || fileInput.files.length === 0) { wsToast(lg?'اختر ملفًا أولاً':'Choose a file first'); return; }
   const file = fileInput.files[0];
+  if(file.size > 1.5 * 1024 * 1024) { wsToast(lg?'الملف أكبر من 1.5MB (حد التخزين المحلي)':'File exceeds 1.5MB local storage limit'); return; }
   const reader = new FileReader();
   reader.onload = function(e) {
     const docs = STORAGE.get('employeeDocs', []);
