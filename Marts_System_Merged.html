@@ -2876,7 +2876,7 @@ const FirebaseSync = {
     } catch(e) {
       console.warn('[Firebase] Approved upload failed:', e);
       _showSyncToast(false);
-      alert(lang === 'ar' ? 'فشل الرفع السحابي � سيبقى في القائمة' : 'Cloud upload failed � will stay in queue');
+      toastAlert(lang === 'ar' ? 'فشل الرفع السحابي � سيبقى في القائمة' : 'Cloud upload failed � will stay in queue');
     }
   },
 
@@ -5680,7 +5680,7 @@ function saveSale(saleId) {
   if(errors.length > 0) {
     const errBox = document.getElementById('saleValidationErrors');
     if(errBox) { errBox.innerHTML = errors.map(e=>'<div style="display:flex;align-items:center;gap:6px;padding:4px 0"><i class="fas fa-exclamation-circle" style="color:var(--danger)"></i> '+e+'</div>').join(''); errBox.style.display='block'; }
-    else { alert(errors.join('\n')); }
+    else { toastAlert(errors.join('\n')); }
     return;
   }
   let sales = STORAGE.get('sales',[]);
@@ -6087,7 +6087,7 @@ function applyRulesToSale(saleId) {
     return s;
   });
   STORAGE.set('sales', sales);
-  alert(t('comm_updated'));
+  toastAlert(t('comm_updated'));
   renderPage('sales');
 }
 
@@ -6126,7 +6126,7 @@ function applyRulesToAll() {
   });
 
   STORAGE.set('sales', sales);
-  alert(t('comm_applied') + ': ' + updated);
+  toastAlert(t('comm_applied') + ': ' + updated);
   renderCommRules();
 }
 
@@ -7532,7 +7532,7 @@ function createAccountsForAllEmployees() {
   const withAcc = new Set(users.filter(u=>u.empId).map(u=>u.empId));
   const pending = employees.filter(e=>!withAcc.has(e.id));
   if(pending.length===0){
-    alert(lg?'جميع الموظفين لديهم حسابات بالفعل':'All employees already have accounts');
+    toastAlert(lg?'جميع الموظفين لديهم حسابات بالفعل':'All employees already have accounts');
     return;
   }
   if(!confirm(lg
@@ -7541,7 +7541,7 @@ function createAccountsForAllEmployees() {
   let created = [], skipped = 0;
   pending.forEach(e=>{ const u = empAutoCreateUser(e); if(u) created.push(u); else skipped++; });
   const details = created.map(u=>u.username + ' / ' + u.password).join('\n');
-  alert(lg
+  toastAlert(lg
     ? 'تم إنشاء ' + created.length + ' حساب:\n\n' + details + (skipped ? ('\n\n(تخطي ' + skipped + ' موظفاً)') : '')
     : 'Created ' + created.length + ' account(s):\n\n' + details + (skipped ? ('\n\n(' + skipped + ' skipped)') : ''));
   const mainEl = document.getElementById('mainContent');
@@ -7611,10 +7611,10 @@ function openEmpAccountsManager() {
 function createSingleEmpAccount(empId) {
   const lg = lang === 'ar';
   const emp = STORAGE.get('employees',[]).find(e=>e.id===empId);
-  if(!emp) { alert(lg?'الموظف غير موجود':'Employee not found'); return; }
+  if(!emp) { toastAlert(lg?'الموظف غير موجود':'Employee not found'); return; }
   const u = empAutoCreateUser(emp);
-  if(!u) { alert(lg?'تعذر إنشاء الحساب':'Could not create account'); return; }
-  alert((lg?'تم إنشاء حساب للموظف ':'Account created for ')+emp.name+':\n'+t('settings_username')+': '+u.username+'\n'+t('settings_password')+': '+u.password);
+  if(!u) { toastAlert(lg?'تعذر إنشاء الحساب':'Could not create account'); return; }
+  toastAlert((lg?'تم إنشاء حساب للموظف ':'Account created for ')+emp.name+':\n'+t('settings_username')+': '+u.username+'\n'+t('settings_password')+': '+u.password);
   openEmpAccountsManager();
 }
 
@@ -7623,7 +7623,7 @@ function openLinkEmpAccount(empId, empName) {
   const users = STORAGE.get('users', defaultUsers);
   const candidates = users.filter(u=>!u.empId && u.username !== 'owner' && u.username !== (currentUser?currentUser.username:''));
   if(candidates.length === 0) {
-    alert(lg?'لا توجد حسابات غير مرتبطة':'No unlinked accounts available');
+    toastAlert(lg?'لا توجد حسابات غير مرتبطة':'No unlinked accounts available');
     return;
   }
   let h = '<h3 style="margin-bottom:16px"><i class="fas fa-link"></i> '+(lg?'اقتران حساب':'Link Account')+' - '+empName+'</h3>';
@@ -7647,13 +7647,13 @@ function linkEmpAccount(empId) {
   const users = STORAGE.get('users', defaultUsers);
   const emp = STORAGE.get('employees',[]).find(e=>e.id===empId);
   const u = users.find(x=>x.username===username);
-  if(!u || !emp) { alert(lg?'خطأ في الاقتران':'Linking failed'); return; }
-  if(users.some(x=>x.empId===empId)) { alert(lg?'الموظف مرتبط بحساب بالفعل':'Employee already linked'); return; }
+  if(!u || !emp) { toastAlert(lg?'خطأ في الاقتران':'Linking failed'); return; }
+  if(users.some(x=>x.empId===empId)) { toastAlert(lg?'الموظف مرتبط بحساب بالفعل':'Employee already linked'); return; }
   const prevLinked = users.find(x=>x.empId===empId);
   users.forEach(x=>{ if(x.username===username) { x.empId = empId; x.fullName = x.fullName || emp.name; } });
   STORAGE.set('users', users);
   ActivityLog.log('link', 'employee_account', { empId, username, employee: emp.name });
-  alert((lg?'تم ربط الحساب ':'Account linked ')+username+(lg?' بالموظف ':' to employee ')+emp.name);
+  toastAlert((lg?'تم ربط الحساب ':'Account linked ')+username+(lg?' بالموظف ':' to employee ')+emp.name);
   openEmpAccountsManager();
 }
 
@@ -7698,9 +7698,9 @@ function saveEmp(empId) {
       branchId: data.branchId
     });
     if(newUser){
-      alert((lang==='ar'
-        ? 'تم إنشاء حساب تلقائياً للموظف:\nالمستخدم: ' + newUser.username + '\nكلمة المرور: ' + newUser.password
-        : 'Account created automatically:\nUsername: ' + newUser.username + '\nPassword: ' + newUser.password));
+      toastAlert((lang==='ar'
+        ? 'تم إنشاء الحساب تلقائياً للموظف:\nالمستخدم: ' + newUser.username
+        : 'Account created automatically:\nUsername: ' + newUser.username));
     }
   }
   closeModal();
@@ -8139,9 +8139,9 @@ function importEmpExcel(event) {
       STORAGE.set('employees', employees);
       let accounts = 0;
       addedRows.forEach(emp => { if(empAutoCreateUser(emp)) accounts++; });
-      alert((lang==='ar'?'تم استيراد ':'Imported ') + added + (lang==='ar'?' موظف بنجاح':' employees successfully') + (skipped > 0 ? ('\n' + (lang==='ar'?'تم تجاهل ':'Skipped ') + skipped + (lang==='ar'?' صف (بدون اسم)':' rows (no name)')) : '') + (accounts > 0 ? ('\n' + (lang==='ar'?'تم إنشاء ':'Created ') + accounts + (lang==='ar'?' حساب CRM (كلمة المرور الافتراضية Marts@123)':' CRM accounts (default password Marts@123)')) : ''));
+      toastAlert((lang==='ar'?'تم استيراد ':'Imported ') + added + (lang==='ar'?' موظف بنجاح':' employees successfully') + (skipped > 0 ? ('\n' + (lang==='ar'?'تم تجاهل ':'Skipped ') + skipped + (lang==='ar'?' صف (بدون اسم)':' rows (no name)')) : '') + (accounts > 0 ? ('\n' + (lang==='ar'?'تم إنشاء ':'Created ') + accounts + (lang==='ar'?' حساب CRM (كلمة المرور الافتراضية Marts@123)':' CRM accounts (default password Marts@123)')) : ''));
       renderHrTabContent();
-    } catch(err) { alert('Import error: ' + err.message); }
+    } catch(err) { toastAlert('Import error: ' + err.message); }
   };
   reader.readAsArrayBuffer(file);
   event.target.value = '';
@@ -8149,7 +8149,7 @@ function importEmpExcel(event) {
 
 function deleteAllEmployees() {
   const count = STORAGE.get('employees', []).length;
-  if(count === 0) { alert(lang==='ar'?'لا يوجد موظفين':'No employees to delete'); return; }
+  if(count === 0) { toastAlert(lang==='ar'?'لا يوجد موظفين':'No employees to delete'); return; }
   ActivityLog.log('bulk_delete', 'employees', { count });
   const confirmMsg = lang==='ar'
     ? 'هل أنت متأكد من حذف جميع الموظفين (' + count + ' موظف)؟\n\nهذا الإجراء لا يمكن التراجع عنه!'
@@ -8160,9 +8160,9 @@ function deleteAllEmployees() {
     : 'Final confirmation: type "delete" to confirm';
   const userInput = prompt(confirmMsg2);
   const expected = lang==='ar' ? 'حذف' : 'delete';
-  if(userInput !== expected) { alert(lang==='ar'?'تم الإلغاء':'Cancelled'); return; }
+  if(userInput !== expected) { toastAlert(lang==='ar'?'تم الإلغاء':'Cancelled'); return; }
   STORAGE.set('employees', []);
-  alert(lang==='ar'?'تم حذف جميع الموظفين بنجاح':'All employees deleted successfully');
+  toastAlert(lang==='ar'?'تم حذف جميع الموظفين بنجاح':'All employees deleted successfully');
   renderHrTabContent();
 }
 
@@ -9278,14 +9278,14 @@ function importAttendance(event) {
       const wsName = wb.SheetNames.find(s => s.toLowerCase().includes('attendance') || s.includes('الحضور')) || wb.SheetNames[0];
       const ws = wb.Sheets[wsName];
       const data = XLSX.utils.sheet_to_json(ws);
-      if(data.length === 0) { alert(lang==='ar'?'الملف فارغ':'File is empty'); return; }
+      if(data.length === 0) { toastAlert(lang==='ar'?'الملف فارغ':'File is empty'); return; }
       const month = prompt(lang==='ar'?'أدخل الشهر (YYYY-MM)':'Enter month (YYYY-MM)', today().slice(0,7));
-      if(!month || !/^\d{4}-\d{2}$/.test(month)) { alert(lang==='ar'?'صيغة شهر غير صحيحة':'Invalid month format'); return; }
+      if(!month || !/^\d{4}-\d{2}$/.test(month)) { toastAlert(lang==='ar'?'صيغة شهر غير صحيحة':'Invalid month format'); return; }
       if(!confirmAttendanceMonthReplace(month, false)) { event.target.value = ''; return; }
       const result = processAttendance(data, month);
-      alert((lang==='ar'?'تم معالجة ':'Processed ') + result.processed + (lang==='ar'?' سجل حضور\nتم اكتشاف ':' attendance records\nDetected ') + result.penalties + (lang==='ar'?' مخالفة تلقائية':' auto violations'));
+      toastAlert((lang==='ar'?'تم معالجة ':'Processed ') + result.processed + (lang==='ar'?' سجل حضور\nتم اكتشاف ':' attendance records\nDetected ') + result.penalties + (lang==='ar'?' مخالفة تلقائية':' auto violations'));
       renderHrTabContent();
-    } catch(err) { alert('Import error: ' + err.message); }
+    } catch(err) { toastAlert('Import error: ' + err.message); }
   };
   reader.readAsArrayBuffer(file);
   event.target.value = '';
@@ -9439,7 +9439,7 @@ function applyFingerprintMatches() {
   if(result.unmatched && result.unmatched.length) {
     msg += '\n' + (lang==='ar'?'أسماء غير مطابقة ('+result.unmatched.length+'): ':'Still unmatched ('+result.unmatched.length+'): ') + result.unmatched.join(', ');
   }
-  alert(msg);
+  toastAlert(msg);
   renderHrTabContent();
 }
 
@@ -9645,9 +9645,9 @@ function importFingerprintAttendance(event) {
           data = XLSX.utils.sheet_to_json(wb.Sheets[wsName], {defval:''});
         }
       }
-      if(!data || data.length === 0) { alert(lang==='ar'?'الملف فارغ':'File is empty'); return; }
+      if(!data || data.length === 0) { toastAlert(lang==='ar'?'الملف فارغ':'File is empty'); return; }
       const month = prompt(lang==='ar'?'أدخل الشهر (YYYY-MM)':'Enter month (YYYY-MM)', today().slice(0,7));
-      if(!month || !/^\d{4}-\d{2}$/.test(month)) { alert(lang==='ar'?'صيغة شهر غير صحيحة':'Invalid month format'); return; }
+      if(!month || !/^\d{4}-\d{2}$/.test(month)) { toastAlert(lang==='ar'?'صيغة شهر غير صحيحة':'Invalid month format'); return; }
       if(!confirmAttendanceMonthReplace(month, true)) { event.target.value = ''; return; }
       const result = processFingerprintFile(data, month);
       if(result.unmatched && result.unmatched.length) {
@@ -9664,9 +9664,9 @@ function importFingerprintAttendance(event) {
       if(result.unmatched && result.unmatched.length) {
         msg += '\n' + (lang==='ar'?'أسماء غير مطابقة للموظفين ('+result.unmatched.length+'): ':'Unmatched employee names ('+result.unmatched.length+'): ') + result.unmatched.join(', ');
       }
-      alert(msg);
+      toastAlert(msg);
       renderHrTabContent();
-    } catch(err) { alert('Import error: ' + err.message); }
+    } catch(err) { toastAlert('Import error: ' + err.message); }
   };
   reader.readAsArrayBuffer(file);
   event.target.value = '';
@@ -9891,7 +9891,7 @@ function approvePayroll() {
   const pendingPayrolls = STORAGE.get('pendingPayrolls', []);
   const existingPending = pendingPayrolls.filter(p => p.month === currentMonth && p.status === 'pending');
   if(existingPending.length > 0) {
-    alert(lang==='ar'?'يوجد طلب موافقة على رواتب هذا الشهر قيد الانتظار':'A pending approval request already exists for this month');
+    toastAlert(lang==='ar'?'يوجد طلب موافقة على رواتب هذا الشهر قيد الانتظار':'A pending approval request already exists for this month');
     return;
   }
   let totalAmount = 0;
@@ -9933,7 +9933,7 @@ function approvePayrollBatch(id) {
   const batch = pendingPayrolls.find(p => p.id === id);
   if(!batch || batch.status !== 'pending') return;
   if(currentUser && batch.createdBy && batch.createdBy === currentUser.username) {
-    alert(lg?'لا يمكن لمن أرسل الرواتب أن يعتمدها بنفسه (فصل مهام SoD)':'The person who submitted the payroll cannot approve it (SoD)'); return;
+    toastAlert(lg?'لا يمكن لمن أرسل الرواتب أن يعتمدها بنفسه (فصل مهام SoD)':'The person who submitted the payroll cannot approve it (SoD)'); return;
   }
   const salaries = STORAGE.get('salaries', []);
   const newSalaries = [];
@@ -10562,11 +10562,11 @@ function saveEmpPenalty(empId, penaltyId) {
   const deductionPercent = parseInt(document.getElementById('pen_deduction').value) || 0;
   const notes = document.getElementById('pen_notes').value.trim();
   const deductionType = (document.getElementById('pen_dedType')||{}).value || 'entitled';
-  if (!violation) { alert(lang === 'ar' ? 'اختر نوع المخالفة' : 'Select a violation type'); return; }
+  if (!violation) { toastAlert(lang === 'ar' ? 'اختر نوع المخالفة' : 'Select a violation type'); return; }
   const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   if (penaltyId) {
     const idx = penalties.findIndex(p => p.id === penaltyId);
-    if (idx === -1) { alert(lang === 'ar' ? 'الجزاء غير موجود' : 'Penalty not found'); return; }
+    if (idx === -1) { toastAlert(lang === 'ar' ? 'الجزاء غير موجود' : 'Penalty not found'); return; }
     penalties[idx].violation = violation;
     penalties[idx].action = action;
     penalties[idx].deductionPercent = deductionPercent;
@@ -10976,7 +10976,7 @@ function mgRespond(appId, decision) {
   STORAGE.set('jobApplications', apps);
   const mgrName = currentUser.fullName || currentUser.username;
   notifyHr({type:'job_interview',title:(lang==='ar'?'رد المدير':'Manager Response'),message:(lang==='ar'?mgrName+' - '+(decision==='approved'?'موافق على مقابلة ':'اعتذر عن مقابلة '):mgrName+' - '+(decision==='approved'?'approved interview for ':'declined interview for '))+app.name+' ('+app.position+')',date:today()});
-  alert(lang==='ar'?'تم تسجيل ردك بنجاح':'Your response saved');
+  toastAlert(lang==='ar'?'تم تسجيل ردك بنجاح':'Your response saved');
   _refreshHiringView();
 }
 function openMgFeedback(appId) {
@@ -11089,7 +11089,7 @@ function saveJobOffer(appId, silent) {
     addNotification({type:'job_status',title:(L?'تم إنشاء عرض وظيفي':'Job Offer Created'),message:(L?'عرض وظيفي لـ ':'Job offer for ')+apps[idx].name+' ('+apps[idx].position+')',date:today(),department:'hr'});
     closeModal();
     renderHrTabContent();
-    alert(L?'تم حفظ العرض الوظيفي بنجاح':'Job offer saved successfully');
+    toastAlert(L?'تم حفظ العرض الوظيفي بنجاح':'Job offer saved successfully');
   }
   return apps[idx];
 }
@@ -11098,7 +11098,7 @@ function offerPdf(appId) {
   if(!app) return;
   saveJobOffer(appId, true);
   const w = window.open('','','width=900,height=800');
-  if(!w) { alert(lang==='ar'?'يرجى السماح بالنوافذ المنبثقة':'Please allow popups'); return; }
+  if(!w) { toastAlert(lang==='ar'?'يرجى السماح بالنوافذ المنبثقة':'Please allow popups'); return; }
   w.document.write(_offerDoc(STORAGE.get('jobApplications',[]).find(a => a.id === appId)));
   w.document.close();
   setTimeout(() => w.print(), 400);
@@ -11573,7 +11573,7 @@ function collectJaFormData() {
 
 function saveJaDraft() {
   const data = collectJaFormData();
-  if(data) { STORAGE.set('jaDraft', data); alert(lang==='ar'?'تم الحفظ مبدئياً!':'Draft saved!'); }
+  if(data) { STORAGE.set('jaDraft', data); toastAlert(lang==='ar'?'تم الحفظ مبدئياً!':'Draft saved!'); }
 }
 
 function clearJaForm() {
@@ -11588,7 +11588,7 @@ function submitJaForm(e) {
   if(!data) return false;
   const fullName = data.fullName || '';
   const phone = data.phone || '';
-  if(!fullName||!phone||!data.position) { alert(lang==='ar'?'أكمل جميع الحقول الإلزامية (*)':'Please fill all required fields (*)'); return false; }
+  if(!fullName||!phone||!data.position) { toastAlert(lang==='ar'?'أكمل جميع الحقول الإلزامية (*)':'Please fill all required fields (*)'); return false; }
   const applications = STORAGE.get('jobApplications', []);
   let jaSeq = 0;
   applications.forEach(a => { const m = String(a.appNumber||'').match(/JOB-\d+-(\d+)$/); if(m) jaSeq = Math.max(jaSeq, parseInt(m[1],10)); });
@@ -11638,7 +11638,7 @@ function submitJaForm(e) {
       if(mgr) addNotification({type:'job_application',title:(lang==='ar'?'طلب توظيف لوظيفتك':'Application for Your Position'),message:(lang==='ar'?'تقدم '+fullName+' للمنصب '+data.position+' الذي طلبته':'Applied for '+data.position+' that you requested'),date:today(),targetUser:mgr.id});
     }
   }
-  alert(lang==='ar'?'تم إرسال الطلب بنجاح! سيتم مراجعته من قسم الموارد البشرية.':'Application submitted successfully! It will be reviewed by HR.');
+  toastAlert(lang==='ar'?'تم إرسال الطلب بنجاح! سيتم مراجعته من قسم الموارد البشرية.':'Application submitted successfully! It will be reviewed by HR.');
   _jaSubTab = 'list';
   renderHrTabContent();
   return false;
@@ -11846,7 +11846,7 @@ function _jaShareUrl(kind) {
 function _jaCopyShareMsg() {
   const msgEl = document.getElementById('jaShareMsg');
   const msg = (msgEl && msgEl.value.trim()) ? msgEl.value.trim() : buildJaShareMessage();
-  const done = () => alert(lang==='ar'?'تم نسخ الرسالة':'Message copied');
+  const done = () => toastAlert(lang==='ar'?'تم نسخ الرسالة':'Message copied');
   if(navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(msg).then(done).catch(() => { if(msgEl){msgEl.select();document.execCommand('copy');} done(); });
   } else { if(msgEl){msgEl.select();document.execCommand('copy');} done(); }
@@ -12160,7 +12160,7 @@ function saveJobRequest() {
   const reason = document.getElementById('jrReason').value.trim();
   const franchiseId = document.getElementById('jrFranchise') ? document.getElementById('jrFranchise').value : '';
   const branchId = document.getElementById('jrBranch') ? document.getElementById('jrBranch').value : '';
-  if(!position) { alert(lang==='ar'?'اختر المنصب':'Select position'); return; }
+  if(!position) { toastAlert(lang==='ar'?'اختر المنصب':'Select position'); return; }
 
   const jobRequests = STORAGE.get('jobRequests', []);
   const employees = STORAGE.get('employees', []);
@@ -12370,7 +12370,7 @@ function saveJobField(idx) {
   const type = document.getElementById('jfType').value;
   const labelAr = (document.getElementById('jfLabelAr').value||'').trim();
   const labelEn = (document.getElementById('jfLabelEn').value||'').trim();
-  if (!labelAr || !labelEn) { alert(lg?'أكمل جميع الحقول':'Please fill all fields'); return; }
+  if (!labelAr || !labelEn) { toastAlert(lg?'أكمل جميع الحقول':'Please fill all fields'); return; }
   const required = document.getElementById('jfRequired').checked;
   const visible = document.getElementById('jfVisible').checked;
   const options = type === 'select' ? (document.getElementById('jfOptions').value||'').split('\n').map(s=>s.trim()).filter(Boolean) : [];
@@ -12497,7 +12497,7 @@ function submitPublicJaForm(e) {
   const phone = (fd.get('phone')||'').trim();
   const position = fd.get('position');
   const email = fd.get('email');
-  if(!fullName||!phone||!position) { alert(lang==='ar'?'أكمل جميع الحقول الإلزامية':'Please fill required fields'); return false; }
+  if(!fullName||!phone||!position) { toastAlert(lang==='ar'?'أكمل جميع الحقول الإلزامية':'Please fill required fields'); return false; }
   const applications = STORAGE.get('jobApplications', []);
   const appData = {
     id: uid(), date: today(), status: 'pending', interviewDate: '', interviewNotes: '',
@@ -12629,7 +12629,7 @@ function saveLaw(type, lawId) {
     penalty: document.getElementById('law_penalty').value.trim(),
     articleNum: document.getElementById('law_articleNum').value.trim()
   };
-  if(!data.title || !data.content) { alert(lang==='ar'?'أكمل العنوان والمحتوى':'Title and content are required'); return; }
+  if(!data.title || !data.content) { toastAlert(lang==='ar'?'أكمل العنوان والمحتوى':'Title and content are required'); return; }
   if(lawId) {
     const idx = laws.findIndex(l => l.id === lawId);
     if(idx >= 0) laws[idx] = data;
@@ -12721,7 +12721,7 @@ function saveInternalRegulation(regId) {
     title: document.getElementById('ir_section').value,
     content: document.getElementById('ir_content').value.trim()
   };
-  if(!data.content) { alert(lang==='ar'?'أكمل محتوى البند':'Content is required'); return; }
+  if(!data.content) { toastAlert(lang==='ar'?'أكمل محتوى البند':'Content is required'); return; }
   if(regId) {
     const idx = regs.findIndex(r => r.id === regId);
     if(idx >= 0) regs[idx] = data;
@@ -12761,7 +12761,7 @@ function saveInternalRegulationFull(regId) {
     article: document.getElementById('irf_article').value.trim(),
     content: document.getElementById('irf_content').value.trim()
   };
-  if(!data.article || !data.content) { alert(lang==='ar'?'أكمل رقم المادة والمحتوى':'Article number and content are required'); return; }
+  if(!data.article || !data.content) { toastAlert(lang==='ar'?'أكمل رقم المادة والمحتوى':'Article number and content are required'); return; }
   if(regId) {
     const idx = regs.findIndex(r => r.id === regId);
     if(idx >= 0) regs[idx] = data;
@@ -13186,10 +13186,10 @@ function recalcAutoPenalty(empId, dateStr, checkIn, isAbsent) {
 }
 
 function openAttendanceEditModal(attId) {
-  if(!canManageAttendance()) { alert(lang==='ar'?'لا تملك صلاحية':'No permission'); return; }
+  if(!canManageAttendance()) { toastAlert(lang==='ar'?'لا تملك صلاحية':'No permission'); return; }
   const allEmployees = STORAGE.get('employees', []);
   const att = STORAGE.get('attendance', []).find(a => a.id === attId);
-  if(!att) { alert(lang==='ar'?'سجل غير موجود':'Record not found'); return; }
+  if(!att) { toastAlert(lang==='ar'?'سجل غير موجود':'Record not found'); return; }
   const empOpts = allEmployees.map(e => `<option value="${e.id}" ${e.id===att.empId?'selected':''}>${e.name}${e.status!=='active'?' (غادر)':''}</option>`).join('');
   let html = `<h3>${lang==='ar'?'تعديل سجل الحضور':'Edit Attendance Record'}</h3>
     <div class="form-group" style="margin-top:16px"><label>${lang==='ar'?'الموظف':'Employee'}</label>
@@ -13213,7 +13213,7 @@ function openAttendanceEditModal(attId) {
 }
 
 function saveAttendanceEdit(attId) {
-  if(!canManageAttendance()) { alert(lang==='ar'?'لا تملك صلاحية':'No permission'); return; }
+  if(!canManageAttendance()) { toastAlert(lang==='ar'?'لا تملك صلاحية':'No permission'); return; }
   const allEmployees = STORAGE.get('employees', []);
   const attendance = STORAGE.get('attendance', []);
   const idx = attendance.findIndex(a => a.id === attId);
@@ -13248,7 +13248,7 @@ function saveAttendanceEdit(attId) {
 }
 
 function deleteAttendanceRecord(attId) {
-  if(!canManageAttendance()) { alert(lang==='ar'?'لا تملك صلاحية':'No permission'); return; }
+  if(!canManageAttendance()) { toastAlert(lang==='ar'?'لا تملك صلاحية':'No permission'); return; }
   const attendance = STORAGE.get('attendance', []);
   const att = attendance.find(a => a.id === attId);
   if(!att) return;
@@ -13262,7 +13262,7 @@ function deleteAttendanceRecord(attId) {
 }
 
 function revertAttendanceRecord(attId) {
-  if(!canManageAttendance()) { alert(lang==='ar'?'لا تملك صلاحية':'No permission'); return; }
+  if(!canManageAttendance()) { toastAlert(lang==='ar'?'لا تملك صلاحية':'No permission'); return; }
   const attendance = STORAGE.get('attendance', []);
   const idx = attendance.findIndex(a => a.id === attId);
   if(idx === -1) return;
@@ -13299,7 +13299,7 @@ function exceptionTypeLabel(type) {
 }
 
 function openExceptionModal(attId) {
-  if(!canManageAttendance()) { alert(lang==='ar'?'لا تملك صلاحية':'No permission'); return; }
+  if(!canManageAttendance()) { toastAlert(lang==='ar'?'لا تملك صلاحية':'No permission'); return; }
   const allEmployees = STORAGE.get('employees', []);
   let preEmp = '', preDate = '';
   if(attId) {
@@ -13329,8 +13329,8 @@ function saveExceptionRequest() {
   const dateStr = document.getElementById('excDate').value;
   const type = document.getElementById('excType').value;
   const reason = document.getElementById('excReason').value.trim();
-  if(!empId) { alert(lang==='ar'?'اختر الموظف':'Select employee'); return; }
-  if(!type) { alert(lang==='ar'?'اختر النوع':'Select type'); return; }
+  if(!empId) { toastAlert(lang==='ar'?'اختر الموظف':'Select employee'); return; }
+  if(!type) { toastAlert(lang==='ar'?'اختر النوع':'Select type'); return; }
   const employees = STORAGE.get('employees', []);
   const emp = employees.find(e => e.id === empId);
   if(!emp) return;
@@ -13372,7 +13372,7 @@ function approveException(excId) {
   if(!exc) return;
   const pending = (exc.approvals || []).find(a => a.status === 'pending');
   if(!pending) return;
-  if(!canApproveException(exc)) { alert(lang==='ar'?'ليس دورك في الموافقة':'Not your turn'); return; }
+  if(!canApproveException(exc)) { toastAlert(lang==='ar'?'ليس دورك في الموافقة':'Not your turn'); return; }
   pending.status = 'approved';
   pending.at = Date.now();
   pending.by = currentUser ? currentUser.username : '';
@@ -13391,7 +13391,7 @@ function rejectException(excId) {
   if(!exc) return;
   const pending = (exc.approvals || []).find(a => a.status === 'pending');
   if(!pending) return;
-  if(!canApproveException(exc)) { alert(lang==='ar'?'ليس دورك في الموافقة':'Not your turn'); return; }
+  if(!canApproveException(exc)) { toastAlert(lang==='ar'?'ليس دورك في الموافقة':'Not your turn'); return; }
   pending.status = 'rejected';
   pending.at = Date.now();
   pending.by = currentUser ? currentUser.username : '';
@@ -13406,7 +13406,7 @@ function revertException(excId) {
   const exceptions = STORAGE.get('attendanceExceptions', []);
   const exc = exceptions.find(e => e.id === excId);
   if(!exc) return;
-  if(exc.status !== 'approved') { alert(lang==='ar'?'يمكن التراجع عن الاستثناءات المعتمدة فقط':'Only approved exceptions can be reverted'); return; }
+  if(exc.status !== 'approved') { toastAlert(lang==='ar'?'يمكن التراجع عن الاستثناءات المعتمدة فقط':'Only approved exceptions can be reverted'); return; }
   const attendance = STORAGE.get('attendance', []);
   const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   attendance.forEach(a => {
@@ -13443,7 +13443,7 @@ function deleteException(excId) {
   const exc = exceptions.find(e => e.id === excId);
   if(!exc) return;
   const canDel = canManageAttendance() || isOwner() || (currentUser && exc.requestedBy === currentUser.username);
-  if(!canDel) { alert(lang==='ar'?'لا تملك صلاحية الحذف':'No permission to delete'); return; }
+  if(!canDel) { toastAlert(lang==='ar'?'لا تملك صلاحية الحذف':'No permission to delete'); return; }
   STORAGE.set('attendanceExceptions', exceptions.filter(e => e.id !== excId));
   renderPayrollSubSearch();
   wsToast(lang==='ar'?'تم حذف الاستثناء':'Exception deleted');
@@ -14059,23 +14059,23 @@ function saveAdvance() {
   const month = document.getElementById('advMonth').value.trim();
   const notes = document.getElementById('advNotes').value.trim();
   const requestedAmount = parseFloat(document.getElementById('advAmount').value) || 0;
-  if(!empId) { alert(lang==='ar'?'اختر موظف':'Select employee'); return; }
-  if(!month || !/^\d{4}-\d{2}$/.test(month)) { alert(lang==='ar'?'صيغة شهر غير صحيحة':'Invalid month format'); return; }
-  if(requestedAmount <= 0) { alert(lang==='ar'?'أدخل مبلغ السلفة':'Enter advance amount'); return; }
+  if(!empId) { toastAlert(lang==='ar'?'اختر موظف':'Select employee'); return; }
+  if(!month || !/^\d{4}-\d{2}$/.test(month)) { toastAlert(lang==='ar'?'صيغة شهر غير صحيحة':'Invalid month format'); return; }
+  if(requestedAmount <= 0) { toastAlert(lang==='ar'?'أدخل مبلغ السلفة':'Enter advance amount'); return; }
 
   const employees = STORAGE.get('employees', []);
   const emp = employees.find(e => e.id === empId);
   if(!emp) return;
 
   const dayOfMonth = parseInt(today().slice(8, 10));
-  if(dayOfMonth < 15) { alert(lang==='ar'?'لا يمكن تقديم طلب سلفة قبل يوم 15':'Cannot request advance before day 15'); return; }
+  if(dayOfMonth < 15) { toastAlert(lang==='ar'?'لا يمكن تقديم طلب سلفة قبل يوم 15':'Cannot request advance before day 15'); return; }
 
   const advances = STORAGE.get('employeeAdvances', []);
   const existing = advances.find(a => a.empId === empId && a.date && a.date.startsWith(month) && a.status !== 'rejected');
-  if(existing) { alert(lang==='ar'?'هذا الموظف لديه سلفة مسجلة بالفعل هذا الشهر':'This employee already has an advance for this month'); return; }
+  if(existing) { toastAlert(lang==='ar'?'هذا الموظف لديه سلفة مسجلة بالفعل هذا الشهر':'This employee already has an advance for this month'); return; }
 
   const maxAdvance = Math.floor(emp.salary * 0.5);
-  if(requestedAmount > maxAdvance) { alert((lang==='ar'?'المبلغ المطلوب '+fmt(requestedAmount)+' يتجاوز الحد الأقصى '+fmt(maxAdvance)+' (50% من الراتب)':'Amount '+fmt(requestedAmount)+' exceeds max '+fmt(maxAdvance)+' (50% of salary)')); return; }
+  if(requestedAmount > maxAdvance) { toastAlert((lang==='ar'?'المبلغ المطلوب '+fmt(requestedAmount)+' يتجاوز الحد الأقصى '+fmt(maxAdvance)+' (50% من الراتب)':'Amount '+fmt(requestedAmount)+' exceeds max '+fmt(maxAdvance)+' (50% of salary)')); return; }
 
   const penalties = STORAGE.get('employeePenalties','employeeDeductionHistory', []);
   const monthPenalties = penalties.filter(p => p.empId === empId && p.date && p.date.startsWith(month));
@@ -14103,7 +14103,7 @@ function approveAdvance(advId) {
   const adv = advances.find(a => a.id === advId);
   if(!adv) return;
   if(currentUser && adv.createdBy && adv.createdBy === currentUser.username) {
-    alert(lang==='ar'?'لا يمكن لمن أضاف السلفة أن يعتمدها بنفسه (فصل مهام SoD)':'The person who created this advance cannot approve it (SoD)'); return;
+    toastAlert(lang==='ar'?'لا يمكن لمن أضاف السلفة أن يعتمدها بنفسه (فصل مهام SoD)':'The person who created this advance cannot approve it (SoD)'); return;
   }
   if(!confirm(lang==='ar'?'هل تريد اعتماد هذه السلفة؟':'Approve this advance?')) return;
   adv.status = 'approved';
@@ -14731,7 +14731,7 @@ function saveRule(existingId) {
   const idx = roles.findIndex(r=>r.id===id);
   if(idx>=0) roles[idx] = newRole; else roles.push(newRole);
   STORAGE.set('empRoles', roles);
-  closeModal(); alert(t('comm_ruleSaved'));
+  closeModal(); toastAlert(t('comm_ruleSaved'));
   renderCommRules();
 }
 
@@ -14740,7 +14740,7 @@ function deleteRule(roleId) {
   let roles = getAllRoles();
   roles = roles.filter(r=>r.id!==roleId);
   STORAGE.set('empRoles', roles);
-  closeModal(); alert(t('comm_ruleDeleted'));
+  closeModal(); toastAlert(t('comm_ruleDeleted'));
   renderCommRules();
 }
 
@@ -14771,7 +14771,7 @@ function saveResaleTeam(roleId) {
   let team = getResaleTeam();
   team = team.map(r => r.roleId===roleId ? {...r, pct} : r);
   STORAGE.set('resaleTeam', team);
-  closeModal(); alert(t('comm_resaleTeamSaved'));
+  closeModal(); toastAlert(t('comm_resaleTeamSaved'));
   renderCommRules();
 }
 
@@ -15113,13 +15113,13 @@ function zeroAllAccounts() {
   const answer = prompt(msg2);
   if (answer === null) return;
   if ((lg && answer !== 'تصفير') || (!lg && answer !== 'ZERO')) {
-    alert(lg ? 'تم الإلغاء � كلمة التأكيد غير صحيحة' : 'Cancelled � incorrect confirmation word');
+    toastAlert(lg ? 'تم الإلغاء � كلمة التأكيد غير صحيحة' : 'Cancelled � incorrect confirmation word');
     return;
   }
   const keys = ['treasury', 'salaries', 'partners', 'expenses', 'journalEntries'];
   keys.forEach(k => STORAGE.set(k, []));
   ActivityLog.log('danger', 'zero_accounts', { keys: keys.join(', '), user: currentUser ? currentUser.username : 'unknown' });
-  alert(lg ? 'تم تصفير جميع الحسابات بنجاح' : 'All accounts have been zeroed successfully');
+  toastAlert(lg ? 'تم تصفير جميع الحسابات بنجاح' : 'All accounts have been zeroed successfully');
   renderAccounting(document.getElementById('mainContent'));
 }
 
@@ -15337,7 +15337,7 @@ function bulkDeleteTreasury() {
   const ids = Array.from(checked).map(cb => cb.dataset.id);
   const lockedIds = ids.filter(id => { const e = entries.find(x=>x.id===id); return e && e.locked; });
   const toDelete = ids.filter(id => { const e = entries.find(x=>x.id===id); return e && !e.locked; });
-  if(lockedIds.length > 0) alert(lang==='ar'?'تم تخطي '+lockedIds.length+' قيد مقفل':'Skipped '+lockedIds.length+' locked entries');
+  if(lockedIds.length > 0) toastAlert(lang==='ar'?'تم تخطي '+lockedIds.length+' قيد مقفل':'Skipped '+lockedIds.length+' locked entries');
   if(toDelete.length === 0) return;
   ActivityLog.log('bulk_delete', 'treasury', { count: toDelete.length, ids: toDelete });
   toDelete.forEach(id => {
@@ -16139,7 +16139,7 @@ function bulkDeletePartners() {
   const ids = Array.from(checked).map(cb => cb.dataset.id);
   const lockedIds = ids.filter(id => { const e = partners.find(p=>p.id===id); return e && e.locked; });
   const toDelete = ids.filter(id => { const e = partners.find(p=>p.id===id); return e && !e.locked; });
-  if(lockedIds.length > 0) alert(lang==='ar'?'تم تخطي '+lockedIds.length+' قيد مقفل':'Skipped '+lockedIds.length+' locked entries');
+  if(lockedIds.length > 0) toastAlert(lang==='ar'?'تم تخطي '+lockedIds.length+' قيد مقفل':'Skipped '+lockedIds.length+' locked entries');
   if(toDelete.length === 0) return;
   ActivityLog.log('bulk_delete', 'partners', { count: toDelete.length, ids: toDelete });
   toDelete.forEach(id => _removeAutoJournal('partner_distribution', id));
@@ -16437,12 +16437,12 @@ function saveCoaAccount(editCode) {
   const nameEn = document.getElementById('coa_nameEn').value.trim();
   const type = document.getElementById('coa_type').value;
   const parent = document.getElementById('coa_parent').value || null;
-  if(!code || !nameAr || !nameEn) { alert(lang==='ar'?'أكمل جميع الحقول المطلوبة':'Fill all required fields'); return; }
+  if(!code || !nameAr || !nameEn) { toastAlert(lang==='ar'?'أكمل جميع الحقول المطلوبة':'Fill all required fields'); return; }
   if(editCode) {
     const idx = coa.findIndex(a => a.code === editCode);
     if(idx >= 0) { coa[idx].name_ar = nameAr; coa[idx].name_en = nameEn; coa[idx].type = type; coa[idx].parent = parent; }
   } else {
-    if(coa.find(a => a.code === code)) { alert(lang==='ar'?'رقم الحساب مكرر':'Account code already exists'); return; }
+    if(coa.find(a => a.code === code)) { toastAlert(lang==='ar'?'رقم الحساب مكرر':'Account code already exists'); return; }
     coa.push({code, name_ar:nameAr, name_en:nameEn, type, parent, level:parent?3:1});
   }
   STORAGE.set('chartOfAccounts', coa);
@@ -16540,7 +16540,7 @@ function openCoaBulkAdd() {
 function saveCoaBulkAdd() {
   const lg = lang === 'ar';
   const text = document.getElementById('bulkCoaText').value.trim();
-  if (!text) { alert(lg?'أدخل حسابات':'Enter accounts'); return; }
+  if (!text) { toastAlert(lg?'أدخل حسابات':'Enter accounts'); return; }
   const defaultType = document.getElementById('bulkCoaType').value;
   const defaultParent = document.getElementById('bulkCoaParent').value || null;
   let coa = STORAGE.get('chartOfAccounts', []);
@@ -16719,6 +16719,11 @@ function postDepreciationEntry(asset, amount, month) {
 // ============================================================
 // EMPLOYEE DOCUMENTS ARCHIVE (أرشيف عقود ومستندات الموظفين)
 // ============================================================
+function employeeDocsTotalSizeMB() {
+  const docs = STORAGE.get('employeeDocs', []);
+  const total = docs.reduce((s, d) => s + (d.size || 0), 0);
+  return total / (1024 * 1024);
+}
 function employeeDocsHtml(empId) {
   const lg = lang === 'ar';
   const docs = STORAGE.get('employeeDocs', []).filter(d => d.empId === empId).sort((a,b) => (b.ts||0) - (a.ts||0));
@@ -16762,6 +16767,7 @@ function uploadEmployeeDoc(empId) {
   if(!fileInput || !fileInput.files || fileInput.files.length === 0) { wsToast(lg?'اختر ملفًا أولاً':'Choose a file first'); return; }
   const file = fileInput.files[0];
   if(file.size > 1.5 * 1024 * 1024) { wsToast(lg?'الملف أكبر من 1.5MB (حد التخزين المحلي)':'File exceeds 1.5MB local storage limit'); return; }
+  if(employeeDocsTotalSizeMB() + (file.size / (1024 * 1024)) > 25) { wsToast(lg?'تجاوزت سعة مستندات الموظفين 25MB — احذف مستندات قديمة أولاً':'Employee documents exceed 25MB — delete old documents first'); return; }
   const reader = new FileReader();
   reader.onload = function(e) {
     const docs = STORAGE.get('employeeDocs', []);
@@ -16959,10 +16965,10 @@ function saveQuickAddSubAccount() {
   const type = document.getElementById('qa_type').value;
   const nameAr = document.getElementById('qa_nameAr').value.trim();
   const nameEn = document.getElementById('qa_nameEn').value.trim();
-  if(!code || !nameAr || !nameEn) { alert(lang==='ar'?'أكمل جميع الحقول':'Fill all fields'); return; }
+  if(!code || !nameAr || !nameEn) { toastAlert(lang==='ar'?'أكمل جميع الحقول':'Fill all fields'); return; }
 
   const coa = STORAGE.get('chartOfAccounts', []);
-  if(coa.find(a => a.code === code)) { alert(lang==='ar'?'رقم الحساب مكرر':'Account code already exists'); return; }
+  if(coa.find(a => a.code === code)) { toastAlert(lang==='ar'?'رقم الحساب مكرر':'Account code already exists'); return; }
 
   const currentVal = document.getElementById('jl_code_'+quickAddLineIndex)?.value || '';
   const currentAcct = coa.find(a => a.code === currentVal);
@@ -17015,8 +17021,8 @@ function saveJournalEntry(editId) {
     }
   }
 
-  if(lines.length < 2) { alert(lang==='ar'?'يجب إدخال سطرين على الأقل':'At least 2 lines required'); return; }
-  if(Math.abs(totalDr - totalCr) > 0.01) { alert(t('acc_journalUnbalanced')); return; }
+  if(lines.length < 2) { toastAlert(lang==='ar'?'يجب إدخال سطرين على الأقل':'At least 2 lines required'); return; }
+  if(Math.abs(totalDr - totalCr) > 0.01) { toastAlert(t('acc_journalUnbalanced')); return; }
 
   // Governance: check DOA for total journal amount
   if(!editId && currentUser) {
@@ -17173,7 +17179,7 @@ function openFranchiseModal(editId) {
 function saveFranchise(editId) {
   const nameAr = document.getElementById('fr_nameAr').value.trim();
   const nameEn = document.getElementById('fr_nameEn').value.trim();
-  if(!nameAr || !nameEn) { alert(lang==='ar'?'أكمل جميع الحقول':'Fill all fields'); return; }
+  if(!nameAr || !nameEn) { toastAlert(lang==='ar'?'أكمل جميع الحقول':'Fill all fields'); return; }
   const franchises = STORAGE.get('franchises',[]);
   if(editId) {
     const idx = franchises.findIndex(f => f.id === editId);
@@ -17213,7 +17219,7 @@ function saveBranch(editId) {
   const franchiseId = document.getElementById('br_franchise').value;
   const nameAr = document.getElementById('br_nameAr').value.trim();
   const nameEn = document.getElementById('br_nameEn').value.trim();
-  if(!nameAr || !nameEn) { alert(lang==='ar'?'أكمل جميع الحقول':'Fill all fields'); return; }
+  if(!nameAr || !nameEn) { toastAlert(lang==='ar'?'أكمل جميع الحقول':'Fill all fields'); return; }
   const branches = STORAGE.get('branches',[]);
   if(editId) {
     const idx = branches.findIndex(b => b.id === editId);
@@ -18563,7 +18569,7 @@ function uploadAccExcel(section) {
         const wb = XLSX.read(ev.target.result, {type:'array'});
         const ws = wb.Sheets[wb.SheetNames[0]];
         const json = XLSX.utils.sheet_to_json(ws, {header:1});
-        if(json.length < 2) { alert(t('acc_importError')); return; }
+        if(json.length < 2) { toastAlert(t('acc_importError')); return; }
 
         const employees = STORAGE.get('employees',[]);
         const existing = STORAGE.get(cfg.storage, []);
@@ -18620,13 +18626,13 @@ function uploadAccExcel(section) {
             }
           }
         });
-        alert(t('acc_importSuccess') + ': ' + imported);
+        toastAlert(t('acc_importSuccess') + ': ' + imported);
         if(section === 'treasury') renderTreasury();
         else if(section === 'salaries') renderSalaries();
         else if(section === 'partners') renderPartners();
         else if(section === 'expenses') renderExpenses();
       } catch(err) {
-        alert(t('acc_importError') + ': ' + err.message);
+        toastAlert(t('acc_importError') + ': ' + err.message);
       }
     };
     reader.readAsArrayBuffer(file);
@@ -19231,7 +19237,7 @@ function saveBankAccount(id) {
   const branch = document.getElementById('ba_branch')?.value?.trim()||'';
   const notes = document.getElementById('ba_notes').value.trim();
 
-  if(!bankName) { alert(lang==='ar'?'أدخل اسم البنك':'Enter bank name'); return; }
+  if(!bankName) { toastAlert(lang==='ar'?'أدخل اسم البنك':'Enter bank name'); return; }
 
   if(id) {
     const idx = accounts.findIndex(a => a.id === id);
@@ -19394,7 +19400,7 @@ function runBankReconciliation() {
   const reconData = STORAGE.get('bankReconciliation', []);
 
   if (bankStatements.length === 0) {
-    alert(lg?'لا توجد معاملات بنكية للمطابقة. قم باستيراد كشف حساب أولاً':'No bank transactions to match. Import a bank statement first.');
+    toastAlert(lg?'لا توجد معاملات بنكية للمطابقة. قم باستيراد كشف حساب أولاً':'No bank transactions to match. Import a bank statement first.');
     return;
   }
 
@@ -19439,7 +19445,7 @@ function runBankReconciliation() {
 
   STORAGE.set('bankReconciliation', reconData);
   renderBankReconciliation();
-  alert(lg?`تم المطابقة: ${matched} معاملة مطابقة`:`Reconciliation complete: ${matched} transactions matched`);
+  toastAlert(lg?`تم المطابقة: ${matched} معاملة مطابقة`:`Reconciliation complete: ${matched} transactions matched`);
 }
 
 function matchBankTransaction(idx) {
@@ -19469,7 +19475,7 @@ function matchBankTransaction(idx) {
 function confirmBankMatch(idx) {
   const reconData = STORAGE.get('bankReconciliation', []);
   const selIdx = parseInt(document.getElementById('matchJournalIdx').value);
-  if (isNaN(selIdx)) { alert(lang==='ar'?'اختر قيد يومي':'Select a journal entry'); return; }
+  if (isNaN(selIdx)) { toastAlert(lang==='ar'?'اختر قيد يومي':'Select a journal entry'); return; }
   const journal = STORAGE.get('journalEntries', []);
   const entry = journal[selIdx];
   if (!entry) return;
@@ -19503,7 +19509,7 @@ function exportReconciliationReport() {
   a.click();
   URL.revokeObjectURL(url);
 
-  alert(lg?`تقرير المطابقة: ${reconciled.length} مطابق, ${pending.length} قيد, ${unmatched.length} غير مطابق`:
+  toastAlert(lg?`تقرير المطابقة: ${reconciled.length} مطابق, ${pending.length} قيد, ${unmatched.length} غير مطابق`:
     `Reconciliation Report: ${reconciled.length} matched, ${pending.length} pending, ${unmatched.length} unmatched`);
 }
 
@@ -19550,7 +19556,7 @@ function previewBankFile(input) {
     const text = e.target.result;
     const sep = document.getElementById('importFormat').value === 'csv-tab' ? '\t' : ',';
     const lines = text.split('\n').filter(l => l.trim());
-    if (lines.length < 2) { alert(lg?'الملف فارغ أو غير صالح':'File is empty or invalid'); return; }
+    if (lines.length < 2) { toastAlert(lg?'الملف فارغ أو غير صالح':'File is empty or invalid'); return; }
 
     const headers = lines[0].split(sep).map(h => h.trim().replace(/"/g, ''));
     const rows = [];
@@ -19582,7 +19588,7 @@ function executeBankImport() {
   const bankAccId = document.getElementById('importBankAcc').value;
   const accounts = STORAGE.get('bankAccounts', []);
   const bankAcc = accounts.find(a => a.id === bankAccId);
-  if (!bankAcc) { alert(lg?'اختر حساب بنكي':'Select a bank account'); return; }
+  if (!bankAcc) { toastAlert(lg?'اختر حساب بنكي':'Select a bank account'); return; }
 
   const { headers, lines, sep, totalRows } = _pendingBankImport;
   const dateCol = headers.findIndex(h => /date|tarikh|تاريخ/i.test(h));
@@ -19620,7 +19626,7 @@ function executeBankImport() {
   _pendingBankImport = null;
   closeModal();
   renderBankImportHistory();
-  alert(lg ? `تم استيراد ${count} معاملة بنكية` : `Imported ${count} bank transactions`);
+  toastAlert(lg ? `تم استيراد ${count} معاملة بنكية` : `Imported ${count} bank transactions`);
 }
 
 function renderBankImportHistory() {
@@ -19728,8 +19734,8 @@ function saveBankConnection() {
   const apiSecret = document.getElementById('connApiSecret').value.trim();
   const interval = parseInt(document.getElementById('connInterval').value) || 60;
 
-  if (!bankName) { alert(lg?'أدخل اسم البنك':'Enter bank name'); return; }
-  if (!apiKey) { alert(lg?'أدخل API Key':'Enter API key'); return; }
+  if (!bankName) { toastAlert(lg?'أدخل اسم البنك':'Enter bank name'); return; }
+  if (!apiKey) { toastAlert(lg?'أدخل API Key':'Enter API key'); return; }
 
   const conn = STORAGE.get('bankConnections', []);
   conn.push({
@@ -19747,7 +19753,7 @@ function saveBankConnection() {
   STORAGE.set('bankConnections', conn);
   closeModal();
   renderBankConnections();
-  alert(lg?'تم حفظ الاتصال بنجاح. المزامنة التلقائية ستبدأ قريباً':'Connection saved. Auto-sync will start soon.');
+  toastAlert(lg?'تم حفظ الاتصال بنجاح. المزامنة التلقائية ستبدأ قريباً':'Connection saved. Auto-sync will start soon.');
 }
 
 function testBankConnection(idx) {
@@ -19757,7 +19763,7 @@ function testBankConnection(idx) {
   if (!c) return;
 
   setTimeout(() => {
-    alert(lg ? `اختبار الاتصال: ${c.bankName}\n\nالحالة: ${c.status === 'active' ? '✓ متصل بنجاح' : '✗ فشل الاتصال'}\nآخر مزامنة: ${c.lastSync ? new Date(c.lastSync).toLocaleString() : 'لم تتم بعد'}`
+    toastAlert(lg ? `اختبار الاتصال: ${c.bankName}\n\nالحالة: ${c.status === 'active' ? '✓ متصل بنجاح' : '✗ فشل الاتصال'}\nآخر مزامنة: ${c.lastSync ? new Date(c.lastSync).toLocaleString() : 'لم تتم بعد'}`
       : `Connection Test: ${c.bankName}\n\nStatus: ${c.status === 'active' ? '✓ Connected' : '✗ Failed'}\nLast sync: ${c.lastSync ? new Date(c.lastSync).toLocaleString() : 'Never'}`);
     c.lastSync = new Date().toISOString();
     STORAGE.set('bankConnections', conn);
@@ -20351,7 +20357,7 @@ let _pendingAttachments=[];
 function handleCrmAttachmentSelect(event,clientId){
   const files=event.target.files;
   for(let f of files){
-    if(f.size>5*1024*1024){alert(lang==='ar'?'الملف يتجاوز 5MB':'File exceeds 5MB');continue;}
+    if(f.size>5*1024*1024){toastAlert(lang==='ar'?'الملف يتجاوز 5MB':'File exceeds 5MB');continue;}
     const reader=new FileReader();
     reader.onload=function(e){
       _pendingAttachments.push({name:f.name,size:(f.size/1024).toFixed(1)+'KB',dataUrl:e.target.result});
@@ -20674,11 +20680,11 @@ function crmRunImport(){
   const defStage = document.getElementById('crmImportStage').value;
   const defSource = document.getElementById('crmImportSource').value;
   const mode = document.getElementById('crmImportMode').value;
-  if(!text){ alert(lg?'الصق بيانات JSON أولاً':'Paste JSON data first'); return; }
+  if(!text){ toastAlert(lg?'الصق بيانات JSON أولاً':'Paste JSON data first'); return; }
   let arr;
   try { arr = JSON.parse(text); }
-  catch(e){ alert((lg?'صيغة JSON غير صالحة: ':'Invalid JSON: ')+e.message); return; }
-  if(!Array.isArray(arr)){ if(arr && Array.isArray(arr.data)) arr = arr.data; else { alert(lg?'يجب أن تكون البيانات مصفوفة':'Data must be an array'); return; } }
+  catch(e){ toastAlert((lg?'صيغة JSON غير صالحة: ':'Invalid JSON: ')+e.message); return; }
+  if(!Array.isArray(arr)){ if(arr && Array.isArray(arr.data)) arr = arr.data; else { toastAlert(lg?'يجب أن تكون البيانات مصفوفة':'Data must be an array'); return; } }
   const STAGE_MAP = {69:'fresh_leads',70:'no_answer',161:'rotation',164:'rotation_trying',71:'follow_up',165:'hot_cases',162:'scheduled_meeting',216:'rotation_scheduled',73:'follow_up_after',74:'reservation',119:'done_deal',120:'not_interested',121:'low_budget',132:'bought',122:'listing',124:'request',125:'cancelled',126:'unreachable',167:'broker',176:'owners',245:'personal_leads',251:'listing_leads',256:'requests_resale'};
   const STATUS_BY_STAGE = {done_deal:'converted',reservation:'negotiating',not_interested:'lost',low_budget:'lost',bought:'lost',cancelled:'lost',unreachable:'lost',no_answer:'contacted',rotation:'contacted',rotation_trying:'contacted',follow_up:'contacted',hot_cases:'contacted',scheduled_meeting:'contacted',rotation_scheduled:'contacted',follow_up_after:'contacted',request:'contacted',broker:'contacted',owners:'contacted',personal_leads:'contacted',listing_leads:'contacted',requests_resale:'contacted'};
   const SRC_MAP = {facebook:'facebook','facebook campaign':'facebook',instgram:'instagram','whats app':'whatsapp','walk in':'walkin','web site':'website','web form':'website','google ads':'google','google form':'google','cold call':'coldcall','cold calls':'coldcall','personal connection':'personal',rotation:'rotation','owners data':'ownersdata','traders data':'tradersdata',meta:'meta',adzona:'ad',x:'x','linked in':'linkedin',snapchat:'snapchat',tiktok:'tiktok',referral:'referral','property finder':'ad','bh/shb data':'other'};
@@ -20770,7 +20776,7 @@ function crmRunImport(){
   });
   saveCrmClients(clients);
   closeModal();
-  alert((lg?'تم استيراد ':'Imported ')+added+(lg?' عميل':' clients')+(skipped?('، تم تخطي '+skipped+(lg?' مكرر/ناقص':' duplicate/invalid')):''));
+  toastAlert((lg?'تم استيراد ':'Imported ')+added+(lg?' عميل':' clients')+(skipped?('، تم تخطي '+skipped+(lg?' مكرر/ناقص':' duplicate/invalid')):''));
   if(typeof filterCrmClients==='function') filterCrmClients();
   else if(typeof renderCrmClients==='function') renderCrmClients(document.getElementById('crmViewContent'));
 }document.addEventListener('click', function(e){
@@ -21332,7 +21338,7 @@ const stageColors=['#827148','#827148','#F59E0B','#10B981','#3B82F6','#8B5CF6','
         <button class="crm-quick-btn orange" onclick="openCrmClientForm()"><i class="fas fa-plus-circle"></i><span>${t('crm_addClient')}</span></button>
         <button class="crm-quick-btn purple" onclick="switchCrmView('workspace')"><i class="fas fa-users-cog"></i><span>${t('crm_accounts')}</span></button>
       </div></div>
-      <div class="crm-card crm-security"><div class="crm-security-title"><i class="fas fa-shield-alt"></i> ${t('crm_secureAccount')}</div><p class="crm-security-desc">${lang==='ar'?'فعّل المصادقة الثنائية لحماية حسابك':'Enable 2FA to protect your account'}</p><button class="crm-security-btn" onclick="alert('${lang==='ar'?'سيتم تفعيل المصادقة الثنائية قريباً':'2FA coming soon'}')"><i class="fas fa-lock"></i> ${t('crm_enable2FA')}</button></div>
+      <div class="crm-card crm-security"><div class="crm-security-title"><i class="fas fa-shield-alt"></i> ${t('crm_secureAccount')}</div><p class="crm-security-desc">${lang==='ar'?'فعّل المصادقة الثنائية لحماية حسابك':'Enable 2FA to protect your account'}</p><button class="crm-security-btn" onclick="toastAlert('${lang==='ar'?'سيتم تفعيل المصادقة الثنائية قريباً':'2FA coming soon'}')"><i class="fas fa-lock"></i> ${t('crm_enable2FA')}</button></div>
       <div class="crm-card crm-promo"><div class="crm-promo-title"><i class="fas fa-rocket"></i> ${t('crm_newFeature')}</div><p class="crm-promo-desc">${lang==='ar'?'اكتشف تحسين تحويل العملاء بنسبة 40%':'Improve lead conversion by 40%'}</p><button class="crm-promo-btn" onclick="switchCrmView('deals')"><i class="fas fa-star"></i> ${t('crm_tryNow')}</button></div>
       <div class="crm-card crm-tabs-card"><div class="crm-tabs-bar" role="tablist">
         <button class="crm-tab-btn active" role="tab" onclick="showCrmTab('insights',this)"><i class="fas fa-lightbulb"></i> ${t('crm_insights')}</button>
@@ -21968,7 +21974,7 @@ function openCrmCampaignForm(editId) {
 function saveCrmCampaign(editId) {
   const lg = lang === 'ar';
   const name = document.getElementById('crmCmpName').value.trim();
-  if (!name) { alert(lg ? 'اسم الحملة مطلوب' : 'Campaign name is required'); return; }
+  if (!name) { toastAlert(lg ? 'اسم الحملة مطلوب' : 'Campaign name is required'); return; }
 
   const platform = document.getElementById('crmCmpPlatform').value;
   const budget = parseFloat(document.getElementById('crmCmpBudget').value) || 0;
@@ -24151,7 +24157,7 @@ function wsFollowUpClient(id){
 function saveWsFollowUp(id){
   const date=document.getElementById('wsFollowUpDate')?.value;
   const notes=document.getElementById('wsFollowUpNotes')?.value?.trim();
-  if(!date){alert(lang==='ar'?'اختر التاريخ':'Select date');return;}
+  if(!date){toastAlert(lang==='ar'?'اختر التاريخ':'Select date');return;}
   const clients=getCrmClients();
   const c=clients.find(x=>x.id===id);
   if(c){c.nextFollowUp=date;c.lastContact=new Date().toISOString();saveCrmClients(clients);}
@@ -24179,7 +24185,7 @@ function saveWsMeeting(id){
   const date=document.getElementById('wsMeetingDate')?.value;
   const time=document.getElementById('wsMeetingTime')?.value;
   const notes=document.getElementById('wsMeetingNotes')?.value?.trim();
-  if(!date){alert(lang==='ar'?'اختر التاريخ':'Select date');return;}
+  if(!date){toastAlert(lang==='ar'?'اختر التاريخ':'Select date');return;}
   const dateTime = date + (time ? 'T'+time : 'T09:00');
   const clients=getCrmClients();
   const c=clients.find(x=>x.id===id);
@@ -24204,6 +24210,9 @@ function wsToast(msg){
   toast.textContent = msg;
   document.body.appendChild(toast);
   setTimeout(()=>toast.remove(), 2500);
+}
+function toastAlert(msg){
+  try { wsToast(msg); } catch(e) { console.error(e); }
 }
 
 // ============================================================
@@ -24752,9 +24761,9 @@ function saveAddTeamMember(parentUsername){
   const username=document.getElementById('teamNewUser').value.trim();
   const password=document.getElementById('teamNewPass').value;
   const fullName=document.getElementById('teamNewName').value.trim();
-  if(!username||!password||!fullName){ alert(lang==='ar'?'أدخل جميع الحقول المطلوبة':'Fill all required fields'); return; }
+  if(!username||!password||!fullName){ toastAlert(lang==='ar'?'أدخل جميع الحقول المطلوبة':'Fill all required fields'); return; }
   const users=getAllUsers();
-  if(users.find(u=>u.username===username)){ alert(lang==='ar'?'اسم المستخدم موجود مسبقاً':'Username already exists'); return; }
+  if(users.find(u=>u.username===username)){ toastAlert(lang==='ar'?'اسم المستخدم موجود مسبقاً':'Username already exists'); return; }
   const role=document.getElementById('teamNewRole').value;
   const email=document.getElementById('teamNewEmail').value.trim()||username+'@marts-eg.com';
   let defaultPerms=[];
@@ -24817,7 +24826,7 @@ function generateCrmTrialAccount(clientId){
   c.trialCreated=new Date().toISOString();
   saveCrmClients(clients);
   addCrmActivity(c.id,'account_created',t('crm_accountGenerated')+': '+c.trialEmail);
-  alert(t('crm_accountGenerated')+':\n'+t('crm_accountEmail')+': '+c.trialEmail+'\n'+t('crm_accountPassword')+': '+c.trialPassword);
+  toastAlert(t('crm_accountGenerated')+':\n'+t('crm_accountEmail')+': '+c.trialEmail+'\n'+t('crm_accountPassword')+': '+c.trialPassword);
   switchCrmTab('accounts',document.querySelectorAll('.crm-tab')[2]);
 }
 
@@ -24881,7 +24890,7 @@ function openCrmClientForm(clientId){
 
 function saveCrmClient(clientId){
   const name=document.getElementById('crm_name').value.trim();
-  if(!name)return alert('!');
+  if(!name)return toastAlert('!');
   const clients=getCrmClients();
   const data={
     name,phone:document.getElementById('crm_phone').value.trim(),
@@ -25190,7 +25199,7 @@ function crmProfileOverviewHtml(c){
 function crmSaveFeedback(clientId){
   const inp=document.getElementById('crmFeedbackInput');
   const txt=inp?inp.value.trim():'';
-  if(!txt){ alert(lang==='ar'?'اكتب الـ Feedback أولاً':'Write feedback first'); return; }
+  if(!txt){ toastAlert(lang==='ar'?'اكتب الـ Feedback أولاً':'Write feedback first'); return; }
   addCrmActivity(clientId,'feedback',txt);
   if(inp) inp.value='';
   crmProfileSwitch('history');
@@ -25428,7 +25437,7 @@ function crmReassignBox(clientId){
 function crmActionReassign(clientId){ crmReassignBox(clientId); }
 function crmSaveReassign(clientId){
   const user = document.getElementById('crmReassignUser').value;
-  if(!user) return alert(lang==='ar'?'اختر مستخدماً':'Select a user');
+  if(!user) return toastAlert(lang==='ar'?'اختر مستخدماً':'Select a user');
   const clients = getCrmClients();
   const c = clients.find(x => x.id === clientId);
   if(!c) return;
@@ -25607,7 +25616,7 @@ let _pendingCallAudio = null;
 function crmLoadCallAudio(e){
   const f = e.target.files && e.target.files[0];
   if(!f) return;
-  if(f.size > 8*1024*1024){ alert(lang==='ar'?'التسجيل يتجاوز 8MB':'Recording exceeds 8MB'); return; }
+  if(f.size > 8*1024*1024){ toastAlert(lang==='ar'?'التسجيل يتجاوز 8MB':'Recording exceeds 8MB'); return; }
   const reader = new FileReader();
   reader.onload = function(ev){ _pendingCallAudio = {name: f.name, dataUrl: ev.target.result}; const el = document.getElementById('crmLogCallAudioName'); if(el) el.textContent = f.name; };
   reader.readAsDataURL(f);
@@ -25652,7 +25661,7 @@ function crmDeleteCall(clientId, idx){
 }
 function crmSaveMessage(clientId){
   const note = document.getElementById('crmLogMsgNote').value.trim();
-  if(!note) return alert(lang==='ar'?'أدخل نص الرسالة':'Enter message text');
+  if(!note) return toastAlert(lang==='ar'?'أدخل نص الرسالة':'Enter message text');
   const clients = getCrmClients();
   const c = clients.find(x => x.id === clientId);
   if(!c) return;
@@ -25663,7 +25672,7 @@ function crmSaveMessage(clientId){
 }
 function crmSaveMeeting(clientId){
   const date = document.getElementById('crmMeetingDate').value;
-  if(!date) return alert(lang==='ar'?'اختر تاريخ الاجتماع':'Pick meeting date');
+  if(!date) return toastAlert(lang==='ar'?'اختر تاريخ الاجتماع':'Pick meeting date');
   const notes = document.getElementById('crmMeetingNotes').value.trim();
   const clients = getCrmClients();
   const c = clients.find(x => x.id === clientId);
@@ -25696,7 +25705,7 @@ function crmSaveMeetingFeedback(clientId){
 function crmSaveNewDeal(clientId){
   const title = document.getElementById('crmDealTitle').value.trim();
   const value = parseFloat(document.getElementById('crmDealValue').value) || 0;
-  if(!title) return alert(lang==='ar'?'أدخل عنوان الصفقة':'Enter deal title');
+  if(!title) return toastAlert(lang==='ar'?'أدخل عنوان الصفقة':'Enter deal title');
   const stage = document.getElementById('crmDealStage').value;
   const deals = STORAGE.get('crmDeals',[]);
   deals.push({id:'deal_' + Date.now(), clientId, title, value, stage, status: stage === 'done_deal' ? 'won' : 'open', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), by: currentUser ? currentUser.username : 'system'});
@@ -25727,7 +25736,7 @@ function crmRemoveTag(clientId, tag, reopen){
 }
 function crmAddTodo(clientId){
   const title = document.getElementById('crmTodoTitle').value.trim();
-  if(!title) return alert(lang==='ar'?'أدخل عنوان المهمة':'Enter task title');
+  if(!title) return toastAlert(lang==='ar'?'أدخل عنوان المهمة':'Enter task title');
   const due = document.getElementById('crmTodoDue').value || null;
   const clients = getCrmClients();
   const c = clients.find(x => x.id === clientId);
@@ -25756,7 +25765,7 @@ function crmDeleteTodo(clientId, idx){
 }
 function crmAddUnit(clientId){
   const name = document.getElementById('crmUnitName').value.trim();
-  if(!name) return alert(lang==='ar'?'أدخل اسم الوحدة':'Enter unit name');
+  if(!name) return toastAlert(lang==='ar'?'أدخل اسم الوحدة':'Enter unit name');
   const amount = document.getElementById('crmUnitAmount').value || '';
   const type = document.getElementById('crmUnitType').value;
   const clients = getCrmClients();
@@ -25787,7 +25796,7 @@ function crmProfileUploadAtt(clientId, event){
   const atts = c.attachments || [];
   let remaining = files.length;
   Array.from(files).forEach(f => {
-    if(f.size > 5*1024*1024){ alert(lang==='ar'?'الملف يتجاوز 5MB':'File exceeds 5MB'); remaining--; if(remaining === 0) openCrmClientDetail(clientId); return; }
+    if(f.size > 5*1024*1024){ toastAlert(lang==='ar'?'الملف يتجاوز 5MB':'File exceeds 5MB'); remaining--; if(remaining === 0) openCrmClientDetail(clientId); return; }
     const reader = new FileReader();
     reader.onload = function(ev){
       atts.push({name: f.name, size: (f.size/1024).toFixed(1)+'KB', dataUrl: ev.target.result});
@@ -25799,7 +25808,7 @@ function crmProfileUploadAtt(clientId, event){
 }
 function crmAddContact(clientId){
   const name = document.getElementById('crmContactName').value.trim();
-  if(!name) return alert(lang==='ar'?'أدخل الاسم':'Enter name');
+  if(!name) return toastAlert(lang==='ar'?'أدخل الاسم':'Enter name');
   const phone = document.getElementById('crmContactPhone').value.trim();
   const relation = document.getElementById('crmContactRelation').value.trim();
   const clients = getCrmClients();
@@ -25822,7 +25831,7 @@ function crmDeleteContact(clientId, idx){
 }
 function crmSaveNewContact(clientId){
   const name = document.getElementById('crmNcName').value.trim();
-  if(!name) return alert(lang==='ar'?'أدخل الاسم':'Enter name');
+  if(!name) return toastAlert(lang==='ar'?'أدخل الاسم':'Enter name');
   const phone = document.getElementById('crmNcPhone').value.trim();
   const relation = document.getElementById('crmNcRelation').value.trim();
   const clients = getCrmClients();
@@ -26098,7 +26107,7 @@ function bulkDeleteCrmAccounts() {
   const idxs = Array.from(checked).map(cb => parseInt(cb.dataset.idx));
   const protectedUsers = idxs.filter(i => users[i] && (users[i].username==='owner'||users[i].username==='ali.admin'));
   const toDelete = idxs.filter(i => users[i] && users[i].username!=='owner' && users[i].username!=='ali.admin');
-  if(protectedUsers.length > 0) alert(lang==='ar'?'تم تخطي حسابات محمية':'Protected accounts skipped');
+  if(protectedUsers.length > 0) toastAlert(lang==='ar'?'تم تخطي حسابات محمية':'Protected accounts skipped');
   if(toDelete.length === 0) return;
   const msg = lang==='ar'?'هل أنت متأكد من حذف '+toDelete.length+' حساب(ات) CRM؟':'Are you sure you want to delete '+toDelete.length+' CRM account(s)?';
   if(!confirm(msg)) return;
@@ -26196,9 +26205,9 @@ function openCrmAccountModal(){
 function saveCrmAccount(){
   const username = document.getElementById('crmA_user').value.trim();
   const password = document.getElementById('crmA_pass').value;
-  if(!username||!password){ alert(lang==='ar'?'أدخل اسم المستخدم وكلمة المرور':'Enter username and password'); return; }
+  if(!username||!password){ toastAlert(lang==='ar'?'أدخل اسم المستخدم وكلمة المرور':'Enter username and password'); return; }
   const users = STORAGE.get('users',defaultUsers);
-  if(users.find(u=>u.username===username)){ alert(lang==='ar'?'اسم المستخدم موجود مسبقاً':'Username already exists'); return; }
+  if(users.find(u=>u.username===username)){ toastAlert(lang==='ar'?'اسم المستخدم موجود مسبقاً':'Username already exists'); return; }
   const fullName = document.getElementById('crmA_fullName').value.trim();
   const email = document.getElementById('crmA_email').value.trim() || username+'@marts-eg.com';
   const role = document.getElementById('crmA_role').value;
@@ -26251,9 +26260,9 @@ function saveCrmAccountEdit(idx){
   const users = STORAGE.get('users',defaultUsers);
   const newUsername = document.getElementById('crmA_editUser').value.trim();
   const oldUsername = users[idx].username;
-  if(!newUsername){ alert(lang==='ar'?'اسم المستخدم مطلوب':'Username required'); return; }
+  if(!newUsername){ toastAlert(lang==='ar'?'اسم المستخدم مطلوب':'Username required'); return; }
   if(newUsername !== oldUsername && users.find(u=>u.username===newUsername)){
-    alert(lang==='ar'?'اسم المستخدم موجود مسبقاً':'Username already exists'); return;
+    toastAlert(lang==='ar'?'اسم المستخدم موجود مسبقاً':'Username already exists'); return;
   }
   users[idx].username = newUsername;
   users[idx].fullName = document.getElementById('crmA_editName').value.trim();
@@ -26532,19 +26541,19 @@ function saveIntegConfig(platformId){
 function testIntegConnection(platformId){
   const cfg = getIntegConfig(platformId);
   if(!cfg.apiKey && !cfg.accessToken){
-    alert(t('integ_connectionFailed') + ': ' + (lang==='ar'?'أدخل مفتاح API أو Token':'Enter API Key or Token'));
+    toastAlert(t('integ_connectionFailed') + ': ' + (lang==='ar'?'أدخل مفتاح API أو Token':'Enter API Key or Token'));
     return;
   }
   // Simulate connection test
   const platform = AD_PLATFORMS.find(p=>p.id===platformId);
-  alert(t('integ_connectionSuccess') + '\n' + platform.name + '\n' + (lang==='ar'?'تم اختبار الاتصال بنجاح':'Connection test successful'));
+  toastAlert(t('integ_connectionSuccess') + '\n' + platform.name + '\n' + (lang==='ar'?'تم اختبار الاتصال بنجاح':'Connection test successful'));
 }
 
 function syncIntegLeads(platformId){
   const cfg = getIntegConfig(platformId);
   const platform = AD_PLATFORMS.find(p=>p.id===platformId);
   if(!cfg || (!cfg.apiKey && !cfg.accessToken)){
-    alert(lang==='ar'?'قم بربط الحساب أولاً':'Connect the account first');
+    toastAlert(lang==='ar'?'قم بربط الحساب أولاً':'Connect the account first');
     return;
   }
 
@@ -26568,7 +26577,7 @@ function syncIntegLeads(platformId){
   });
   saveIntegrations(configs);
 
-  alert(`${platform.name}\n${t('integ_synced')}: ${logEntry.count}`);
+  toastAlert(`${platform.name}\n${t('integ_synced')}: ${logEntry.count}`);
   renderIntegCards();
 }
 
@@ -26650,7 +26659,7 @@ function addQuickLead(platformId){
   ['quickLead_name','quickLead_phone','quickLead_email','quickLead_campaign','quickLead_budget'].forEach(id=>{
     const el = document.getElementById(id); if(el) el.value='';
   });
-  alert(t('crm_saveSuccess'));
+  toastAlert(t('crm_saveSuccess'));
 }
 
 function handleIntegImport(event, platformId){
@@ -26730,11 +26739,11 @@ function handleIntegImport(event, platformId){
 
       let msg = t('integ_importSuccess') + ': ' + imported;
       if(duplicated > 0) msg += '\n' + t('integ_duplicated') + ': ' + duplicated;
-      alert(msg);
+      toastAlert(msg);
       closeModal();
       renderIntegCards();
     } catch(err) {
-      alert(t('integ_importError') + ': ' + err.message);
+      toastAlert(t('integ_importError') + ': ' + err.message);
     }
   };
   reader.readAsArrayBuffer(file);
@@ -27024,7 +27033,7 @@ function renderCoaTemplatesList() {
 function saveCoaAsCustomTemplate() {
   const lg = lang === 'ar';
   const coa = STORAGE.get('chartOfAccounts', []);
-  if (!coa.length) { alert(lg?'لا توجد حسابات لحفظها':'No accounts to save'); return; }
+  if (!coa.length) { toastAlert(lg?'لا توجد حسابات لحفظها':'No accounts to save'); return; }
   const html = `<h3><i class="fas fa-save" style="color:var(--primary)"></i> ${lg?'حفظ كقالب مخصص':'Save as Custom Template'}</h3>
   <div class="form-group"><label>${lg?'اسم القالب':'Template Name'} *</label><input type="text" id="customTemplateName" value="${lg?'قالب مخصص':'My Template'}" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px"></div>
   <div class="form-group"><label>${lg?'الوصف':'Description'}</label><input type="text" id="customTemplateDesc" value="" placeholder="${lg?'وصف مختصر...':'Short description...'}" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:6px"></div>
@@ -27040,7 +27049,7 @@ function saveCoaAsCustomTemplate() {
 function confirmSaveCoaAsCustomTemplate() {
   const lg = lang === 'ar';
   const name = document.getElementById('customTemplateName').value.trim();
-  if (!name) { alert(lg?'ادخل اسم القالب':'Enter template name'); return; }
+  if (!name) { toastAlert(lg?'ادخل اسم القالب':'Enter template name'); return; }
   const desc = document.getElementById('customTemplateDesc').value.trim();
   const coa = STORAGE.get('chartOfAccounts', []);
   const customTemplates = STORAGE.get('customCoaTemplates', []);
@@ -27084,11 +27093,11 @@ function switchCoaTemplate(templateId) {
   const custom = customTemplates.find(t => t.id === templateId);
   if (custom) {
     const currentTemplate = STORAGE.get('coaTemplate', 'real_estate_egypt');
-    if (currentTemplate === templateId) { alert(lang==='ar'?'هذا القالب نشط حالياً':'This template is already active'); return; }
+    if (currentTemplate === templateId) { toastAlert(lang==='ar'?'هذا القالب نشط حالياً':'This template is already active'); return; }
     if (!confirm((lang==='ar'?'هل تريد التبديل إلى قالب: ':'Switch to template: ') + custom.name + '?\n' + (lang==='ar'?'سيتم استبدال دليل الحسابات الحالي.':'The current COA will be replaced.'))) return;
     STORAGE.set('chartOfAccounts', JSON.parse(JSON.stringify(custom.coaData)));
     STORAGE.set('coaTemplate', templateId);
-    alert((lang==='ar'?'تم التبديل بنجاح! عدد الحسابات: ':'Switched! Accounts: ') + custom.coaData.length);
+    toastAlert((lang==='ar'?'تم التبديل بنجاح! عدد الحسابات: ':'Switched! Accounts: ') + custom.coaData.length);
     renderCoaTemplatesList();
     return;
   }
@@ -27096,14 +27105,14 @@ function switchCoaTemplate(templateId) {
   if(!template) return;
   const currentTemplate = STORAGE.get('coaTemplate', 'real_estate_egypt');
   if(currentTemplate === templateId) {
-    alert(lang==='ar'?'هذا القالب نشط حالياً':'This template is already active');
+    toastAlert(lang==='ar'?'هذا القالب نشط حالياً':'This template is already active');
     return;
   }
   if(!confirm((lang==='ar'?'هل تريد التبديل إلى قالب: ':'Switch to template: ') + template.name + '?\n' + (lang==='ar'?'سيتم استبدال دليل الحسابات الحالي.':'The current COA will be replaced.'))) return;
   const newCoa = generateCoaFromTemplate(templateId);
   STORAGE.set('chartOfAccounts', newCoa);
   STORAGE.set('coaTemplate', templateId);
-  alert((lang==='ar'?'تم التبديل بنجاح! عدد الحسابات: ':'Switched successfully! Accounts: ') + newCoa.length);
+  toastAlert((lang==='ar'?'تم التبديل بنجاح! عدد الحسابات: ':'Switched successfully! Accounts: ') + newCoa.length);
   renderCoaTemplatesList();
 }
 
@@ -27143,10 +27152,10 @@ function importCoaFromExcel(event) {
       if(!confirm((lang==='ar'?'استيراد ' : 'Import ') + imported.length + (lang==='ar'?' حساب؟ سيتم استبدال دليل الحسابات الحالي.':' accounts? Current COA will be replaced.'))) return;
       STORAGE.set('chartOfAccounts', imported);
       STORAGE.set('coaTemplate', 'custom_' + Date.now());
-      alert((lang==='ar'?'تم الاستيراد بنجاح! ':'Imported successfully! ') + imported.length + (lang==='ar'?' حساب':' accounts'));
+      toastAlert((lang==='ar'?'تم الاستيراد بنجاح! ':'Imported successfully! ') + imported.length + (lang==='ar'?' حساب':' accounts'));
       renderCoa();
     } catch(err) {
-      alert((lang==='ar'?'خطأ في الملف: ':'Error: ') + err.message);
+      toastAlert((lang==='ar'?'خطأ في الملف: ':'Error: ') + err.message);
     }
   };
   reader.readAsArrayBuffer(file);
@@ -27168,7 +27177,7 @@ function resetCoaToDefault() {
   if(!confirm(lang==='ar'?'هل تريد إعادة ضبط دليل الحسابات للإعداد الافتراضي؟':'Reset COA to default?')) return;
   STORAGE.set('chartOfAccounts', JSON.parse(JSON.stringify(DEFAULT_COA)));
   STORAGE.set('coaTemplate', 'real_estate_egypt');
-  alert(lang==='ar'?'تمت إعادة الضبط بنجاح':'Reset successfully');
+  toastAlert(lang==='ar'?'تمت إعادة الضبط بنجاح':'Reset successfully');
   renderCoaTemplatesList();
 }
 
@@ -27234,7 +27243,7 @@ function openCompanyModal(companyId) {
 
 function saveCompany(companyId) {
   const name = document.getElementById('cp_name').value.trim();
-  if(!name) return alert(lang==='ar'?'أدخل اسم الشركة':'Enter company name');
+  if(!name) return toastAlert(lang==='ar'?'أدخل اسم الشركة':'Enter company name');
   const profiles = getCompanyProfiles();
   const data = {
     name: name,
@@ -27276,7 +27285,7 @@ function switchCompany(companyId) {
   const company = profiles.find(c => c.id === companyId);
   if(!company) return;
   if(getActiveCompanyId() === companyId) {
-    alert(lang==='ar'?'هذه الشركة نشطة حالياً':'This company is already active');
+    toastAlert(lang==='ar'?'هذه الشركة نشطة حالياً':'This company is already active');
     return;
   }
   if(!confirm((lang==='ar'?'هل تريد التبديل إلى: ':'Switch to: ') + company.name + '?\n' + (lang==='ar'?'سيتم حفظ بيانات الشركة الحالية والتبديل.':'Current data will be saved and switched.'))) return;
@@ -27284,7 +27293,7 @@ function switchCompany(companyId) {
   saveCurrentCompanyData(currentId);
   STORAGE.set('activeCompanyId', companyId);
   loadCompanyData(companyId);
-  alert((lang==='ar'?'تم التبديل إلى: ':'Switched to: ') + company.name);
+  toastAlert((lang==='ar'?'تم التبديل إلى: ':'Switched to: ') + company.name);
   location.reload();
 }
 
@@ -27307,7 +27316,7 @@ function loadCompanyData(companyId) {
 }
 
 function deleteCompany(companyId) {
-  if(companyId === 'default') return alert(lang==='ar'?'لا يمكن حذف الشركة الافتراضية':'Cannot delete default company');
+  if(companyId === 'default') return toastAlert(lang==='ar'?'لا يمكن حذف الشركة الافتراضية':'Cannot delete default company');
   if(!confirm(lang==='ar'?'هل أنت متأكد من حذف هذه الشركة وجميع بياناتها؟':'Delete this company and all its data?')) return;
   const profiles = getCompanyProfiles().filter(c => c.id !== companyId);
   STORAGE.set('companyProfiles', profiles);
@@ -27764,7 +27773,7 @@ function submitGovCOI() {
   const cu = currentUser;
   if(!cu) return;
   const chk = document.getElementById('govCOISignature');
-  if(!chk || !chk.checked) { alert(lang==='ar'?'يرجى التوقيع على الإقرار':'Please sign the declaration'); return; }
+  if(!chk || !chk.checked) { toastAlert(lang==='ar'?'يرجى التوقيع على الإقرار':'Please sign the declaration'); return; }
   const fiscalYear = document.getElementById('govCOIFiscalYear').value;
   const entityEls = document.querySelectorAll('.gov-coi-entity');
   const relationEls = document.querySelectorAll('.gov-coi-relation');
@@ -27778,7 +27787,7 @@ function submitGovCOI() {
   STORAGE.set('governance_coi', coi);
   ActivityLog.log('governance_coi', 'governance', { userId:cu.username, fiscalYear });
   closeGovModal('govCOIModal');
-  alert(t('gov_coi_signedSuccess'));
+  toastAlert(t('gov_coi_signedSuccess'));
   if(_govTab === 1) switchGovTab(1);
 }
 
@@ -27804,15 +27813,15 @@ function openGovComplaintModal() {
 function submitGovComplaint() {
   const subject = document.getElementById('govComplaintSubject').value.trim();
   const desc = document.getElementById('govComplaintDesc').value.trim();
-  if(!subject) { alert(lang==='ar'?'يرجى إدخال الموضوع':'Please enter a subject'); return; }
-  if(!desc) { alert(lang==='ar'?'يرجى إدخال الوصف':'Please enter a description'); return; }
+  if(!subject) { toastAlert(lang==='ar'?'يرجى إدخال الموضوع':'Please enter a subject'); return; }
+  if(!desc) { toastAlert(lang==='ar'?'يرجى إدخال الوصف':'Please enter a description'); return; }
   const anonymous = document.getElementById('govComplaintAnonymous').checked;
   const complaints = getGovComplaints();
   complaints.push({id:'comp_'+Date.now(), date:new Date().toISOString(), anonymous, reporterId:anonymous?'':currentUser.username, subject, description:desc, status:'new', response:'', closedBy:'', closedAt:''});
   STORAGE.set('governance_complaints', complaints);
   ActivityLog.log('governance_complaint', 'governance', { subject, anonymous });
   closeGovModal('govComplaintModal');
-  alert(t('gov_complaint_submitted'));
+  toastAlert(t('gov_complaint_submitted'));
   if(_govTab === 2) switchGovTab(2);
 }
 
@@ -27889,7 +27898,7 @@ function acknowledgePolicy(policyId, policyName) {
   acks.push({id:'ack_'+Date.now(), userId:currentUser.username, policyId, policyName, acknowledgedAt:new Date().toISOString()});
   STORAGE.set('governance_policyAcks', acks);
   ActivityLog.log('governance_policy_ack', 'governance', { policyId, policyName });
-  alert(t('gov_policy_acknowledgeSuccess'));
+  toastAlert(t('gov_policy_acknowledgeSuccess'));
   if(_govTab === 4) switchGovTab(4);
 }
 
@@ -27904,7 +27913,7 @@ function acknowledgeAllPolicies() {
   });
   STORAGE.set('governance_policyAcks', acks);
   ActivityLog.log('governance_policy_ack_all', 'governance', { count: policies.length });
-  alert(t('gov_policy_acknowledgeSuccess'));
+  toastAlert(t('gov_policy_acknowledgeSuccess'));
   if(_govTab === 4) switchGovTab(4);
 }
 
@@ -27980,7 +27989,7 @@ function toggleGovModule(module, enabled) {
 
 function saveGovSettings() {
   ActivityLog.log('governance_settings_save', 'governance', {});
-  alert(t('gov_settings_saved'));
+  toastAlert(t('gov_settings_saved'));
 }
 
 function closeGovModal(id) {
@@ -28019,11 +28028,11 @@ function exportGovernanceReport() {
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Governance_Report_${Date.now()}.json`; a.click();
   }
   ActivityLog.log('governance_export', 'governance', {});
-  alert(t('gov_exportSuccess'));
+  toastAlert(t('gov_exportSuccess'));
 }
 
 function exportGovComplaints() {
-  if(typeof XLSX === 'undefined') { alert('XLSX not available'); return; }
+  if(typeof XLSX === 'undefined') { toastAlert('XLSX not available'); return; }
   const complaints = getGovComplaints();
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(complaints), 'Complaints');
@@ -28095,7 +28104,7 @@ function saveMyAccountPage() {
         if(av) av.innerHTML = '<img src="'+resized+'" alt="avatar" loading="lazy">';
         const un = document.getElementById('userName');
         if(un) un.textContent = users[idx].fullName || users[idx].username;
-        alert(t('settings_accountSaved'));
+        toastAlert(t('settings_accountSaved'));
       });
     };
     reader.readAsDataURL(fileInput.files[0]);
@@ -28106,7 +28115,7 @@ function saveMyAccountPage() {
     STORAGE.set('currentUser',currentUser);
     const un = document.getElementById('userName');
     if(un) un.textContent = users[idx].fullName || users[idx].username;
-    alert(t('settings_accountSaved'));
+    toastAlert(t('settings_accountSaved'));
   }
 }
 
@@ -28114,7 +28123,7 @@ function saveMyPassPage() {
   const np = document.getElementById('myPageNewPass').value;
   const cp = document.getElementById('myPageConfirmPass').value;
   if(!np || np.length<4) return;
-  if(np!==cp) { alert(t('settings_passMismatch')); return; }
+  if(np!==cp) { toastAlert(t('settings_passMismatch')); return; }
   const users = STORAGE.get('users',defaultUsers);
   const idx = users.findIndex(u=>u.username===currentUser.username);
   if(idx===-1) return;
@@ -28124,7 +28133,7 @@ function saveMyPassPage() {
   STORAGE.set('currentUser',currentUser);
   document.getElementById('myPageNewPass').value = '';
   document.getElementById('myPageConfirmPass').value = '';
-  alert(t('settings_accountSaved'));
+  toastAlert(t('settings_accountSaved'));
 }
 
 // ============================================================
@@ -28721,13 +28730,13 @@ function addCrmLeadField(){
   const name=document.getElementById('csNewFieldName')?.value?.trim();
   const type=document.getElementById('csNewFieldType')?.value||'text';
   const required=document.getElementById('csNewFieldReq')?.checked||false;
-  if(!name){alert(lang==='ar'?'أدخل اسم الحقل':'Enter field name');return;}
+  if(!name){toastAlert(lang==='ar'?'أدخل اسم الحقل':'Enter field name');return;}
   const fields=STORAGE.get('crmLeadFields',[]);fields.push({id:'field_'+Date.now(),name,type,required,order:fields.length});STORAGE.set('crmLeadFields',fields);refreshCrmSettingsView();
 }
 function addCrmLocation(){
   const name=document.getElementById('csNewLocName')?.value?.trim();
   const address=document.getElementById('csNewLocAddr')?.value?.trim();
-  if(!name){alert(lang==='ar'?'أدخل اسم الموقع':'Enter location name');return;}
+  if(!name){toastAlert(lang==='ar'?'أدخل اسم الموقع':'Enter location name');return;}
   const locs=STORAGE.get('crmLocations',[]);locs.push({id:'loc_'+Date.now(),name,address:address||'',active:true});STORAGE.set('crmLocations',locs);refreshCrmSettingsView();
 }
 function toggleCrmStage(stage){
@@ -28739,16 +28748,16 @@ function toggleCrmSource(source){
 function addCrmCustomStage(){
   const key=document.getElementById('csNewStageKey')?.value?.trim().toLowerCase().replace(/\s+/g,'_');
   const label=document.getElementById('csNewStageLabel')?.value?.trim();
-  if(!key||!label){alert(lang==='ar'?'أدخل المفتاح والاسم':'Enter key and label');return;}
-  if(CRM_STAGES.includes(key)||(STORAGE.get('crmCustomStages',[])).includes(key)){alert(lang==='ar'?'موجود بالفعل':'Already exists');return;}
+  if(!key||!label){toastAlert(lang==='ar'?'أدخل المفتاح والاسم':'Enter key and label');return;}
+  if(CRM_STAGES.includes(key)||(STORAGE.get('crmCustomStages',[])).includes(key)){toastAlert(lang==='ar'?'موجود بالفعل':'Already exists');return;}
   const c=STORAGE.get('crmCustomStages',[]);c.push(key);STORAGE.set('crmCustomStages',c);
   const l=STORAGE.get('crmCustomStageLabels',{});l[key]=label;STORAGE.set('crmCustomStageLabels',l);refreshCrmSettingsView();
 }
 function addCrmCustomSource(){
   const key=document.getElementById('csNewSourceKey')?.value?.trim().toLowerCase().replace(/\s+/g,'_');
   const label=document.getElementById('csNewSourceLabel')?.value?.trim();
-  if(!key||!label){alert(lang==='ar'?'أدخل المفتاح والاسم':'Enter key and label');return;}
-  if(CRM_SOURCES.includes(key)||(STORAGE.get('crmCustomSources',[])).includes(key)){alert(lang==='ar'?'موجود بالفعل':'Already exists');return;}
+  if(!key||!label){toastAlert(lang==='ar'?'أدخل المفتاح والاسم':'Enter key and label');return;}
+  if(CRM_SOURCES.includes(key)||(STORAGE.get('crmCustomSources',[])).includes(key)){toastAlert(lang==='ar'?'موجود بالفعل':'Already exists');return;}
   const c=STORAGE.get('crmCustomSources',[]);c.push(key);STORAGE.set('crmCustomSources',c);
   const l=STORAGE.get('crmCustomSourceLabels',{});l[key]=label;STORAGE.set('crmCustomSourceLabels',l);refreshCrmSettingsView();
 }
@@ -28822,26 +28831,26 @@ function addCrmAssignmentRule(){
   const name=document.getElementById('csRuleName')?.value?.trim();
   const condition=document.getElementById('csRuleCond')?.value;
   const assignTo=document.getElementById('csRuleAssign')?.value;
-  if(!name||!condition||!assignTo){alert(lang==='ar'?'أكمل جميع الحقول':'Fill all fields');return;}
+  if(!name||!condition||!assignTo){toastAlert(lang==='ar'?'أكمل جميع الحقول':'Fill all fields');return;}
   const rules=STORAGE.get('crmAssignmentRules',[]);rules.push({name,condition,assignTo});STORAGE.set('crmAssignmentRules',rules);refreshCrmSettingsView();
 }
 function addCrmDynList(){
   const name=document.getElementById('csDynName')?.value?.trim();
   const type=document.getElementById('csDynType')?.value;
-  if(!name||!type){alert(lang==='ar'?'أكمل جميع الحقول':'Fill all fields');return;}
+  if(!name||!type){toastAlert(lang==='ar'?'أكمل جميع الحقول':'Fill all fields');return;}
   const lists=STORAGE.get('crmDynamicLists',[]);lists.push({name,type,value:''});STORAGE.set('crmDynamicLists',lists);refreshCrmSettingsView();
 }
 function addCrmRouting(storageKey,inputIds,fieldNames){
   const obj={};let valid=true;
   inputIds.forEach((id,i)=>{const v=document.getElementById(id)?.value?.trim()||'';obj[fieldNames[i]]=v;if(i===0&&!v)valid=false;});
-  if(!valid){alert(lang==='ar'?'أدخل الاسم':'Enter name');return;}
+  if(!valid){toastAlert(lang==='ar'?'أدخل الاسم':'Enter name');return;}
   const list=STORAGE.get(storageKey,[]);list.push(obj);STORAGE.set(storageKey,list);refreshCrmSettingsView();
 }
 function addCrmAutoRule(){
   const name=document.getElementById('csAutoName')?.value?.trim();
   const trigger=document.getElementById('csAutoTrigger')?.value;
   const action=document.getElementById('csAutoAction')?.value;
-  if(!name||!trigger||!action){alert(lang==='ar'?'أكمل جميع الحقول':'Fill all fields');return;}
+  if(!name||!trigger||!action){toastAlert(lang==='ar'?'أكمل جميع الحقول':'Fill all fields');return;}
   const rules=STORAGE.get('crmAutomationRules',[]);rules.push({name,trigger,action,active:true});STORAGE.set('crmAutomationRules',rules);refreshCrmSettingsView();
 }
 function crmToggleItem(key,idx,field){
@@ -28887,7 +28896,7 @@ function renderCrmSetPermTab(el){
 function addCrmGroup(){
   const name=document.getElementById('csNewGroupName')?.value?.trim();
   const desc=document.getElementById('csNewGroupDesc')?.value?.trim();
-  if(!name){alert(lang==='ar'?'أدخل اسم المجموعة':'Enter group name');return;}
+  if(!name){toastAlert(lang==='ar'?'أدخل اسم المجموعة':'Enter group name');return;}
   const groups=STORAGE.get('crmGroups',[]);groups.push({name,description:desc||'',members:[],active:true});STORAGE.set('crmGroups',groups);refreshCrmSettingsView();
 }
 function addGroupMember(groupIdx){
@@ -28951,20 +28960,20 @@ function renderCrmSetSystemTab(el){
 function crmObjListAdd2(key,inputIds,fieldNames){
   const obj={};let valid=true;
   inputIds.forEach((id,i)=>{const v=document.getElementById(id)?.value?.trim()||'';obj[fieldNames[i]]=v;if(i===0&&!v)valid=false;});
-  if(!valid){alert(lang==='ar'?'أدخل الاسم':'Enter name');return;}
+  if(!valid){toastAlert(lang==='ar'?'أدخل الاسم':'Enter name');return;}
   const list=STORAGE.get(key,[]);list.push(obj);STORAGE.set(key,list);refreshCrmSettingsView();
 }
 function addCrmAboutSection(){
   const title=document.getElementById('csNewAboutTitle')?.value?.trim();
   const type=document.getElementById('csNewAboutType')?.value;
-  if(!title){alert(lang==='ar'?'أدخل العنوان':'Enter title');return;}
+  if(!title){toastAlert(lang==='ar'?'أدخل العنوان':'Enter title');return;}
   const list=STORAGE.get('crmAboutSections',[]);list.push({title,type:type||'about',content:''});STORAGE.set('crmAboutSections',list);refreshCrmSettingsView();
 }
 function addCrmResourceType(){
   const name=document.getElementById('csNewResName')?.value?.trim();
   const nameAr=document.getElementById('csNewResNameAr')?.value?.trim();
   const icon=document.getElementById('csNewResIcon')?.value?.trim()||'cube';
-  if(!name){alert(lang==='ar'?'أدخل الاسم':'Enter name');return;}
+  if(!name){toastAlert(lang==='ar'?'أدخل الاسم':'Enter name');return;}
   const list=STORAGE.get('crmResourceTypes',[]);list.push({id:'res_'+Date.now(),name,nameAr:nameAr||name,icon,active:true});STORAGE.set('crmResourceTypes',list);refreshCrmSettingsView();
 }
 
@@ -29017,13 +29026,13 @@ function addCrmType(storageKey,nameId,nameArId,colorId,defaultIcon){
   const name=document.getElementById(nameId)?.value?.trim();
   const nameAr=document.getElementById(nameArId)?.value?.trim();
   const color=document.getElementById(colorId)?.value||'#6366F1';
-  if(!name){alert(lang==='ar'?'أدخل الاسم':'Enter name');return;}
+  if(!name){toastAlert(lang==='ar'?'أدخل الاسم':'Enter name');return;}
   const list=STORAGE.get(storageKey,[]);list.push({id:name.toLowerCase().replace(/\s+/g,'_')+'_'+Date.now(),name,nameAr:nameAr||name,color,icon:defaultIcon,active:true});
   STORAGE.set(storageKey,list);refreshCrmSettingsView();
 }
 function addCrmPipeline(){
   const name=document.getElementById('csNewPipeName')?.value?.trim();
-  if(!name){alert(lang==='ar'?'أدخل اسم الخط':'Enter pipeline name');return;}
+  if(!name){toastAlert(lang==='ar'?'أدخل اسم الخط':'Enter pipeline name');return;}
   const list=STORAGE.get('crmPipelines',[]);list.push({id:'pipe_'+Date.now(),name,stages:['new','contacted','qualified','proposal','won','lost'],active:true});
   STORAGE.set('crmPipelines',list);refreshCrmSettingsView();
 }
@@ -29116,8 +29125,8 @@ function importCrmSettings(e){
     try{
       const data=JSON.parse(ev.target.result);
       Object.keys(data).forEach(k=>{if(k!=='exportedAt'&&data[k]!==undefined)STORAGE.set(k,data[k]);});
-      alert(lang==='ar'?'تم الاستيراد بنجاح':'Import successful');refreshCrmSettingsView();
-    }catch(err){alert(lang==='ar'?'خطأ في الملف':'Invalid file: '+err.message);}
+      toastAlert(lang==='ar'?'تم الاستيراد بنجاح':'Import successful');refreshCrmSettingsView();
+    }catch(err){toastAlert(lang==='ar'?'خطأ في الملف':'Invalid file: '+err.message);}
   };
   reader.readAsText(file);e.target.value='';
 }
@@ -29125,7 +29134,7 @@ function resetCrmSettings(){
   if(!confirm(lang==='ar'?'هل أنت متأكد من إعادة تعيين جميع إعدادات CRM؟':'Reset all CRM settings to defaults?'))return;
   ['crmConfig','crmInterests','crmTags','crmAssignmentRules','crmDynamicLists','crmCustomStages','crmCustomSources','crmClientCategories','crmCustomStageLabels','crmCustomSourceLabels','crmLeadFields','crmLocations','crmFblgiRoutings','crmWebFormRoutings','crmAutomationRules','crmGroups','crmDocs','crmCompanies','crmAboutSections','crmResourceTypes','crmGalleries','crmTaskTypes','crmEventTypes','crmActivityTypes','crmPipelines'].forEach(k=>STORAGE.set(k,null));
   initCrmSettingsDefaults();
-  alert(lang==='ar'?'تمت إعادة التعيين':'Defaults restored');refreshCrmSettingsView();
+  toastAlert(lang==='ar'?'تمت إعادة التعيين':'Defaults restored');refreshCrmSettingsView();
 }
 
 // ============================================================
@@ -29741,7 +29750,7 @@ function bulkDeleteUsers() {
   const idxs = Array.from(checked).map(cb => parseInt(cb.dataset.idx));
   const ownerProtected = idxs.filter(i => users[i] && users[i].username === 'owner');
   const toDelete = idxs.filter(i => users[i] && users[i].username !== 'owner');
-  if(ownerProtected.length > 0) alert(lang==='ar'?'لا يمكن حذف المالك':'Cannot delete owner');
+  if(ownerProtected.length > 0) toastAlert(lang==='ar'?'لا يمكن حذف المالك':'Cannot delete owner');
   if(toDelete.length === 0) return;
   const msg = lang==='ar'?'هل أنت متأكد من حذف '+toDelete.length+' مستخدم(ين)؟':'Are you sure you want to delete '+toDelete.length+' user(s)?';
   if(!confirm(msg)) return;
@@ -29855,7 +29864,7 @@ function savePermissions(userIdx) {
     STORAGE.set('currentUser',currentUser);
   }
   closeModal();
-  alert(t('settings_permissionsSaved'));
+  toastAlert(t('settings_permissionsSaved'));
   renderSettings(document.getElementById('mainContent'));
 }
 
@@ -29908,7 +29917,7 @@ function saveRolePerms(roleId) {
   STORAGE.set('rolePerms', templates);
   ActivityLog.log('update', 'role_perms', { role: roleId, count: perms.length });
   closeModal();
-  alert(t('settings_rolePermsSaved'));
+  toastAlert(t('settings_rolePermsSaved'));
   openRolePermsManager();
 }
 
@@ -30014,7 +30023,7 @@ function saveChangeMyPass() {
   const np = document.getElementById('newPass').value;
   const cp = document.getElementById('confirmPass').value;
   if(!np||np.length<4) return;
-  if(np!==cp) { alert(t('settings_passMismatch')); return; }
+  if(np!==cp) { toastAlert(t('settings_passMismatch')); return; }
   const users = STORAGE.get('users',defaultUsers);
   const idx = users.findIndex(u=>u.username===currentUser.username);
   if(idx===-1) return;
@@ -30022,7 +30031,7 @@ function saveChangeMyPass() {
   STORAGE.set('users',users);
   currentUser.password = np;
   STORAGE.set('currentUser',currentUser);
-  closeModal(); alert(t('settings_accountSaved'));
+  closeModal(); toastAlert(t('settings_accountSaved'));
 }
 
 function openEditUser(idx) {
@@ -30104,11 +30113,11 @@ function openUserModal() {
 function saveUser() {
   const username = document.getElementById('u_user').value.trim();
   const password = document.getElementById('u_pass').value;
-  if(!username||!password){ alert(lang==='ar'?'أدخل اسم المستخدم وكلمة المرور':'Enter username and password'); return; }
-  if(password.length < 6){ alert(lang==='ar'?'كلمة المرور يجب أن تكون 6 أحرف على الأقل':'Password must be at least 6 characters'); return; }
+  if(!username||!password){ toastAlert(lang==='ar'?'أدخل اسم المستخدم وكلمة المرور':'Enter username and password'); return; }
+  if(password.length < 6){ toastAlert(lang==='ar'?'كلمة المرور يجب أن تكون 6 أحرف على الأقل':'Password must be at least 6 characters'); return; }
   ActivityLog.log('create', 'user', { username });
   const users = STORAGE.get('users',defaultUsers);
-  if(users.find(u=>u.username===username)){ alert(lang==='ar'?'اسم المستخدم موجود مسبقاً':'Username already exists'); return; }
+  if(users.find(u=>u.username===username)){ toastAlert(lang==='ar'?'اسم المستخدم موجود مسبقاً':'Username already exists'); return; }
   const role = document.getElementById('u_role').value;
   const email = document.getElementById('u_email').value.trim() || username+'@marts-eg.com';
   const defaultPerms = getRoleDefaultPerms(role);
@@ -30119,7 +30128,7 @@ function saveUser() {
 function deleteUser(idx) {
   if(!confirm(t('confirm_delete'))) return;
   let users = STORAGE.get('users',defaultUsers);
-  if(users[idx]&&users[idx].username==='owner') { alert(t('settings_cannotDeleteOwner')); return; }
+  if(users[idx]&&users[idx].username==='owner') { toastAlert(t('settings_cannotDeleteOwner')); return; }
   ActivityLog.log('delete', 'user', { username: users[idx] ? users[idx].username : 'unknown' });
   users.splice(idx,1); STORAGE.set('users',users);
   renderSettings(document.getElementById('mainContent'));
@@ -30168,22 +30177,22 @@ function backupAllToCloud(force) {
 }
 
 function restoreFromBackup(backupId) {
-  if (!_fbReady || !_fbDb) { alert(lang==='ar'?'Firebase غير جاهز':'Firebase not ready'); return; }
+  if (!_fbReady || !_fbDb) { toastAlert(lang==='ar'?'Firebase غير جاهز':'Firebase not ready'); return; }
   if (!confirm(lang==='ar'?'هل تريد استعادة هذه النسخة الاحتياطية؟所有数据 will be overwritten. Restore this backup?':'Restore this backup? All current data will be overwritten.')) return;
   _fbDb.doc('app_data_backup/' + backupId).get().then(doc => {
-    if (!doc.exists) { alert(lang==='ar'?'النسخة الاحتياطية غير موجودة':'Backup not found'); return; }
+    if (!doc.exists) { toastAlert(lang==='ar'?'النسخة الاحتياطية غير موجودة':'Backup not found'); return; }
     const data = doc.data();
     delete data._backupTimestamp; delete data._backupDate; delete data._backupUser;
     Object.keys(data).forEach(k => { if(k !== '_backupTimestamp') STORAGE.set(k, data[k]); });
-    alert(lang==='ar'?'تمت الاستعادة بنجاح � أعد تحميل الصفحة':'Restored successfully � reload the page');
+    toastAlert(lang==='ar'?'تمت الاستعادة بنجاح � أعد تحميل الصفحة':'Restored successfully � reload the page');
     location.reload();
-  }).catch(e => { alert('Restore failed: ' + e.message); });
+  }).catch(e => { toastAlert('Restore failed: ' + e.message); });
 }
 
 function listBackups() {
-  if (!_fbReady || !_fbDb) { alert(lang==='ar'?'Firebase غير جاهز':'Firebase not ready'); return; }
+  if (!_fbReady || !_fbDb) { toastAlert(lang==='ar'?'Firebase غير جاهز':'Firebase not ready'); return; }
   _fbDb.collection('app_data_backup').orderBy('_backupTimestamp','desc').limit(10).get().then(snap => {
-    if (snap.empty) { alert(lang==='ar'?'لا توجد نسخ احتياطية':'No backups found'); return; }
+    if (snap.empty) { toastAlert(lang==='ar'?'لا توجد نسخ احتياطية':'No backups found'); return; }
     let html = '<div style="max-height:400px;overflow-y:auto">';
     html += '<h3 style="margin-bottom:12px">' + (lang==='ar'?'النسخ الاحتياطية':'Backups') + '</h3>';
     snap.forEach(doc => {
@@ -30198,7 +30207,7 @@ function listBackups() {
     });
     html += '</div>';
     openModal(html, '500px');
-  }).catch(e => alert('Failed to list backups: ' + e.message));
+  }).catch(e => toastAlert('Failed to list backups: ' + e.message));
 }
 
 function importData(event) {
@@ -30210,7 +30219,7 @@ function importData(event) {
       const data = JSON.parse(e.target.result);
       Object.keys(data).forEach(k=>{ if(data[k]!==undefined&&data[k]!==null) STORAGE.set(k,data[k]); });
       renderPage(currentPage);
-    } catch(err) { alert('Import failed'); }
+    } catch(err) { toastAlert('Import failed'); }
   };
   reader.readAsText(file); event.target.value='';
 }
@@ -30218,13 +30227,13 @@ function importData(event) {
 function clearAllData() {
   // SAFETY v3.0.1: owner-only + typed confirmation required
   if (!currentUser || (currentUser.role !== 'owner' && !(currentUser.permissions && currentUser.permissions.clearAllData))) {
-    alert(t('permission_denied') || 'Only the owner can clear all data.');
+    toastAlert(t('permission_denied') || 'Only the owner can clear all data.');
     ActivityLog.log('danger', 'clear_all_data_denied', { user: currentUser ? currentUser.username : 'unknown', reason: 'not-owner' });
     return;
   }
   if(!confirm(t('confirm_delete'))) return;
   const typed = prompt('TYPE DELETE to confirm permanent data wipe:');
-  if (typed !== 'DELETE') { alert('Cancelled - data was NOT deleted.'); return; }
+  if (typed !== 'DELETE') { toastAlert('Cancelled - data was NOT deleted.'); return; }
   try { backupAllToCloud(true); } catch(e) { console.warn('[Backup] Pre-clear backup failed:', e); }
   exportAllData();
   ActivityLog.log('danger', 'clear_all_data', { user: currentUser ? currentUser.username : 'unknown' });
@@ -30323,7 +30332,7 @@ function showCloudApproval() {
 function cloudApproveSelected() {
   const checks = document.querySelectorAll('.cloud-approval-check:checked');
   const ids = Array.from(checks).map(c => c.value);
-  if (!ids.length) { alert(lang==='ar'?'اختر عنصراً واحداً على الأقل':'Select at least one item'); return; }
+  if (!ids.length) { toastAlert(lang==='ar'?'اختر عنصراً واحداً على الأقل':'Select at least one item'); return; }
   FirebaseSync.approveSelected(ids).then(() => {
     const remaining = FirebaseSync.getApprovalQueue();
     if (remaining.length === 0) closeModal(); else showCloudApproval();
@@ -31726,7 +31735,7 @@ try {
     var confirmed = isOwner && prompt('TYPE RESET to confirm local data reset (cloud data is preserved):') === 'RESET';
     if(!confirmed){
       window.history.replaceState({}, document.title, window.location.pathname);
-      alert('Reset blocked by safety guard. Only an owner can reset, and must type RESET to confirm.');
+      toastAlert('Reset blocked by safety guard. Only an owner can reset, and must type RESET to confirm.');
       return;
     }
     var protectedKeys = ['lang','darkMode','user','currentPage'];
@@ -31736,7 +31745,7 @@ try {
     delete mem['activityLog'];
     delete mem['systemLog'];
     window.history.replaceState({}, document.title, window.location.pathname);
-    alert('Local data reset done (cloud untouched).');
+    toastAlert('Local data reset done (cloud untouched).');
     location.reload();
   }
 })();
@@ -32072,7 +32081,7 @@ function toggleAiVoice() {
   }
   const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
   if(!SpeechRecognition) {
-    alert(lang==='ar'?'متصفحك لا يدعم التعرف على الصوت. استخدم Chrome أو Edge.':'Your browser does not support speech recognition. Use Chrome or Edge.');
+    toastAlert(lang==='ar'?'متصفحك لا يدعم التعرف على الصوت. استخدم Chrome أو Edge.':'Your browser does not support speech recognition. Use Chrome or Edge.');
     return;
   }
   aiVoiceRecognition = new SpeechRecognition();
@@ -32104,7 +32113,7 @@ function toggleAiVoice() {
     console.error('Voice error:', event.error);
     stopAiVoice();
     if(event.error === 'not-allowed') {
-      alert(lang==='ar'?'يرجى السماح بالوصول إلى الميكروفون.':'Please allow microphone access.');
+      toastAlert(lang==='ar'?'يرجى السماح بالوصول إلى الميكروفون.':'Please allow microphone access.');
     }
   };
 
@@ -34141,17 +34150,17 @@ function saveAiSettingsForm() {
     apiKey = document.getElementById('aiSetGlm5Key').value.trim();
     model = document.getElementById('aiSetGlm5Model').value;
     url = 'https://open.bigmodel.cn/api/paas/v4';
-    if(!apiKey) { alert(lang==='ar'?'أدخل مفتاح API':'Enter API key'); return; }
+    if(!apiKey) { toastAlert(lang==='ar'?'أدخل مفتاح API':'Enter API key'); return; }
   } else if(provider === 'gemini') {
     apiKey = document.getElementById('aiSetGeminiKey').value.trim();
     model = document.getElementById('aiSetGeminiModel').value;
     url = 'https://generativelanguage.googleapis.com/v1beta';
-    if(!apiKey) { alert(lang==='ar'?'أدخل مفتاح API':'Enter API key'); return; }
+    if(!apiKey) { toastAlert(lang==='ar'?'أدخل مفتاح API':'Enter API key'); return; }
   } else if(provider === 'deepseek') {
     url = document.getElementById('aiSetUrl').value.trim();
     model = document.getElementById('aiSetModel').value;
     apiKey = document.getElementById('aiSetApiKey').value.trim();
-    if(!apiKey) { alert(lang==='ar'?'أدخل مفتاح API':'Enter API key'); return; }
+    if(!apiKey) { toastAlert(lang==='ar'?'أدخل مفتاح API':'Enter API key'); return; }
   } else {
     url = document.getElementById('aiSetOllamaUrl').value.trim();
     model = document.getElementById('aiSetOllamaModel').value.trim();
@@ -34159,7 +34168,7 @@ function saveAiSettingsForm() {
   if(provider === 'glm5' && !url) url = 'https://open.bigmodel.cn/api/paas/v4';
   if(provider === 'gemini' && !url) url = 'https://generativelanguage.googleapis.com/v1beta';
   if(provider === 'deepseek' && !url) url = 'https://api.deepseek.com';
-  if(!model) { alert(lang==='ar'?'أكمل جميع الحقول':'Fill all fields'); return; }
+  if(!model) { toastAlert(lang==='ar'?'أكمل جميع الحقول':'Fill all fields'); return; }
   saveAiSettings({provider, url, model, apiKey, assistantName, enabled:true});
   closeModal();
 }
@@ -34399,7 +34408,7 @@ window.addEventListener('beforeinstallprompt', e => {
 
 function installApp() {
   if (!_deferredPrompt) {
-    alert(lang==='ar'?'افتح الموقع من المتصفح على الموبايل واضغط "إضافة إلى الشاشة الرئيسية"':'Open in mobile browser and tap "Add to Home Screen"');
+    toastAlert(lang==='ar'?'افتح الموقع من المتصفح على الموبايل واضغط "إضافة إلى الشاشة الرئيسية"':'Open in mobile browser and tap "Add to Home Screen"');
     return;
   }
   _deferredPrompt.prompt();

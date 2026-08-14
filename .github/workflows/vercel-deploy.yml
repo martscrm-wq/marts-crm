@@ -1,0 +1,126 @@
+name: Deploy to Vercel (auto)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'Marts_System_Merged.html'
+      - 'public/Marts_System_Merged.html'
+      - 'namecheap_deploy/Marts_System_Merged.html'
+      - 'public/version.json'
+      - 'namecheap_deploy/version.json'
+      - '.github/workflows/vercel-deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: vercel-deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install test dependencies
+        run: npm ci
+
+      - name: Run Jest tests
+        run: npx jest --ci
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jest-results
+          path: test-results/
+          retention-days: 7
+
+  deploy:
+    name: Deploy to Vercel (both sites)
+    needs: test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Verify files match (hash parity check)
+        run: |
+          H1=$(sha256sum Marts_System_Merged.html | awk '{print $1}')
+          H2=$(sha256sum public/Marts_System_Merged.html | awk '{print $1}')
+          H3=$(sha256sum namecheap_deploy/Marts_System_Merged.html | awk '{print $1}')
+          echo "root: $H1"
+          echo "public: $H2"
+          echo "namecheap_deploy: $H3"
+          if [ "$H1" != "$H2" ] || [ "$H1" != "$H3" ]; then
+            echo "::error::The 3 copies are out of sync - deploy aborted"
+            exit 1
+          fi
+          echo "All 3 copies identical"
+
+      - name: Deploy marts-crm.vercel.app
+        working-directory: public
+        run: vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --yes --no-clipboard
+
+      - name: Deploy namecheapdeploy.vercel.app
+        working-directory: namecheap_deploy
+        run: vercel --token ${{ secrets.VERCEL_TOKEN }} --prod --yes --no-clipboard
+
+      - name: Health check marts-crm
+        run: |
+          sleep 10
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://marts-crm.vercel.app/Marts_System_Merged.html")
+            if [ "$STATUS" = "200" ]; then
+              echo "marts-crm: HEALTHY (HTTP $STATUS)"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $STATUS, waiting 10s..."
+            sleep 10
+          done
+          echo "::error::marts-crm health check failed"
+          exit 1
+
+      - name: Health check namecheapdeploy
+        run: |
+          sleep 5
+          for i in $(seq 1 12); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "https://namecheapdeploy.vercel.app/Marts_System_Merged.html")
+            if [ "$STATUS" = "200" ]; then
+              echo "namecheapdeploy: HEALTHY (HTTP $STATUS)"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $STATUS, waiting 10s..."
+            sleep 10
+          done
+          echo "::error::namecheapdeploy health check failed"
+          exit 1
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "## Vercel Auto-Deploy Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **marts-crm:** https://marts-crm.vercel.app" >> $GITHUB_STEP_SUMMARY
+          echo "- **namecheapdeploy:** https://namecheapdeploy.vercel.app" >> $GITHUB_STEP_SUMMARY
+          echo "- Sync check passed: all 3 copies identical" >> $GITHUB_STEP_SUMMARY
