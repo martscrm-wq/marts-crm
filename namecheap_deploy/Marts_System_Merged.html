@@ -19960,6 +19960,7 @@ const CRM_SOURCES = ['facebook','instagram','referral','walkin','website','ad','
 const CRM_STATUSES = ['new','contacted','negotiating','converted','lost'];
 const CRM_PIPELINE_STATUSES = ['new','contacted','negotiating','converted'];
 const CRM_STAGES = ['fresh_leads','no_answer','rotation','rotation_trying','follow_up','hot_cases','scheduled_meeting','rotation_scheduled','follow_up_after','reservation','done_deal','not_interested','low_budget','bought','listing','request','cancelled','unreachable','broker','owners','personal_leads','listing_leads','requests_resale'];
+const CRM_PIPELINE_ORDER = ['fresh_leads','no_answer','rotation','rotation_trying','follow_up','hot_cases','scheduled_meeting','rotation_scheduled','follow_up_after','reservation','done_deal','bought','not_interested','low_budget','cancelled','unreachable','listing','request','broker','owners','personal_leads','listing_leads','requests_resale'];
 let _crmTeamFilterUser='';
 
 function getCrmClients(){ return STORAGE.get('crm_clients',[]); }
@@ -20008,9 +20009,12 @@ function generateTrialPassword(){
   let p='';for(let i=0;i<12;i++) p+=chars.charAt(Math.floor(Math.random()*chars.length));
   return p;
 }
-function addCrmActivity(clientId,type,desc){
+function addCrmActivity(clientId,type,desc,feedback){
   const acts=getCrmActivities();
-  acts.push({id:'ca_'+Date.now(),clientId,type,desc,date:new Date().toISOString(),by:currentUser?currentUser.username:'system'});
+  const uname=currentUser?currentUser.username:'system';
+  let byName=uname;
+  try{ const ux=(typeof getAllUsers==='function'?getAllUsers():[]).find(v=>v.username===uname); if(ux&&ux.fullName) byName=ux.fullName; }catch(e){}
+  acts.push({id:'ca_'+Date.now(),clientId,type,desc,date:new Date().toISOString(),by:uname,byName,feedback:feedback||''});
   saveCrmActivities(acts);
 }
 function getCrmStatusLabel(s){ return t('crm_status_'+s); }
@@ -20882,7 +20886,7 @@ function renderCrmDashboardView(el){
   const activities = getCrmActivities().slice(-8).reverse();
   const topAgents = getTopAgents(8);
   const bestAgent = topAgents[0] || null;
-  const stages = CRM_STAGES;
+  const stages = CRM_PIPELINE_ORDER;
   const stageStats = stages.map(s => {
     const count = clients.filter(c => (c.stage || 'fresh_leads') === s).length;
     const pct = totalClients > 0 ? Math.round(count / totalClients * 100) : 0;
@@ -24804,14 +24808,33 @@ function crmProfileOverviewHtml(c){
 }
 
 // ---- TAB CONTENT: HISTORY ----
+function crmSaveFeedback(clientId){
+  const inp=document.getElementById('crmFeedbackInput');
+  const txt=inp?inp.value.trim():'';
+  if(!txt){ alert(lang==='ar'?'اكتب الـ Feedback أولاً':'Write feedback first'); return; }
+  addCrmActivity(clientId,'feedback',txt);
+  if(inp) inp.value='';
+  crmProfileSwitch('history');
+}
+
+// ---- TAB CONTENT: HISTORY ----
 function crmProfileHistoryHtml(c){
   const acts = getCrmActivities().filter(a => a.clientId === c.id).sort((a,b) => new Date(b.date) - new Date(a.date));
-  if(!acts.length) return '<div class="empty-state"><p>'+ (lang==='ar'?'لا توجد نشاطات بعد':'No activities yet') +'</p></div>';
-  const iconMap = {created:'fa-user-plus',updated:'fa-pen',status_changed:'fa-arrow-right',call:'fa-phone',meeting:'fa-handshake',email:'fa-envelope',note:'fa-sticky-note',account_created:'fa-key',message:'fa-comment-dots',deal:'fa-hand-holding-usd',todo:'fa-tasks',tag:'fa-tags',reassign:'fa-user-friends',meeting_feedback:'fa-clipboard-check'};
-  const colorMap = {created:'#22c55e',updated:'#827148',status_changed:'#a855f7',call:'#eab308',meeting:'#f97316',email:'#827148',note:'#6b7280',account_created:'#22c55e',message:'#3b82f6',deal:'#8b5cf6',todo:'#3b82f6',tag:'#ef4444',reassign:'#6366f1',meeting_feedback:'#10b981'};
-  return acts.map(a => `<div class="crm-activity-item">
+  const uName = (un) => { try{ const x = (typeof getAllUsers==='function'?getAllUsers():[]).find(v => v.username === un); return x ? (x.fullName || x.username) : (un || '-'); }catch(e){ return un||'-'; } };
+  const iconMap = {created:'fa-user-plus',updated:'fa-pen',status_changed:'fa-arrow-right',call:'fa-phone',meeting:'fa-handshake',email:'fa-envelope',note:'fa-sticky-note',account_created:'fa-key',message:'fa-comment-dots',deal:'fa-hand-holding-usd',todo:'fa-tasks',tag:'fa-tags',reassign:'fa-user-friends',meeting_feedback:'fa-clipboard-check',feedback:'fa-comment-medical'};
+  const colorMap = {created:'#22c55e',updated:'#827148',status_changed:'#a855f7',call:'#eab308',meeting:'#f97316',email:'#827148',note:'#6b7280',account_created:'#22c55e',message:'#3b82f6',deal:'#8b5cf6',todo:'#3b82f6',tag:'#ef4444',reassign:'#6366f1',meeting_feedback:'#10b981',feedback:'#10b981'};
+  const addBox = (typeof canEditCrm==='function' && canEditCrm()) ? `
+    <div class="crm-prof-addbox" style="margin-bottom:12px">
+      <input type="text" id="crmFeedbackInput" placeholder="${lang==='ar'?'اكتب الـ Feedback بعد التواصل (من السيلز)':'Write feedback after contact (by sales)'}" style="flex:1;padding:8px;border:1px solid var(--crm-card-border);border-radius:6px;font-size:12px;background:var(--crm-card-bg);color:var(--crm-text-primary)">
+      <button class="btn btn-primary btn-sm" onclick="crmSaveFeedback('${c.id}')"><i class="fas fa-comment-medical"></i> ${lang==='ar'?'إضافة Feedback':'Add Feedback'}</button>
+    </div>` : '';
+  if(!acts.length) return addBox + '<div class="empty-state"><p>'+ (lang==='ar'?'لا توجد نشاطات بعد':'No activities yet') +'</p></div>';
+  return addBox + acts.map(a => `<div class="crm-activity-item">
     <div class="crm-activity-icon" style="background:${colorMap[a.type]||'#6b7280'}"><i class="fas ${iconMap[a.type]||'fa-circle'}"></i></div>
-    <div class="crm-activity-content"><h5>${a.desc}</h5><p>${a.by || ''}</p></div>
+    <div class="crm-activity-content"><h5>${a.desc}</h5>
+      <p style="margin-top:2px"><i class="fas fa-user-tie" style="font-size:10px;margin-right:3px"></i> <strong>${a.byName ? a.byName : uName(a.by)}</strong></p>
+      ${a.feedback ? `<div style="margin-top:5px;padding:6px 10px;background:rgba(16,185,129,.08);border:1px solid rgba(16,185,129,.2);border-radius:6px;font-size:12px"><i class="fas fa-comment-medical" style="color:#10b981;margin-right:4px"></i> <span style="color:#10b981;font-weight:600">${lang==='ar'?'Feedback':'Feedback'}:</span> ${a.feedback}</div>` : ''}
+    </div>
     <div class="crm-activity-time">${new Date(a.date).toLocaleString(lang==='ar'?'ar-EG':'en-GB')}</div>
   </div>`).join('');
 }
